@@ -1,0 +1,18 @@
+name: colreg_xai
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.12                # Versione stabile per ML-Agents 1.1.0
+  - pip
+  - numpy<2.0.0                  # Essenziale per evitare conflitti con ML-Agents 1.1.0
+  - pytorch                      # Installerà il supporto MPS su Mac e CUDA su Windows
+  - torchvision
+  - matplotlib                   # Per visualizzare i grafici della robustezza STL
+  - pip:
+      - mlagents==1.1.0           # Versione specifica per la Release 23 di Unity
+      - mlagents-envs==1.1.0
+      - stlcg                    # Per la Signal Temporal Logic differenziabile (XAI)
+      - rtamt                    # Per il monitoraggio formale della robustezza
+      - protobuf==3.20.3         # Forza una versione compatibile con ML-Agents su Mac
