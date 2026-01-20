@@ -1,26 +1,23 @@
 # Progetto di Navigazione Autonoma COLREG con XAI
 
-Questo repository contiene l'integrazione tra un ambiente di simulazione Unity e un sistema di controllo basato su Logica Temporale Segnale (STL) sviluppato in Python.
+Questo repository contiene l'integrazione tra un ambiente di simulazione navale in Unity e un sistema di controllo basato su Logica Temporale (STL) sviluppato in Python.
+
+## Algoritmi di Controllo e Apprendimento
+
+Il progetto implementa un approccio di **Constraint-Controlled RL** basato su obiettivi Lagrangiani, che si distingue dal classico reward shaping.
+
+* **Priorità Lessicografica**: L'agente alterna tra l'ottimizzazione dell'obiettivo (missione) e il recupero della sicurezza. Se i vincoli STL sono soddisfatti ($\rho \ge 0$), l'agente massimizza il reward; se violati ($\rho < 0$), entra in *Constraint Recovery*.
+* **CAGRAD (Conflict-Averse Gradient Descent)**: Algoritmo multi-obiettivo che risolve i conflitti tra gradienti quando più regole COLREG sono violate simultaneamente, garantendo che la correzione di una regola non ne danneggi un'altra.
+* **Differenza dallo Shaping**: Invece di sommare reward e costi, questo metodo mantiene i gradienti separati, evitando che reward elevati "nasccondano" violazioni di sicurezza critiche.
 
 ## Configurazione del Sistema
 
-Per garantire la corretta sincronizzazione dei file e la riproducibilità degli esperimenti tra diverse piattaforme (macOS M4 e Windows), è necessario seguire i passaggi di configurazione riportati di seguito.
-
 ### 1. Gestione dei file grandi (Git LFS)
+Il progetto utilizza Git LFS per gestire modelli neurali e asset 3D pesanti.
+* **Installazione**: `brew install git-lfs` (Mac) o scaricare da git-lfs.com (Windows).
+* **Setup**: Eseguire `git lfs install` e poi `git lfs pull` nella cartella del progetto.
 
-Il progetto utilizza Git LFS (Large File Storage) per la gestione di modelli neurali, asset 3D e file binari pesanti. Senza questa estensione, i file binari scaricati risulteranno non validi.
-
-**Installazione**:
-   - Su macOS: `brew install git-lfs`
-   - Su Windows: Scaricare l'eseguibile da git-lfs.com
-
-Eseguire il comando globale una sola volta sul proprio sistema:
-```git lfs install```
-
-Dopo di che eseguire ```git lfs pull``` all'interno della cartella COLREG_NAVIGATION
-
-### 2. Ambiente conda
-
-Lanciare ```conda env create -f PythonTrainer/environment.yml``` per l'ambiente. 
-Attivare l'ambiente con ```conda activate colreg_xai```
-Lanciare il seguente comando per vedere se mps o cuda sono in fuzione ```python -c "import torch; print('GPU Disponibile:', torch.backends.mps.is_available() or torch.cuda.is_available())"``` 
+### 2. Ambiente Conda
+Creare l'ambiente:
+```conda env create -f PythonTrainer/environment.yml```
+```conda activate colreg_xai```
