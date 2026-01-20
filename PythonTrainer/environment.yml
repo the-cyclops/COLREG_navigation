@@ -4,15 +4,15 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10.12                # Versione stabile per ML-Agents 1.1.0
+  - python=3.10.12                # Versione stabile per ML-Agents e RTAMT
   - pip
-  - numpy<2.0.0                  # Essenziale per evitare conflitti con ML-Agents 1.1.0
-  - pytorch                      # Installerà il supporto MPS su Mac e CUDA su Windows
+  - numpy<2.0.0                  # Fondamentale per la compatibilità con ML-Agents 1.1.0
+  - pytorch                      
   - torchvision
-  - matplotlib                   # Per visualizzare i grafici della robustezza STL
+  - matplotlib
+  - grpcio>=1.48.2               # Installato via Conda per evitare errori di compilazione su M4
+  - protobuf==3.20.3             # Versione specifica richiesta da ML-Agents
   - pip:
-      - mlagents==1.1.0           # Versione specifica per la Release 23 di Unity
+      - mlagents==1.1.0          # La versione del simulatore Unity
       - mlagents-envs==1.1.0
-      - stlcg                    # Per la Signal Temporal Logic differenziabile (XAI)
-      - rtamt                    # Per il monitoraggio formale della robustezza
-      - protobuf==3.20.3         # Forza una versione compatibile con ML-Agents su Mac
+      - rtamt                    # logica STL 
