@@ -5,6 +5,10 @@
 /[Uu]nityEnvironment/*/[Bb]uild/
 /[Uu]nityEnvironment/*/[Ll]ogs/
 /[Uu]nityEnvironment/*/[Uu]serSettings/
+# HDRP specific generated files
+/[Aa]ssets/[Hh]DRPDefaultResources/
+/[Aa]ssets/Settings/HDRPDefaultResources/
+*.physicMaterial
 
 # --- File di progetto generati ---
 *.csproj
