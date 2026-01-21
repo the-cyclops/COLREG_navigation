@@ -1,24 +1,37 @@
-# --- Unity specifiche ---
-/[Uu]nityEnvironment/*/[Ll]ibrary/
-/[Uu]nityEnvironment/*/[Tt]emp/
-/[Uu]nityEnvironment/*/[Oo]bj/
-/[Uu]nityEnvironment/*/[Bb]uild/
-/[Uu]nityEnvironment/*/[Ll]ogs/
-/[Uu]nityEnvironment/*/[Uu]serSettings/
-# HDRP specific generated files
-/[Aa]ssets/[Hh]DRPDefaultResources/
-/[Aa]ssets/Settings/HDRPDefaultResources/
-*.physicMaterial
+# --- Unity: COLREG_simulation (Nested) ---
+# This ignores the heavy generated folders inside your Unity project
+**/COLREG_simulation/[Ll]ibrary/
+**/COLREG_simulation/[Tt]emp/
+**/COLREG_simulation/[Oo]bj/
+**/COLREG_simulation/[Bb]uild/
+**/COLREG_simulation/[Ll]ogs/
+**/COLREG_simulation/[Uu]ser[Ss]ettings/
 
-# --- File di progetto generati ---
+# --- HDRP Specifics ---
+# Ignores default resources that Unity re-creates automatically
+**/[Aa]ssets/[Hh]DRPDefaultResources/
+**/Settings/HDRPDefaultResources/
+
+# --- Pythontrainer & Conda ---
+**/Pythontrainer/__pycache__/
+**/Pythontrainer/*.pyc
+**/Pythontrainer/results/
+# If you ever export your Conda env to a file in this folder
+*.yaml
+*.yml
+
+# --- Models ---
+# Usually, we keep the final models, but ignore temp training checkpoints
+**/Models/checkpoints/
+
+# --- IDE & OS (Global junk) ---
+.vscode/
+.idea/
+.DS_Store
 *.csproj
 *.sln
-*.slnx
 *.userprefs
-*.unitypackage
-*.suo
 
-# --- OS specifiche ---
-.vscode/
-.DS_Store
-[Tt]humbs.db
+# --- Critical: Do NOT ignore these ---
+!*.physicMaterial
+!*.meta
