@@ -9,6 +9,7 @@
 # --- File di progetto generati ---
 *.csproj
 *.sln
+*.slnx
 *.userprefs
 *.unitypackage
 *.suo
