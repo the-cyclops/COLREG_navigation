@@ -15,5 +15,6 @@
 *.suo
 
 # --- OS specifiche ---
+.vscode/
 .DS_Store
 [Tt]humbs.db
