@@ -6,31 +6,30 @@
 **/COLREG_simulation/[Bb]uild/
 **/COLREG_simulation/[Ll]ogs/
 **/COLREG_simulation/[Uu]ser[Ss]ettings/
+*.csproj
+*.sln
+*.slnx
+*.userprefs
 
 # --- HDRP Specifics ---
 # Ignores default resources that Unity re-creates automatically
 **/[Aa]ssets/[Hh]DRPDefaultResources/
 **/Settings/HDRPDefaultResources/
 
-# --- Pythontrainer & Conda ---
+# --- Pythontrainer ---
 **/Pythontrainer/__pycache__/
 **/Pythontrainer/*.pyc
 **/Pythontrainer/results/
-# If you ever export your Conda env to a file in this folder
-*.yaml
-*.yml
+
 
 # --- Models ---
-# Usually, we keep the final models, but ignore temp training checkpoints
 **/Models/checkpoints/
 
 # --- IDE & OS (Global junk) ---
 .vscode/
 .idea/
 .DS_Store
-*.csproj
-*.sln
-*.userprefs
+
 
 # --- Critical: Do NOT ignore these ---
 !*.physicMaterial
