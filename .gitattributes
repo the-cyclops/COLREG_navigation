@@ -1,8 +1,22 @@
-# Unity assets
+# --- Unity Large Assets ---
 *.unitypackage filter=lfs diff=lfs merge=lfs -text
 *.fbx filter=lfs diff=lfs merge=lfs -text
-*.mat filter=lfs diff=lfs merge=lfs -text
+*.FBX filter=lfs diff=lfs merge=lfs -text
 
-# ML-Agents & Models
+# --- HDRP & Lighting (Binary Assets) ---
+*LightingData.asset filter=lfs diff=lfs merge=lfs -text
+*TerrainData.asset filter=lfs diff=lfs merge=lfs -text
+*.exr filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.hdr filter=lfs diff=lfs merge=lfs -text
+
+# --- ML-Agents Models ---
 *.onnx filter=lfs diff=lfs merge=lfs -text
 *.pth filter=lfs diff=lfs merge=lfs -text
+
+# --- Force Text for Merging (Standard Unity) ---
+*.mat merge=unityyamlmerge eol=lf
+*.asset merge=unityyamlmerge eol=lf
+*.prefab merge=unityyamlmerge eol=lf
+*.unity merge=unityyamlmerge eol=lf
+*.controller merge=unityyamlmerge eol=lf
