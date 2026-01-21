@@ -1,9 +1,18 @@
-[Uu]nityEnvironment/[Ll]ibrary/
-[Uu]nityEnvironment/[Tt]emp/
-[Uu]nityEnvironment/[Oo]bj/
-[Uu]nityEnvironment/[Bb]uild/
-[Uu]nityEnvironment/[Ll]ogs/
+# --- Unity specifiche ---
+/[Uu]nityEnvironment/*/[Ll]ibrary/
+/[Uu]nityEnvironment/*/[Tt]emp/
+/[Uu]nityEnvironment/*/[Oo]bj/
+/[Uu]nityEnvironment/*/[Bb]uild/
+/[Uu]nityEnvironment/*/[Ll]ogs/
+/[Uu]nityEnvironment/*/[Uu]serSettings/
+
+# --- File di progetto generati ---
 *.csproj
 *.sln
 *.userprefs
+*.unitypackage
+*.suo
+
+# --- OS specifiche ---
 .DS_Store
+[Tt]humbs.db
