@@ -1,5 +1,5 @@
 # --- Unity: COLREG_simulation (Nested) ---
-# This ignores the heavy generated folders inside your Unity project
+# This ignores the heavy generated folders of the Unity project
 **/COLREG_simulation/[Ll]ibrary/
 **/COLREG_simulation/[Tt]emp/
 **/COLREG_simulation/[Oo]bj/
@@ -10,6 +10,7 @@
 *.sln
 *.slnx
 *.userprefs
+mono_crash.*
 
 # --- HDRP Specifics ---
 # Ignores default resources that Unity re-creates automatically
