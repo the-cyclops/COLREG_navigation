@@ -12,6 +12,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Boat_Agent_Luca
       objectReference: {fileID: 0}
+    - target: {fileID: 833668782599770737, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5104525085446597618, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
       propertyPath: m_LocalPosition.x
       value: 1.1998
