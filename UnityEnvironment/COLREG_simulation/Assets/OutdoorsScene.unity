@@ -460,6 +460,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Boat_Agent_Luca
       objectReference: {fileID: 0}
+    - target: {fileID: 5472999636864260277, guid: d2a26db28c9aed04eab326557f328e85, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 2140391287327703769, guid: d2a26db28c9aed04eab326557f328e85, type: 3}
@@ -961,10 +965,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Boat_Agent
       objectReference: {fileID: 0}
-    - target: {fileID: 833668782599770737, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 5104525085446597618, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1006,46 +1006,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects:
-    - {fileID: 6760461532688123933, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-    - {fileID: 4297225007257595153, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-    - {fileID: 6616905059294450556, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-    - {fileID: 2496147237756057761, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-    - {fileID: 3301082725235137255, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+    m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 833668782599770737, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 8273528076383872266}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
---- !u!1 &8273528076383872265 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 833668782599770737, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-  m_PrefabInstance: {fileID: 8273528076383872264}
-  m_PrefabAsset: {fileID: 0}
---- !u!136 &8273528076383872266
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8273528076383872265}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 1
-  m_Height: 3
-  m_Direction: 2
-  m_Center: {x: 0, y: 0, z: 0.1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
