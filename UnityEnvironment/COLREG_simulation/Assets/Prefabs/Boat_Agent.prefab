@@ -111,10 +111,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 1
-  m_Height: 3.1
+  m_Radius: 0.3
+  m_Height: 1.05
   m_Direction: 2
-  m_Center: {x: 0, y: 0, z: 0.1}
+  m_Center: {x: 0, y: 0, z: 0.03}
 --- !u!1 &3823017847669840734
 GameObject:
   m_ObjectHideFlags: 0
@@ -539,6 +539,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 4c79c5a59d3454799b11abb0d106ec85, type: 3}
       propertyPath: m_Name
       value: Boat_COM1mVERYgoodCompact
+      objectReference: {fileID: 0}
+    - target: {fileID: 1151388028547126963, guid: 4c79c5a59d3454799b11abb0d106ec85, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
