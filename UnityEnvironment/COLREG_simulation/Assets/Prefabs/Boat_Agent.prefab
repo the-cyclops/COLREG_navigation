@@ -15,7 +15,7 @@ GameObject:
   m_Icon: {fileID: 7174288486110832750, guid: 0000000000000000d000000000000000, type: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &5566429204013262827
 Transform:
   m_ObjectHideFlags: 0
@@ -42,6 +42,7 @@ GameObject:
   - component: {fileID: 5104525085446597618}
   - component: {fileID: 3766073577138743700}
   - component: {fileID: 6844576907241420881}
+  - component: {fileID: 2850478493660545512}
   m_Layer: 0
   m_Name: Boat_Agent
   m_TagString: Untagged
@@ -75,7 +76,7 @@ Rigidbody:
   serializedVersion: 5
   m_Mass: 15
   m_LinearDamping: 2.5
-  m_AngularDamping: 4.5
+  m_AngularDamping: 7
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -115,6 +116,20 @@ CapsuleCollider:
   m_Height: 1.05
   m_Direction: 2
   m_Center: {x: 0, y: 0, z: 0.03}
+--- !u!114 &2850478493660545512
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 833668782599770737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce4ec1ffb28f44883b2a8165ab24c36c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HDRPBoatPhysics
+  waterSurface: {fileID: 0}
+  buoyancyStrength: 5
 --- !u!1 &4880291527071252288
 GameObject:
   m_ObjectHideFlags: 0
@@ -130,7 +145,7 @@ GameObject:
   m_Icon: {fileID: 7174288486110832750, guid: 0000000000000000d000000000000000, type: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &6485896866418833229
 Transform:
   m_ObjectHideFlags: 0
@@ -198,9 +213,9 @@ MonoBehaviour:
   m_RayLength: 20
   m_RayLayerMask:
     serializedVersion: 2
-    m_Bits: 4294967291
+    m_Bits: 4294967275
   m_ObservationStacks: 1
-  m_AlternatingRayOrder: 1
+  m_AlternatingRayOrder: 0
   m_UseBatchedRaycasts: 0
   rayHitColor: {r: 1, g: 0, b: 0, a: 1}
   rayMissColor: {r: 1, g: 1, b: 1, a: 1}
