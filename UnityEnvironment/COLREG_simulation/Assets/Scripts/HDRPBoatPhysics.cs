@@ -4,7 +4,7 @@ using UnityEngine.Rendering.HighDefinition;
 public class HDRPBoatPhysics : MonoBehaviour
 {
     public WaterSurface waterSurface; 
-    public float buoyancyStrength = 1.1f; 
+    public float buoyancyStrength = 10f; 
     
     private Rigidbody rb;
 
