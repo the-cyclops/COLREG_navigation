@@ -43,6 +43,9 @@ GameObject:
   - component: {fileID: 3766073577138743700}
   - component: {fileID: 3606389920611253459}
   - component: {fileID: 2850478493660545512}
+  - component: {fileID: 1599812351910914213}
+  - component: {fileID: 3364044297138440380}
+  - component: {fileID: 8089509881721361229}
   m_Layer: 0
   m_Name: Boat_Agent
   m_TagString: Untagged
@@ -75,8 +78,8 @@ Rigidbody:
   m_GameObject: {fileID: 833668782599770737}
   serializedVersion: 5
   m_Mass: 15
-  m_LinearDamping: 2
-  m_AngularDamping: 3
+  m_LinearDamping: 0.5
+  m_AngularDamping: 1.2
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -92,7 +95,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!65 &3606389920611253459
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -127,9 +130,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HDRPBoatPhysics
   waterSurface: {fileID: 0}
-  buoyancyStrength: 15
-  verticalDrag: 5
-  centerOfMassOffset: {x: 0, y: -0.3, z: -0.1}
+  buoyancyStrength: 1.8
+  verticalDrag: 10
+  maxSubmergenceDepth: 0.12
+  centerOfMassOffset: {x: 0, y: -0.1, z: -0.1}
   floaters:
   - {fileID: 7154036163603982050}
   - {fileID: 6048515543652144829}
@@ -137,6 +141,74 @@ MonoBehaviour:
   - {fileID: 3015687910313111258}
   - {fileID: 8982492425078901237}
   - {fileID: 8344065208674583604}
+  leftJet: {fileID: 6485896866418833229}
+  rightJet: {fileID: 5566429204013262827}
+  maxSpeed: 20
+  maxAngularSpeed: 4
+--- !u!114 &1599812351910914213
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 833668782599770737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d1c4e0b1822b495aa52bc52839ecb30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
+  m_BrainParameters:
+    VectorObservationSize: 9
+    NumStackedVectorObservations: 1
+    m_ActionSpec:
+      m_NumContinuousActions: 2
+      BranchSizes: 
+    VectorActionSize: 02000000
+    VectorActionDescriptions: []
+    VectorActionSpaceType: 1
+    hasUpgradedBrainParametersWithActionSpec: 1
+  m_Model: {fileID: 0}
+  m_InferenceDevice: 0
+  m_BehaviorType: 1
+  m_BehaviorName: My Behavior
+  TeamId: 0
+  m_UseChildSensors: 1
+  m_UseChildActuators: 1
+  m_DeterministicInference: 0
+  m_ObservableAttributeHandling: 0
+--- !u!114 &3364044297138440380
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 833668782599770737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3a7b088727e25940a96ef00ea48cc4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BoatAgent
+  agentParameters:
+    maxStep: 0
+  hasUpgradedFromAgentParameters: 1
+  MaxStep: 0
+  boatPhysics: {fileID: 0}
+  target: {fileID: 0}
+--- !u!114 &8089509881721361229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 833668782599770737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.DecisionRequester
+  DecisionPeriod: 5
+  DecisionStep: 0
+  TakeActionsBetweenDecisions: 1
 --- !u!1 &4880291527071252288
 GameObject:
   m_ObjectHideFlags: 0

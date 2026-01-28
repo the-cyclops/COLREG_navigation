@@ -13,7 +13,16 @@ public class HDRPBoatPhysics : MonoBehaviour
     public Vector3 centerOfMassOffset = new Vector3(0, -0.1f, -0.1f); // Bilanciamento bow/stern
 
     [Header("Floater References")]
-    public Transform[] floaters; 
+    public Transform[] floaters;
+
+    public Transform leftJet;
+
+    public Transform rightJet;
+
+    public float maxSpeed = 10f;
+
+    // Approximate maximum angular TODO CHECK AND GENERALIZE
+    public float maxAngularSpeed = 4f;
     
     private Rigidbody rb;
 
@@ -72,5 +81,24 @@ public class HDRPBoatPhysics : MonoBehaviour
             
             
         }
+    }
+
+    public void ResetVelocities()
+    {
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+    }
+
+    public void SetJetInputs(float leftInput, float rightInput)
+    {
+        float leftForce = leftInput * maxSpeed;
+        float rightForce = rightInput * maxSpeed;
+
+        rb.AddForceAtPosition(transform.forward * leftForce, leftJet.position);
+        rb.AddForceAtPosition(transform.forward * rightForce, rightJet.position);
+
     }
 }
