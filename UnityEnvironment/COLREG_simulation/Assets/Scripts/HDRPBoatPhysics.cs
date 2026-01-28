@@ -7,12 +7,12 @@ public class HDRPBoatPhysics : MonoBehaviour
     public WaterSurface waterSurface;
     
     [Header("Buoyancy Settings")]
-    public float buoyancyStrength = 1.5f; 
-    public float verticalDrag = 2.0f; // Il "Vertical Damping" richiesto
-    public Vector3 centerOfMassOffset = new Vector3(0, -0.08f, 0);
+    public float buoyancyStrength = 1.8f;    // Bilanciamento spinta/peso
+    public float verticalDrag = 10.0f;       // Smorzamento oscillazioni (Damping)
+    public float maxSubmergenceDepth = 0.12f; // Profondità per spinta max (80% altezza mesh)
+    public Vector3 centerOfMassOffset = new Vector3(0, -0.1f, -0.1f); // Bilanciamento bow/stern
 
     [Header("Floater References")]
-    // Trascina qui i 6 Empty GameObjects posizionati con il vertex snapping
     public Transform[] floaters; 
     
     private Rigidbody rb;
@@ -20,7 +20,7 @@ public class HDRPBoatPhysics : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        // Fondamentale per la stabilità: sposta il peso verso il basso (le chiglie)
+        // Sposta il baricentro per stabilità e livellamento
         rb.centerOfMass = centerOfMassOffset;
     }
 
@@ -46,29 +46,31 @@ public class HDRPBoatPhysics : MonoBehaviour
 
             if (depth > 0)
             {
-                // 1. Calcolo Forza di Galleggiamento (Buoyancy)
-                // Dividiamo la massa per il numero di punti per distribuire il peso correttamente
+                // 1. Calcolo Spinta Normalizzata
+                float displacement = Mathf.Clamp01(depth / maxSubmergenceDepth);
                 float weightPerPoint = (rb.mass * Mathf.Abs(Physics.gravity.y)) / floaters.Length;
-                Vector3 buoyancyForce = Vector3.up * weightPerPoint * depth * buoyancyStrength;
+                
+                Vector3 buoyancyForce = Vector3.up * weightPerPoint * displacement * buoyancyStrength;
 
                 // 2. Calcolo Drag Verticale (Damping)
-                // Applichiamo una forza contraria alla velocità verticale nel punto specifico
+                // Applichiamo forza contraria alla velocità verticale locale
                 Vector3 velocityAtPoint = rb.GetPointVelocity(floater.position);
-                Vector3 dampingForce = Vector3.down * velocityAtPoint.y * verticalDrag;
+                Vector3 dampingForce = Vector3.up * -velocityAtPoint.y * verticalDrag * displacement;
 
-                // 3. Applicazione delle forze al punto specifico
                 rb.AddForceAtPosition(buoyancyForce + dampingForce, floater.position, ForceMode.Force);
             }
         }
     }
 
-    // Visualizzazione nel Gizmos per debug
     private void OnDrawGizmos()
     {
         if (rb != null)
         {
+            // Centro di Massa in rosso
             Gizmos.color = Color.red;
-            Gizmos.DrawSphere(transform.TransformPoint(rb.centerOfMass), 0.03f);
+            Gizmos.DrawSphere(transform.TransformPoint(rb.centerOfMass), 0.05f);
+            
+            
         }
     }
 }

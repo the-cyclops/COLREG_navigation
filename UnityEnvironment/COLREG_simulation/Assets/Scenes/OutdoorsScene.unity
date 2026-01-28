@@ -766,7 +766,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &2101911831
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -911,11 +911,11 @@ MonoBehaviour:
   largeOrientationValue: 0
   largeWindSpeed: 30
   largeChaos: 0.85
-  largeBand0Multiplier: 1
+  largeBand0Multiplier: 0
   largeBand0FadeMode: 1
   largeBand0FadeStart: 1500
   largeBand0FadeDistance: 3000
-  largeBand1Multiplier: 1
+  largeBand1Multiplier: 0
   largeBand1FadeMode: 1
   largeBand1FadeStart: 300
   largeBand1FadeDistance: 800
@@ -965,9 +965,41 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: verticalDrag
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
       propertyPath: waterSurface
       value: 
       objectReference: {fileID: 2101911831}
+    - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: buoyancyStrength
+      value: 1.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: maxSubmergenceDepth
+      value: 0.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: centerOfMassOffset.y
+      value: -0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: centerOfMassOffset.z
+      value: -0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3766073577138743700, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: m_LinearDamping
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3766073577138743700, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: m_AngularDamping
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3766073577138743700, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: m_CollisionDetection
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5104525085446597618, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
