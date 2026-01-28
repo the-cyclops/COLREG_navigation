@@ -43,9 +43,9 @@ GameObject:
   - component: {fileID: 3766073577138743700}
   - component: {fileID: 3606389920611253459}
   - component: {fileID: 2850478493660545512}
-  - component: {fileID: 1599812351910914213}
-  - component: {fileID: 3364044297138440380}
-  - component: {fileID: 8089509881721361229}
+  - component: {fileID: 8670435773087124396}
+  - component: {fileID: 1440336459300493794}
+  - component: {fileID: 74932305235223278}
   m_Layer: 0
   m_Name: Boat_Agent
   m_TagString: Untagged
@@ -131,7 +131,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HDRPBoatPhysics
   waterSurface: {fileID: 0}
   buoyancyStrength: 1.8
-  verticalDrag: 10
+  verticalDrag: 15
   maxSubmergenceDepth: 0.12
   centerOfMassOffset: {x: 0, y: -0.1, z: -0.1}
   floaters:
@@ -145,7 +145,7 @@ MonoBehaviour:
   rightJet: {fileID: 5566429204013262827}
   maxSpeed: 20
   maxAngularSpeed: 4
---- !u!114 &1599812351910914213
+--- !u!114 &8670435773087124396
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -176,7 +176,7 @@ MonoBehaviour:
   m_UseChildActuators: 1
   m_DeterministicInference: 0
   m_ObservableAttributeHandling: 0
---- !u!114 &3364044297138440380
+--- !u!114 &1440336459300493794
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -194,7 +194,7 @@ MonoBehaviour:
   MaxStep: 0
   boatPhysics: {fileID: 0}
   target: {fileID: 0}
---- !u!114 &8089509881721361229
+--- !u!114 &74932305235223278
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
