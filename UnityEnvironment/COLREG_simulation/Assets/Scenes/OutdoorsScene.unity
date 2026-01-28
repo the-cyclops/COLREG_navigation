@@ -960,6 +960,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Boat_Agent
       objectReference: {fileID: 0}
+    - target: {fileID: 833668782599770737, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
       propertyPath: waterSurface
       value: 
