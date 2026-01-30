@@ -78,7 +78,7 @@ Rigidbody:
   m_GameObject: {fileID: 833668782599770737}
   serializedVersion: 5
   m_Mass: 15
-  m_LinearDamping: 1
+  m_LinearDamping: 1.5
   m_AngularDamping: 2.2
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
@@ -143,8 +143,9 @@ MonoBehaviour:
   - {fileID: 8344065208674583604}
   leftJet: {fileID: 6485896866418833229}
   rightJet: {fileID: 5566429204013262827}
-  maxSpeed: 20
-  maxAngularSpeed: 4
+  maxThrust: 25
+  nominalMaxLinearSpeed: 2.5
+  nominalMaxAngularSpeed: 1.4
 --- !u!114 &8670435773087124396
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -158,7 +159,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
   m_BrainParameters:
-    VectorObservationSize: 9
+    VectorObservationSize: 11
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2

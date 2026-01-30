@@ -8,7 +8,7 @@ using Unity.MLAgents.Actuators;
 public class BoatAgent : Agent
 {
     public HDRPBoatPhysics boatPhysics;
-
+    private Rigidbody rb;
     public GameObject target;
 
     private float arenaSize = 20f;
@@ -16,6 +16,7 @@ public class BoatAgent : Agent
     public override void Initialize()
     {
         boatPhysics = GetComponent<HDRPBoatPhysics>();
+        rb = GetComponent<Rigidbody>();
     }
 
     public override void OnEpisodeBegin()
@@ -43,25 +44,26 @@ public class BoatAgent : Agent
 
         // Fetch Target Distance
         float targetDistance = Vector3.Distance(transform.position, target.transform.position);
-        sensor.AddObservation(targetDistance / arenaSize); 
+        sensor.AddObservation(Mathf.Clamp01(targetDistance / arenaSize)); 
         // Normalized Distance (Assuming max distance of 20 units) TODO FIX 
-
-        Rigidbody rb = boatPhysics.GetComponent<Rigidbody>();
 
         // Fetch Boat Velocity
         // InverseTransformDirection converts world space velocity to local space
         // For example, if the boat is moving forward, the local velocity.z will be positive
         // If the boat is moving to the right, the local velocity.x will be positive and so on
         Vector3 localVelocity = transform.InverseTransformDirection(rb.linearVelocity);
-        sensor.AddObservation(localVelocity / boatPhysics.maxSpeed);
+        Vector3 normalizedLocalVelocity = localVelocity / boatPhysics.nominalMaxLinearSpeed;
+        // Clamp magnitude to in -1 to 1 range
+        sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalVelocity, 1.0f));
 
         // Fetch Boat Angular Velocity
-        Vector3 localAngularVelocity = rb.angularVelocity;
-        // In this case, we consider only the y component for yaw rotation
-        sensor.AddObservation(localAngularVelocity.y / boatPhysics.maxAngularSpeed); // Normalized Angular
+        Vector3 localAngularVelocity = transform.InverseTransformDirection(rb.angularVelocity);
+        Vector3 normalizedLocalAngularVelocity = localAngularVelocity / boatPhysics.nominalMaxAngularSpeed;
+        // Clamp magnitude to in -1 to 1 range
+        sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalAngularVelocity, 1.0f));
         
 
-        // Total Observations: 3 (direction) + 1 (alignment) + 1 (distance) + 3 (velocity) + 1 (angular velocity) = 9
+        // Total Observations: 3 (direction) + 1 (alignment) + 1 (distance) + 3 (velocity) + 3 (angular velocity) = 11
         // Adjust the Space Size in Vector Sensor in Behavior Parameters accordingly
     }
 
@@ -122,8 +124,8 @@ public class BoatAgent : Agent
 
 
         // Clamp (clip) the values between -1 and 1
-        continuousActions[0] = leftJet;
-        continuousActions[1] = rightJet;
+        continuousActions[0] = Mathf.Clamp(leftJet, -1f, 1f);
+        continuousActions[1] = Mathf.Clamp(rightJet, -1f, 1f);
     }
 
 }

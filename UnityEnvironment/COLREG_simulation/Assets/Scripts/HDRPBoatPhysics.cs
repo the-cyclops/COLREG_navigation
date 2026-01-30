@@ -19,10 +19,11 @@ public class HDRPBoatPhysics : MonoBehaviour
 
     public Transform rightJet;
 
-    public float maxSpeed = 10f;
+    public float maxThrust = 25f;
 
-    // Approximate maximum angular TODO CHECK AND GENERALIZE
-    public float maxAngularSpeed = 4f;
+    // Approximate maximum linear and angular speeds, slightly higher to account for wave influence and prevent clamping
+    public float nominalMaxLinearSpeed = 2.5f; 
+    public float nominalMaxAngularSpeed = 1.4f;
     
     private Rigidbody rb;
 
@@ -94,8 +95,8 @@ public class HDRPBoatPhysics : MonoBehaviour
 
     public void SetJetInputs(float leftInput, float rightInput)
     {
-        float leftForce = leftInput * maxSpeed;
-        float rightForce = rightInput * maxSpeed;
+        float leftForce = leftInput * maxThrust;
+        float rightForce = rightInput * maxThrust;
 
         rb.AddForceAtPosition(transform.forward * leftForce, leftJet.position);
         rb.AddForceAtPosition(transform.forward * rightForce, rightJet.position);

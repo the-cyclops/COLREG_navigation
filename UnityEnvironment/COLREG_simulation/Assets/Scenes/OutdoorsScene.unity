@@ -1018,17 +1018,9 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1190695868}
     - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-      propertyPath: maxSpeed
-      value: 25
-      objectReference: {fileID: 0}
-    - target: {fileID: 2850478493660545512, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
       propertyPath: waterSurface
       value: 
       objectReference: {fileID: 2101911831}
-    - target: {fileID: 3766073577138743700, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
-      propertyPath: m_LinearDamping
-      value: 1.5
-      objectReference: {fileID: 0}
     - target: {fileID: 5104525085446597618, guid: e224e2adf5612449aa8f2780bdbe94a1, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
