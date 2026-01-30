@@ -13,10 +13,21 @@ public class BoatAgent : Agent
 
     private float arenaSize = 20f;
 
+    private Vector3 initialPosition;
+    private Quaternion initialRotation;
+
     public override void Initialize()
     {
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
+
+        initialPosition = Vector3.zero;
+        initialRotation = Quaternion.identity;
+    }
+
+    void MoveTarget()
+    {
+        //TODO
     }
 
     public override void OnEpisodeBegin()
@@ -25,9 +36,13 @@ public class BoatAgent : Agent
         boatPhysics.ResetVelocities();
 
         // Move Target 
-        // TODO
+        MoveTarget();
+
         // Reset Boat Position and Rotation
-        // TODO 
+        transform.localPosition = initialPosition;
+        transform.localRotation = initialRotation;
+
+        Physics.SyncTransforms();
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -87,18 +102,32 @@ public class BoatAgent : Agent
     //TODO
     //}
 
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Obstacle"))
+        {   
+            SetReward(-1.0f);
+            Debug.Log(GetCumulativeReward());
+            EndEpisode();
+        }
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Target"))
         {
-            //TODO GIVE REWARD
-            //SetReward(1.0f);
-
+            SetReward(1.0f);
             // 2. Coloriamo il pavimento di verde per feedback visivo (Opzionale ma bello)
             // StartCoroutine(SwapGroundMaterial(successMaterial, 0.5f));
 
+            Debug.Log(GetCumulativeReward());
             EndEpisode(); 
         }
+    }
+
+    public void FixedUpdate() {
+        // Penalità esistenziale per spronarlo a fare in fretta
+        AddReward(-0.0005f); 
     }
 
     // This maps your keyboard to the Action Buffers
