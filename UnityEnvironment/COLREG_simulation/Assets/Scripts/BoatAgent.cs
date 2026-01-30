@@ -49,27 +49,25 @@ public class BoatAgent : Agent
     {
         //TODO CHECK THE ORDER OF OBSERVATIONS - IT MATTERS?
 
-        // Fetch Target Direction
-        Vector3 directionToTarget = (target.transform.position - transform.position).normalized;
-        sensor.AddObservation(directionToTarget);
-
-        // Fetch Target Alignment  [-1 to 1] (1 = facing target, -1 = facing away, 0 = perpendicular)
-        float targetAlignment = Vector3.Dot(transform.forward, directionToTarget);
-        sensor.AddObservation(targetAlignment);
+        // Fetch Target Position Relative to Boat
+        Vector3 targetRelativePos = transform.InverseTransformPoint(target.transform.position);
+        sensor.AddObservation(targetRelativePos.normalized);
 
         // Fetch Target Distance
-        float targetDistance = Vector3.Distance(transform.position, target.transform.position);
-        sensor.AddObservation(Mathf.Clamp01(targetDistance / arenaSize)); 
+        float targetDistance = targetRelativePos.magnitude;
         // Normalized Distance (Assuming max distance of 20 units) TODO FIX 
+        //sensor.AddObservation(targetDistance / arenaSize); 
+        // Obs Index [3]: Target Distance - Rational normalization d/(d+k) with k=20. Range: [0, 1]
+        sensor.AddObservation(targetDistance / (20f + targetDistance));
 
         // Fetch Boat Velocity
         // InverseTransformDirection converts world space velocity to local space
         // For example, if the boat is moving forward, the local velocity.z will be positive
         // If the boat is moving to the right, the local velocity.x will be positive and so on
-        Vector3 localVelocity = transform.InverseTransformDirection(rb.linearVelocity);
-        Vector3 normalizedLocalVelocity = localVelocity / boatPhysics.nominalMaxLinearSpeed;
+        Vector3 localLinearVelocity = transform.InverseTransformDirection(rb.linearVelocity);
+        Vector3 normalizedLocalLinearVelocity = localLinearVelocity / boatPhysics.nominalMaxLinearSpeed;
         // Clamp magnitude to in -1 to 1 range
-        sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalVelocity, 1.0f));
+        sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalLinearVelocity, 1.0f));
 
         // Fetch Boat Angular Velocity
         Vector3 localAngularVelocity = transform.InverseTransformDirection(rb.angularVelocity);
@@ -78,7 +76,7 @@ public class BoatAgent : Agent
         sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalAngularVelocity, 1.0f));
         
 
-        // Total Observations: 3 (direction) + 1 (alignment) + 1 (distance) + 3 (velocity) + 3 (angular velocity) = 11
+        // Total Observations: 3 (targetRelativePos) + 1 (targetDistance) + 3 (linearVelocity) + 3 (angularVelocity) = 10
         // Adjust the Space Size in Vector Sensor in Behavior Parameters accordingly
     }
 
