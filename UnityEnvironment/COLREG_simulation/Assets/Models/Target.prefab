@@ -129,3 +129,4 @@ MonoBehaviour:
   radius: 0.5
   height: 2
   segments: 64
+  flipNormals: 0
