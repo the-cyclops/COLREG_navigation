@@ -135,6 +135,16 @@ public class BoatAgent : Agent
             SetReward(-1.0f);
             Debug.Log(GetCumulativeReward());
             EndEpisode();
+        } else 
+        if (collision.gameObject.CompareTag("Wall")){
+            SetReward(-2f);
+            Debug.Log(GetCumulativeReward());
+            EndEpisode();
+        } else
+        if (collision.gameObject.CompareTag("Boat")){
+            SetReward(-1.5f);
+            Debug.Log(GetCumulativeReward());
+            EndEpisode();
         }
     }
 

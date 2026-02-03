@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Target
   - Obstacle
+  - Boat
+  - Wall
   layers:
   - Default
   - TransparentFX
