@@ -28,3 +28,9 @@ mono_crash.*
 # --- Critical: Do NOT ignore these ---
 !*.physicMaterial
 !*.meta
+UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab
+UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab.meta
+UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab
+UnityEnvironment/COLREG_simulation/Assets/Models/Environment.prefab.meta
+UnityEnvironment/COLREG_simulation/Assets/Models/Environment.prefab
+UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab.meta
