@@ -11,8 +11,10 @@ public class BoatAgent : Agent
     private Rigidbody rb;
     public GameObject target;
 
-    private float arenaSize = 20f;
+    private float arenaRadius = 15f;
 
+    [SerializeField] GameObject[] obstacles;
+    
     private Vector3 initialPosition;
     private Quaternion initialRotation;
 
@@ -25,9 +27,35 @@ public class BoatAgent : Agent
         initialRotation = Quaternion.identity;
     }
 
-    void MoveTarget()
+    private bool CheckTargetPosition(Vector2 pos)
     {
-        //TODO
+        float minDistance = 3.0f; // Minimum distance from obstacles
+
+        foreach (GameObject obstacle in obstacles)
+        {
+            Vector3 obstaclePos = obstacle.transform.localPosition;
+            float distance = Vector2.Distance(new Vector2(obstaclePos.x, obstaclePos.z), pos);
+            if (distance < minDistance)
+            {
+                return false; // Too close to an obstacle
+            }
+        }
+        return true; // Valid position
+    }   
+
+    // This method creates a new
+    private void MoveTarget()
+    {
+        // Random.insideUnitCircle returns a random point inside a circle with radius 1.
+        // We multiply it by (arenaRadius - 1) to ensure the target stays within the arena bounds, leaving a 1 unit margin from the edge. 
+
+        Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-1);
+        while (!CheckTargetPosition(randomCircle))
+        {
+            randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-1);
+        }
+        Vector3 targetPosition = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
+        target.transform.localPosition = targetPosition;
     }
 
     public override void OnEpisodeBegin()
