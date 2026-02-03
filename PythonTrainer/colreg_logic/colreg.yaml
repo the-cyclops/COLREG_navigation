@@ -1,0 +1,25 @@
+dense: True
+horizon: 40 # 1 / (Unity_100Hz / Decision_Period_5) * 40 steps = 2.0s
+constants:
+  - name: SAFE_DIST
+    type: float
+    value: 3.0 # Minimum safety distance (m) reasonable for our boat
+  - name: V_MAX
+    type: float
+    value: 2.0 # Maximum safe speed (m/s) reasonable for our boats
+variables:
+  - name: boat_speed
+    type: float
+    location: obs
+    identifier: 0 # Index in stl_window vector
+  - name: obstacle_dist
+    type: float
+    location: obs
+    identifier: 1 # Index in stl_window vector
+specifications:
+  - name: R1_safe_distance # R1: Maintain a distance where no collision is possible within the time horizon
+    spec: R1_safe_distance = always(obstacle_dist >= SAFE_DIST)
+    weight: 1.0
+  - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
+    spec: R2_safe_speed = always(boat_speed <= V_MAX)
+    weight: 1.0
