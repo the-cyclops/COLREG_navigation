@@ -12,9 +12,9 @@
 *.userprefs
 mono_crash.*
 
-# --- Pythontrainer ---
-**/Pythontrainer/__pycache__/
-**/Pythontrainer/*.pyc
+# --- Pythontrainer and Cache ---
+__pycache__/
+*.py[cod]
 **/Pythontrainer/results/
 
 # --- Models ---

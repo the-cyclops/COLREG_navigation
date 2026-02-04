@@ -1,9 +1,6 @@
 dense: True
 horizon: 40 # 1 / (Unity_100Hz / Decision_Period_5) * 40 steps = 2.0s
 constants:
-  - name: SAFE_DIST
-    type: float
-    value: 3.0 # Minimum safety distance (m) reasonable for our boat
   - name: V_MAX
     type: float
     value: 2.0 # Maximum safe speed (m/s) reasonable for our boats
@@ -11,14 +8,14 @@ variables:
   - name: boat_speed
     type: float
     location: obs
-    identifier: 0 # Index in stl_window vector
-  - name: obstacle_dist
+    identifier: 0 # Index in stl_window vector (Physical Ego Speed)
+  - name: r1_robustness
     type: float
     location: obs
-    identifier: 1 # Index in stl_window vector
+    identifier: 1 # Index in stl_window vector (Pre-calculated Safety Margin: PredictedDist - SafeDist)
 specifications:
-  - name: R1_safe_distance # R1: Maintain a distance where no collision is possible within the time horizon
-    spec: R1_safe_distance = always(obstacle_dist >= SAFE_DIST)
+  - name: R1_safe_distance # R1: Maintain a safety margin (Robustness >= 0 means no collision risk in a t_horizon)
+    spec: R1_safe_distance = always(r1_robustness >= 0.0)
     weight: 1.0
   - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
     spec: R2_safe_speed = always(boat_speed <= V_MAX)
