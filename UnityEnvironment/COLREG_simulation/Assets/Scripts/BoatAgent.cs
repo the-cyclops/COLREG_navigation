@@ -3,6 +3,7 @@ using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
+using UnityEngine.Splines;
 
 
 public class BoatAgent : Agent
@@ -16,6 +17,9 @@ public class BoatAgent : Agent
     [SerializeField] GameObject[] obstacles;
     [SerializeField] GameObject intruderVessel1;
     [SerializeField] GameObject intruderVessel2;
+
+    SplineAnimate splineAnimator1;
+    SplineAnimate splineAnimator2;
     
     private Vector3 initialPosition;
     private Quaternion initialRotation;
@@ -27,6 +31,9 @@ public class BoatAgent : Agent
 
         initialPosition = Vector3.zero;
         initialRotation = Quaternion.identity;
+
+        splineAnimator1 = intruderVessel1.GetComponent<SplineAnimate>();
+        splineAnimator2 = intruderVessel2.GetComponent<SplineAnimate>();
     }
 
     private bool CheckTargetPosition(Vector2 pos)
@@ -71,6 +78,12 @@ public class BoatAgent : Agent
         // Reset Boat Position and Rotation
         transform.localPosition = initialPosition;
         transform.localRotation = initialRotation;
+
+        splineAnimator1.ElapsedTime = 0f;
+        splineAnimator2.ElapsedTime = 0f;
+
+        splineAnimator1.Play();
+        splineAnimator2.Play();
 
         Physics.SyncTransforms();
     }
@@ -123,7 +136,7 @@ public class BoatAgent : Agent
             Vector3 relativeVelocityWorld1 = intruderVessel1.GetComponent<Rigidbody>().linearVelocity - rb.linearVelocity;
             Vector3 localRelativeVelocity1 = transform.InverseTransformDirection(relativeVelocityWorld1);
         
-            // Normalize by specific factor (e.g., sum of max speeds or just max speed)
+            // // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
             sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity1 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
         }
         else
@@ -150,7 +163,7 @@ public class BoatAgent : Agent
             Vector3 relativeVelocityWorld2 = intruderVessel2.GetComponent<Rigidbody>().linearVelocity - rb.linearVelocity;
             Vector3 localRelativeVelocity2 = transform.InverseTransformDirection(relativeVelocityWorld2);
         
-            // Normalize by specific factor (e.g., sum of max speeds or just max speed)
+            // // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
             sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity2 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
         }
         else
