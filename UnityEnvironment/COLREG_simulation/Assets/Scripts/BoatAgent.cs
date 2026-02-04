@@ -14,6 +14,8 @@ public class BoatAgent : Agent
     private float arenaRadius = 15f;
 
     [SerializeField] GameObject[] obstacles;
+    [SerializeField] GameObject intruderVessel1;
+    [SerializeField] GameObject intruderVessel2;
     
     private Vector3 initialPosition;
     private Quaternion initialRotation;
@@ -77,6 +79,8 @@ public class BoatAgent : Agent
     {
         //TODO CHECK THE ORDER OF OBSERVATIONS - IT MATTERS?
 
+        // --- SELF & TARGET OBSERVATIONS ---
+
         // Fetch Target Position Relative to Boat
         Vector3 targetRelativePos = transform.InverseTransformPoint(target.transform.position);
         sensor.AddObservation(targetRelativePos.normalized);
@@ -84,14 +88,11 @@ public class BoatAgent : Agent
         // Fetch Target Distance
         float targetDistance = targetRelativePos.magnitude;
         // Normalized Distance (Assuming max distance of 20 units) TODO FIX 
-        //sensor.AddObservation(targetDistance / arenaSize); 
         // Obs Index [3]: Target Distance - Rational normalization d/(d+k) with k=20. Range: [0, 1]
         sensor.AddObservation(targetDistance / (20f + targetDistance));
 
         // Fetch Boat Velocity
         // InverseTransformDirection converts world space velocity to local space
-        // For example, if the boat is moving forward, the local velocity.z will be positive
-        // If the boat is moving to the right, the local velocity.x will be positive and so on
         Vector3 localLinearVelocity = transform.InverseTransformDirection(rb.linearVelocity);
         Vector3 normalizedLocalLinearVelocity = localLinearVelocity / boatPhysics.nominalMaxLinearSpeed;
         // Clamp magnitude to in -1 to 1 range
@@ -102,10 +103,66 @@ public class BoatAgent : Agent
         Vector3 normalizedLocalAngularVelocity = localAngularVelocity / boatPhysics.nominalMaxAngularSpeed;
         // Clamp magnitude to in -1 to 1 range
         sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalAngularVelocity, 1.0f));
-        
 
-        // Total Observations: 3 (targetRelativePos) + 1 (targetDistance) + 3 (linearVelocity) + 3 (angularVelocity) = 10
-        // Adjust the Space Size in Vector Sensor in Behavior Parameters accordingly
+        // --- COLREG / INTRUDER VESSEL OBSERVATIONS ---
+        // Necessary for calculating CPA and Velocity Obstacles in Python
+    
+        // INTRUDER VESSEL 1
+        // If no vessel is present, you should feed zeros or a specific flag
+        if (intruderVessel1 != null && intruderVessel1.activeInHierarchy)
+        {
+            // 1. Relative Position of the first intruder vessel (Local space)
+            Vector3 intruder1RelativePos = transform.InverseTransformPoint(intruderVessel1.transform.position);
+            sensor.AddObservation(intruder1RelativePos.normalized); 
+        
+            float intruder1Dist = intruder1RelativePos.magnitude;
+            sensor.AddObservation(intruder1Dist / (20f + intruder1Dist)); // Normalized Distance
+
+            // 2. Relative Velocity (Crucial for CPA/Collision Risk)
+            // We calculate the vector difference in world space, then convert to local
+            Vector3 relativeVelocityWorld1 = intruderVessel1.GetComponent<Rigidbody>().linearVelocity - rb.linearVelocity;
+            Vector3 localRelativeVelocity1 = transform.InverseTransformDirection(relativeVelocityWorld1);
+        
+            // Normalize by specific factor (e.g., sum of max speeds or just max speed)
+            sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity1 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
+        }
+        else
+        {
+            // Padding if no intruder is active to keep observation size constant
+            sensor.AddObservation(Vector3.zero); // Rel Pos
+            sensor.AddObservation(1.0f);           // Dist
+            sensor.AddObservation(Vector3.zero); // Rel Vel
+        }
+
+        // INTRUDER VESSEL 2
+        // If no vessel is present, you should feed zeros or a specific flag
+        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy)
+        {
+            // 1. Relative Position of the second intruder vessel (Local space)
+            Vector3 intruder2RelativePos = transform.InverseTransformPoint(intruderVessel2.transform.position);
+            sensor.AddObservation(intruder2RelativePos.normalized); 
+        
+            float intruder2Dist = intruder2RelativePos.magnitude;
+            sensor.AddObservation(intruder2Dist / (20f + intruder2Dist)); // Normalized Distance
+
+            // 2. Relative Velocity (Crucial for CPA/Collision Risk)
+            // We calculate the vector difference in world space, then convert to local
+            Vector3 relativeVelocityWorld2 = intruderVessel2.GetComponent<Rigidbody>().linearVelocity - rb.linearVelocity;
+            Vector3 localRelativeVelocity2 = transform.InverseTransformDirection(relativeVelocityWorld2);
+        
+            // Normalize by specific factor (e.g., sum of max speeds or just max speed)
+            sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity2 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
+        }
+        else
+        {
+            // Padding if no intruder is active to keep observation size constant
+            sensor.AddObservation(Vector3.zero); // Rel Pos
+            sensor.AddObservation(1.0f);           // Dist
+            sensor.AddObservation(Vector3.zero); // Rel Vel
+        }
+
+    // Total Observations: 3 (targetRelativePos) + 1 (targetDistance) + 3 (linearVelocity) + 3 (angularVelocity) + 3 (intruder1RelativePos) + 1 (intruder1Dist) + 3 (intruder1RelVel) + 3 (intruder2RelativePos) + 1 (intruder2Dist) + 3 (intruder2RelVel) = 24
+    // // Adjust the Space Size in Vector Sensor in Behavior Parameters accordingly 
     }
 
     // This method is called every step during training OR by your keyboard in Heuristic mode

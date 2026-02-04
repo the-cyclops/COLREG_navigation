@@ -159,7 +159,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
   m_BrainParameters:
-    VectorObservationSize: 10
+    VectorObservationSize: 24
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -195,6 +195,9 @@ MonoBehaviour:
   MaxStep: 0
   boatPhysics: {fileID: 0}
   target: {fileID: 0}
+  obstacles: []
+  intruderVessel1: {fileID: 0}
+  intruderVessel2: {fileID: 0}
 --- !u!114 &74932305235223278
 MonoBehaviour:
   m_ObjectHideFlags: 0
