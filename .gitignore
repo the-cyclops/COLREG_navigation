@@ -12,6 +12,14 @@
 *.userprefs
 mono_crash.*
 
+# --- Unity objects from thesis project ---
+UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab
+UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab.meta
+UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab
+UnityEnvironment/COLREG_simulation/Assets/Models/Environment.prefab.meta
+UnityEnvironment/COLREG_simulation/Assets/Models/Environment.prefab
+UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab.meta
+
 # --- Pythontrainer and Cache ---
 __pycache__/
 *.py[cod]
@@ -28,9 +36,3 @@ __pycache__/
 # --- Critical: Do NOT ignore these ---
 !*.physicMaterial
 !*.meta
-UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab
-UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab.meta
-UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab
-UnityEnvironment/COLREG_simulation/Assets/Models/Environment.prefab.meta
-UnityEnvironment/COLREG_simulation/Assets/Models/Environment.prefab
-UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab.meta
