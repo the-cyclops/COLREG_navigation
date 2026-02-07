@@ -120,10 +120,10 @@ def main():
 
                 if memory_buffer.is_stl_ready():
                     _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
-                    # compute rho_tetadot_constraint and rho_torque_constraint, as separate variables
+                    
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
-                    # apply tanh to the robustness, penalize only negative values
+                   
                     cost_1 = max(0, -rho_1)
                     cost_2 = max(0, -rho_2)
 
