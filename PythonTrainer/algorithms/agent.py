@@ -5,20 +5,20 @@ from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
 class ConstrainedPPOAgent:
-    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=20):
+    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=20, device='cpu'):
         self.gamma = gamma
         self.ppo_eps = ppo_eps
         self.start_safety = start_safety
+        self.device = device
 
-        self.policy_net = Policy(state_size, action_size)
-        self.value_net = Value(state_size)
-        
+        self.policy_net = Policy(state_size, action_size).to(self.device)
+        self.value_net = Value(state_size).to(self.device)        
         # COLREG Cost Networks
         # Rule R1: Vessels always have to keep a safe distance between each other
-        self.cost_net_safe_distance = Value(state_size) 
+        self.cost_net_safe_distance = Value(state_size).to(self.device)
 
         # Rule R2: A vessel shall always maintain a safe speed 
-        self.cost_net_safe_speed = Value(state_size)
+        self.cost_net_safe_speed = Value(state_size).to(self.device)   
         
         # Optimizers
         self.policy_opt = optim.Adam(self.policy_net.parameters(), lr=lr)
@@ -48,7 +48,9 @@ class ConstrainedPPOAgent:
         for p in network.parameters():
             if p.grad is not None:
                 grads.append(p.grad.view(-1))
-        
+            else:
+                grads.append(torch.zeros_like(p).view(-1))
+
         # Concatenate into a single 1D tensor
         if not grads:
             return None
@@ -112,6 +114,20 @@ class ConstrainedPPOAgent:
     
     # ----- Main Functions -----
 
+    def get_action(self, state, deterministic=False):
+        with torch.no_grad():
+            mean, _, std = self.policy_net(state)
+            dist = torch.distributions.Normal(mean, std)
+            
+            if deterministic:
+                action = mean
+            else:
+                action = dist.sample()
+            
+            log_prob = dist.log_prob(action).sum(dim=-1)
+            
+        return action, log_prob
+
     def evaluate_actions(self, states, actions):
         action_mean, _, action_std = self.policy_net(states)
         dist = torch.distributions.Normal(action_mean, action_std)
@@ -169,14 +185,14 @@ class ConstrainedPPOAgent:
             robustness_dict (dict): Current min robustness values e.g. {'R1': -0.1, 'R2': 0.5}
         """
         # Calculate Advantages for reward and costs
-        states = torch.stack(rollouts['states']).detach()
-        actions = torch.stack(rollouts['actions']).detach()
-        rewards = torch.tensor(rollouts['rewards'], dtype=torch.float32).detach()
-        old_log_probs = torch.stack(rollouts['log_probs']).detach()
-        masks = torch.tensor(rollouts['masks'], dtype=torch.float32).detach()
-        cost_r1 = torch.tensor(rollouts['cost_r1'], dtype=torch.float32).detach()
-        cost_r2 = torch.tensor(rollouts['cost_r2'], dtype=torch.float32).detach()
-        next_state = rollouts['next_state'].detach()
+        states = torch.stack(rollouts['states']).to(self.device).detach()
+        actions = torch.stack(rollouts['actions']).to(self.device).detach()
+        rewards = torch.tensor(rollouts['rewards'], dtype=torch.float32).to(self.device).detach()
+        old_log_probs = torch.stack(rollouts['log_probs']).to(self.device).detach()
+        masks = torch.tensor(rollouts['masks'], dtype=torch.float32).to(self.device).detach()
+        cost_r1 = torch.tensor(rollouts['cost_r1'], dtype=torch.float32).to(self.device).detach()
+        cost_r2 = torch.tensor(rollouts['cost_r2'], dtype=torch.float32).to(self.device).detach()
+        next_state = rollouts['next_state'].to(self.device).detach()
 
         advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
         adv_reward, reward_returns = advantages["reward"]
