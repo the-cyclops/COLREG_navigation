@@ -52,7 +52,7 @@ class COLREGHandler:
 
     def compute_cpa_R1_robustness(self, pos_rel, vel_rel, safe_dist=3.0, t_horizon=20.0):
         """
-        Calculates safety margin based on CPA (Closest Point of Approach).
+        Calculates safety margin based on CPA (Closest Point of Approach) over t_horizon seconds.
         Returns: R1 Robustness (Predicted Min Distance - Safety Distance)
         """
         # --- PHYSICS CALCULATION (Real world units) ---

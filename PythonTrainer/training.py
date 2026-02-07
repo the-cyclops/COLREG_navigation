@@ -15,7 +15,6 @@ from colreg_logic import rtamt_yml_parser
 model_name = "boat_agent_model"
 # None - use the Unity Editor (press Play)
 unity_env_path = None
-models_path = "../Models"
                        
 # BoatAgent Parameters - must match those in Unity
 OBSERVATION_SIZE = 24 # From UnityEnvironment/Scripts/BoatAgent.cs
@@ -61,7 +60,7 @@ def main():
 
     print(f"Start training on: {behavior_name}")
 
-    memory_buffer = Memory()
+    memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
 
     try:
         s = 0
@@ -134,6 +133,7 @@ def main():
                     memory_buffer.add_costs(c_r1=0.0, c_r2=0.0)
 
                 if end_episode:
+                    memory_buffer.clear_stl_window()
                     env.reset()
                     decision_steps, terminal_steps = env.get_steps(behavior_name)
 

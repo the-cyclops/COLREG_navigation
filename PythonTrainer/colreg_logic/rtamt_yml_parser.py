@@ -13,7 +13,7 @@ class RTAMTYmlParser:
             except yaml.YAMLError as exc:
                 print(exc)
                 
-        self.stl_spec = rtamt.STLDiscreteTimeSpecification()
+        self.stl_spec = rtamt.StlDiscreteTimeSpecification()
         self.data = dict()
         self.data['time'] = []
         
@@ -52,7 +52,7 @@ class RTAMTYmlParser:
         # Parse the specification
         try:
             self.stl_spec.parse()
-        except rtamt.STLParseException as err:
+        except rtamt.StlParseException as err:
             print('STL Parse Exception: {}'.format(err))
             sys.exit()   
             
