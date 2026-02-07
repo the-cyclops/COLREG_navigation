@@ -5,7 +5,7 @@ from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
 class ConstrainedPPOAgent:
-    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=2000, device='cpu'):
+    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=40_960, device='cpu'):
         self.gamma = gamma
         self.ppo_eps = ppo_eps
         self.start_safety = start_safety
