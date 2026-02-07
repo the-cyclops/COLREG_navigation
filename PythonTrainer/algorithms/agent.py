@@ -5,7 +5,7 @@ from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
 class ConstrainedPPOAgent:
-    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=20, device='cpu'):
+    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=2000, device='cpu'):
         self.gamma = gamma
         self.ppo_eps = ppo_eps
         self.start_safety = start_safety
@@ -115,6 +115,9 @@ class ConstrainedPPOAgent:
     # ----- Main Functions -----
 
     def get_action(self, state, deterministic=False):
+        """
+        Helper for training loop
+        """
         with torch.no_grad():
             mean, _, std = self.policy_net(state)
             dist = torch.distributions.Normal(mean, std)
@@ -176,7 +179,7 @@ class ConstrainedPPOAgent:
             "r2": (adv_r2, r2_cumulative_cost)
         }
 
-    def update(self, rollouts, robustness_dict, current_episode):
+    def update(self, rollouts, robustness_dict, current_step):
         """
         Args:
             rollouts (dict): Dictionary containing raw lists from the buffer:
@@ -246,7 +249,7 @@ class ConstrainedPPOAgent:
 
         violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
         # Case 1: No violations (NOMINAL MODE) -> Standard PPO update using reward advantage
-        if not violated_rules or current_episode < self.start_safety:
+        if not violated_rules or current_step < self.start_safety:
             policy_loss = self._get_ppo_loss(ratio, adv_reward)
             self.policy_opt.zero_grad()
             policy_loss.backward()
