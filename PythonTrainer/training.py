@@ -7,37 +7,35 @@ from mlagents_envs.side_channel.engine_configuration_channel import EngineConfig
 
 from algorithms.agent import ConstrainedPPOAgent
 
+from utils.buffers import Memory
+from utils.colreg_handler import COLREGHandler
+
+from colreg_logic import rtamt_yml_parser
+
 model_name = "boat_agent_model"
 # None - use the Unity Editor (press Play)
 unity_env_path = None
-models_path = "Models"
+models_path = "../Models"
                        
 # BoatAgent Parameters - must match those in Unity
 OBSERVATION_SIZE = 24 # From UnityEnvironment/Scripts/BoatAgent.cs
 RAYCAST_COUNT = 7 # 3 side rays + 1 front ray # From Unity RayPerceptionSensorComponent3D
+RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
 
-INPUT_SIZE = OBSERVATION_SIZE + (RAYCAST_COUNT * 2)
+INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE
 
 ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 testing = True
 EPISODES = 10
-
-class Network(torch.nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(Network, self).__init__()
-        self.fc1 = torch.nn.Linear(input_dim, 128)
-        self.relu = torch.nn.ReLU()
-        self.fc2 = torch.nn.Linear(128, output_dim)
-        self.tanh = torch.nn.Tanh() # Importante per output continui tra -1 e 1
-
-    def forward(self, x):
-        x = self.relu(self.fc1(x))
-        return self.tanh(self.fc2(x))
-
+ROLLOUT_SIZE = 2_048
+TOT_STEPS = 1_000_000
+SAVE_INTERVAL = 1000
 
 def main():
+
+    colreg_handler = COLREGHandler()
 
     # Channel used to speed up the game time
     engine_config = EngineConfigurationChannel()
@@ -65,70 +63,80 @@ def main():
 
     print(f"Start training on: {behavior_name}")
 
+    memory_buffer = Memory()
+
     try:
-        total_episodes = EPISODES
-        
-        for episode in range(total_episodes):
-            env.reset()
+        s = 0
+        decision_steps, terminal_steps = env.get_steps(behavior_name)
+        while s < TOT_STEPS: 
             
-            # Ottiene i primi dati dagli agenti
-            decision_steps, terminal_steps = env.get_steps(behavior_name)
-            
-            # Tracking reward episodio
-            episode_rewards = 0
-            
-            while len(decision_steps) > 0:
+            while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 # Decision_steps contain a list of observations from different sources
                 # [0] is the ray_cast_perception sensor, [1] is the manual vector observation 
+                if decision_steps.obs[0].shape[1] == RAYCAST_SIZE and decision_steps.obs[1].shape[1] == OBSERVATION_SIZE:
+                    ray_obs = decision_steps.obs[0]
+                    vec_obs = decision_steps.obs[1]
+                elif decision_steps.obs[0].shape[1] == OBSERVATION_SIZE and decision_steps.obs[1].shape[1] == RAYCAST_SIZE:
+                    ray_obs = decision_steps.obs[1]
+                    vec_obs = decision_steps.obs[0]
+                else:
+                    raise ValueError("Unexpected observation shapes: ", decision_steps.obs[0].shape, decision_steps.obs[1].shape)
+                
+                obs = np.concatenate((ray_obs, vec_obs), axis=1)[0] # Get the first (and only) agent's observation
 
-                obs = np.concatenate((decision_steps.obs[0], decision_steps.obs[1]), axis=1)
-            
                 obs_tensor = torch.from_numpy(obs).float()
 
-                if testing:
-                    print(f"Obs shape: {obs_tensor.shape}, Obs: {obs_tensor}")
-
-                action_tensor = agent(obs_tensor)
-                
-                # Convert the action tensor to numpy and prepare ActionTuple for ML-Agents
+                action_tensor, log_probabs = agent.get_action(obs_tensor)
                 action_numpy = action_tensor.detach().numpy()
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
-                
-                # Send the action to the environment
-                env.set_actions(behavior_name, action_tuple)
-                
-                # physical step in the environment and advance of number of frames (default 5) specified in DecisionRequester 
-                env.step()
-                
-                # decision_steps = Agents that need to make a decision (alive) - they receive obs and reward
-                # terminal_steps = Agents that reached a terminal state (dead) - they receive obs and reward for the last step
-                decision_steps, terminal_steps = env.get_steps(behavior_name)
-                
-                #
-                
-                if testing:
-                    optimizer.zero_grad()
-                    loss = -torch.mean(action_tensor)  # Dummy loss for testing
-                    loss.backward()
-                    optimizer.step()
-                else:
-                    pass
-                    #agent.update(decision_steps, episode_rewards)  
-                
-                # Example reading rewards for alive agents:
-                if len(decision_steps) > 0:
-                    episode_rewards += np.mean(decision_steps.reward)
-                
-                # Example reading rewards for dead agents (End of episode for them):    
-                if len(terminal_steps) > 0:
-                    episode_rewards += np.mean(terminal_steps.reward)
 
-            print(f"Episode {episode} completed. Estimated average reward: {episode_rewards}")
+                env.set_actions(behavior_name, action_tuple)
+                env.step()
+                s += 1
+
+                decision_steps, terminal_steps = env.get_steps(behavior_name)
+                end_episode = len(terminal_steps) > 0
+
+                if end_episode:
+                    next_obs = terminal_steps.obs
+                    reward = terminal_steps.reward
+                else:
+                    next_obs = decision_steps.obs
+                    reward = decision_steps.reward
+
+                memory_buffer.add_ppo_transition(
+                state=obs_tensor, 
+                action=action_tensor, 
+                logprob=log_probabs,
+                reward=reward, 
+                is_terminal=float(end_episode)
+                )
+
+                # Retrieving Robustness using RTAMT and storing it in the buffer for later use in the PPO update
+                r1 = colreg_handler.get_R1_robustness(obs=vec_obs)
+
+                memory_buffer.add_robustness(r1=r1,r2=None)
+
+                if end_episode:
+                    env.reset()
+                    decision_steps, terminal_steps = env.get_steps(behavior_name)
+            
+            rollout_buffer = {}
+            rollout_buffer['states'] = memory_buffer.states
+            rollout_buffer['actions'] = memory_buffer.actions
+            rollout_buffer['logprobs'] = memory_buffer.logprobs
+            rollout_buffer['rewards'] = memory_buffer.rewards
+            rollout_buffer['is_terminals'] = memory_buffer.is_terminals
+            rollout_buffer['next_states'] = next_obs
+
+            robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': 0.5}
+
+            agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
             
             # Save the model occasionally
-            if episode % 5 == 0:
-                torch.save(agent.state_dict(), f"Models/{model_name}_{episode}.pth")
+            if s % SAVE_INTERVAL == 0:
+                torch.save(agent.state_dict(), f"Models/{model_name}_{s}.pth")
 
     except KeyboardInterrupt:
         print("Manual interruption...")
