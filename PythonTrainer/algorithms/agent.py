@@ -5,9 +5,10 @@ from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
 class ConstrainedPPOAgent:
-    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99):
+    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=20):
         self.gamma = gamma
-        
+        self.ppo_eps = ppo_eps
+        self.start_safety = start_safety
 
         self.policy_net = Policy(state_size, action_size)
         self.value_net = Value(state_size)
@@ -98,6 +99,17 @@ class ConstrainedPPOAgent:
             
         return torch.stack(returns)
     
+    def _get_ppo_loss(self, ratio, advantage):
+        """
+        Standard PPO clipped surrogate objective for reward maximization.
+        To minimize cost, pass -cost_advantage.
+        """
+        surr1 = ratio * advantage
+        surr2 = torch.clamp(ratio, 1 - self.ppo_eps, 1 + self.ppo_eps) * advantage
+        # return negative because we want to maximize the surrogate objective, but optimizers minimize loss
+        return -torch.min(surr1, surr2).mean()
+        
+    
     # ----- Main Functions -----
 
     def evaluate_actions(self, states, actions):
@@ -110,9 +122,11 @@ class ConstrainedPPOAgent:
         """
         Computes Advantages and Targets for Reward, Cost R1, and Cost R2.
         masks: 0 if terminal state, 1 otherwise
+
+        returns: Dict with keys "reward", "r1", "r2", each containing a tuple of (advantages, returns/cumulative_costs)
         """
         
-        # 1. Get predictions (Estimates) for the whole batch
+        # Get predictions (Estimates) for the whole batch
         with torch.no_grad():
             # Standard Reward Value (V)
             value_preds = self.value_net(states).squeeze()
@@ -122,21 +136,21 @@ class ConstrainedPPOAgent:
             r1_cost_preds = self.cost_net_safe_distance(states).squeeze()
             r2_cost_preds = self.cost_net_safe_speed(states).squeeze()
 
-            # 2. Get bootstrap predictions for next state
+            # Get bootstrap predictions for next state
             next_value_pred = self.value_net(next_state).item()
             r1_next_cost_pred = self.cost_net_safe_distance(next_state).item()
             r2_next_cost_pred = self.cost_net_safe_speed(next_state).item()
 
-        # 3. Main Reward (Maximization)
+        # Main Reward (Maximization)
         reward_returns = self._calculate_gae(rewards, value_preds, next_value_pred, masks)
         adv_reward = reward_returns - value_preds
 
-        # 4. Cost R1 (Minimization) 
+        # Cost R1 (Minimization) 
         # Using "cumulative_cost" to indicate sum of future penalties
         r1_cumulative_cost = self._calculate_gae(cost_r1, r1_cost_preds, r1_next_cost_pred, masks)
         adv_r1 = r1_cumulative_cost - r1_cost_preds
 
-        # 5. Cost R2 (Minimization)
+        # Cost R2 (Minimization)
         r2_cumulative_cost = self._calculate_gae(cost_r2, r2_cost_preds, r2_next_cost_pred, masks)
         adv_r2 = r2_cumulative_cost - r2_cost_preds
 
@@ -146,19 +160,111 @@ class ConstrainedPPOAgent:
             "r2": (adv_r2, r2_cumulative_cost)
         }
 
-    def update(self, batch, robustness_values):
+    def update(self, rollouts, robustness_dict, current_episode):
         """
-        Main update loop implementing the Switching Controller logic.
+        Args:
+            rollouts (dict): Dictionary containing raw lists from the buffer:
+                             ['states', 'actions', 'rewards', 'masks', 
+                              'cost_r1', 'cost_r2', 'next_state', 'log_probs']
+            robustness_dict (dict): Current min robustness values e.g. {'R1': -0.1, 'R2': 0.5}
+        """
+        # Calculate Advantages for reward and costs
+        states = torch.stack(rollouts['states']).detach()
+        actions = torch.stack(rollouts['actions']).detach()
+        rewards = torch.tensor(rollouts['rewards'], dtype=torch.float32).detach()
+        old_log_probs = torch.stack(rollouts['log_probs']).detach()
+        masks = torch.tensor(rollouts['masks'], dtype=torch.float32).detach()
+        cost_r1 = torch.tensor(rollouts['cost_r1'], dtype=torch.float32).detach()
+        cost_r2 = torch.tensor(rollouts['cost_r2'], dtype=torch.float32).detach()
+        next_state = rollouts['next_state'].detach()
+
+        advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
+        adv_reward, reward_returns = advantages["reward"]
+        adv_r1, r1_cumulative_cost = advantages["r1"]
+        adv_r2, r2_cumulative_cost = advantages["r2"]
+        # Normalize advantages to stabilize training
+        adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
+
+        # not normalizing cost advantage to preserve scale for cagrad
+        #adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
+        #adv_r2 = (adv_r2 - adv_r2.mean()) / (adv_r2.std() + 1e-8)
+
+        # setup for update
+        cost_config = {
+            "R1": {
+                "adv": adv_r1,
+                "cumulative_cost": r1_cumulative_cost,
+                "network": self.cost_net_safe_distance,
+                "optimizer": self.cost_opts[0]
+            },
+            "R2": {
+                "adv": adv_r2,
+                "cumulative_cost": r2_cumulative_cost,
+                "network": self.cost_net_safe_speed,
+                "optimizer": self.cost_opts[1]
+            }
+        }
+
+        # update Value critic
+        self.value_opt.zero_grad()
+        value_preds = self.value_net(states).squeeze()
+        value_loss = torch.nn.MSELoss()(value_preds, reward_returns)
+        value_loss.backward()
+        self.value_opt.step()
+
+        # update Cost critics
+        for rule, config in cost_config.items():
+            net = config["network"]
+            opt = config["optimizer"]
+            cumulative_cost = config["cumulative_cost"]
+
+            opt.zero_grad()
+            cost_preds = net(states).squeeze()
+            cost_loss = torch.nn.MSELoss()(cost_preds, cumulative_cost)
+            cost_loss.backward()
+            opt.step()
         
-        batch: Dict containing tensors for states, actions, returns, advantages.
-        robustness_values: List or tensor of robustness values (negative = violation).
-        """
-        # 1. Calculate V-targets and Advantages for reward and costs
-        stastes = batch["states"]
-        # 2. If all robustness_values >= 0:
-        #    -> Optimize Policy Loss (standard PPO) + Value Loss
-        # 3. If one or more robustness_values < 0:
-        #    -> Calculate gradients for each violated cost
-        #    -> Use CAGrad to merge cost gradients
-        #    -> Apply update to policy_net
-        pass
+        # Policy Update Logic
+        cur_log_probs = self.evaluate_actions(states, actions)
+        ratio = torch.exp(cur_log_probs - old_log_probs)
+
+        violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
+        # Case 1: No violations (NOMINAL MODE) -> Standard PPO update using reward advantage
+        if not violated_rules or current_episode < self.start_safety:
+            policy_loss = self._get_ppo_loss(ratio, adv_reward)
+            self.policy_opt.zero_grad()
+            policy_loss.backward()
+            self.policy_opt.step()
+        # Case 2: single violation -> Minimize specific cost (Maximize negative cost advantage)
+        elif len(violated_rules) == 1:
+            rule = violated_rules[0]
+            cost_adv = cost_config[rule]["adv"]
+            # -cost_adv because we want to minimize cost
+            policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
+            self.policy_opt.zero_grad()
+            policy_loss.backward()
+            self.policy_opt.step()
+        # Case 3: multiple violations -> Use CAGrad to find the best update direction
+        else:
+            grads = []
+            for rule in violated_rules:
+                cost_adv = cost_config[rule]["adv"]
+                policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
+                is_last = (rule == violated_rules[-1])
+                flat_grad = self._compute_flat_grad(policy_loss, self.policy_net, retain_graph=not is_last)
+                if flat_grad is not None:
+                    grads.append(flat_grad)
+            
+            if grads:
+                grad_vec = torch.stack(grads)
+                merged_grad = self.cagrad_helper.cagrad(grad_vec, num_tasks=len(violated_rules))
+                self._set_flat_grad(merged_grad, self.policy_net)
+                self.policy_opt.step()
+        return {
+            "mode": "nominal" if not violated_rules else "safety_violation",
+            "violated_rules": violated_rules,
+            "robustness": {rule: robustness_dict[rule] for rule in violated_rules},
+            "reward": (adv_reward, reward_returns),
+            "r1": (adv_r1, r1_cumulative_cost),
+            "r2": (adv_r2, r2_cumulative_cost)
+        }
