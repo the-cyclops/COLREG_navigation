@@ -12,6 +12,9 @@ public class HDRPBoatPhysics : MonoBehaviour
     public float maxSubmergenceDepth = 0.12f; // Profondità per spinta max (80% altezza mesh)
     public Vector3 centerOfMassOffset = new Vector3(0, -0.1f, -0.1f); // Bilanciamento bow/stern
 
+    [Header("Stability")]
+    public float sideDrag = 5.0f; // Resistenza laterale per evitare l'effetto saponetta
+
     [Header("Floater References")]
     public Transform[] floaters;
 
@@ -42,6 +45,12 @@ public class HDRPBoatPhysics : MonoBehaviour
         {
             ApplyPointBuoyancy(floater);
         }
+
+        Vector3 localVel = transform.InverseTransformDirection(rb.linearVelocity);
+
+        // Applica una forza contraria SOLO all'asse X (laterale)
+        // L'asse Z (avanti) e Y (verticale) vengono ignorati da questa forza
+        rb.AddRelativeForce(new Vector3(-localVel.x * sideDrag, 0, 0), ForceMode.Acceleration);
     }
 
     void ApplyPointBuoyancy(Transform floater)
