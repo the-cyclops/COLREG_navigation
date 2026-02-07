@@ -33,9 +33,13 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 1_000_000
 SAVE_INTERVAL = 1000
 
+colreg_path = "colreg_logic/colreg.yaml"
+
 def main():
 
     colreg_handler = COLREGHandler()
+
+    RTAMT = rtamt_yml_parser.RTAMTYmlParser(colreg_path)
 
     # Channel used to speed up the game time
     engine_config = EngineConfigurationChannel()
@@ -53,13 +57,7 @@ def main():
     print("Behaviors found:", list(env.behavior_specs.keys()))
     behavior_name = list(env.behavior_specs.keys())[0] 
     
-    if testing:
-        # Instantiate the network and optimizer
-        agent = Network(INPUT_SIZE, ACTION_SIZE)
-        optimizer = torch.optim.Adam(agent.parameters(), lr=0.001)
-    else:
-        # Instantiate the PPO agent
-        agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE)
+    agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE)
 
     print(f"Start training on: {behavior_name}")
 
@@ -116,11 +114,31 @@ def main():
                 # Retrieving Robustness using RTAMT and storing it in the buffer for later use in the PPO update
                 r1 = colreg_handler.get_R1_robustness(obs=vec_obs)
 
-                memory_buffer.add_robustness(r1=r1,r2=None)
+                physical_speed = colreg_handler.get_ego_speed(vec_obs)
+
+                memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_robustness=r1)
+
+                if memory_buffer.is_stl_ready():
+                    _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
+                    # compute rho_tetadot_constraint and rho_torque_constraint, as separate variables
+                    rho_1 = single_rho.get('R1_safe_distance', 0.0)
+                    rho_2 = single_rho.get('R2_safe_speed', 0.0)
+                    # apply tanh to the robustness, penalize only negative values
+                    cost_1 = max(0, -rho_1)
+                    cost_2 = max(0, -rho_2)
+
+                    memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
+                    memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
+                else: 
+                    memory_buffer.add_robustness(r1=0.0,r2=0.0)
+                    memory_buffer.add_costs(c_r1=0.0, c_r2=0.0)
 
                 if end_episode:
                     env.reset()
                     decision_steps, terminal_steps = env.get_steps(behavior_name)
+
+
+
             
             rollout_buffer = {}
             rollout_buffer['states'] = memory_buffer.states
@@ -133,6 +151,8 @@ def main():
             robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': 0.5}
 
             agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
+
+            memory_buffer.clear_ppo()
             
             # Save the model occasionally
             if s % SAVE_INTERVAL == 0:
