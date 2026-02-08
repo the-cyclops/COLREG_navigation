@@ -78,7 +78,7 @@ class RTAMTYmlParser:
         if self.dense:
             _ = self.stl_spec.evaluate(data)
             for i in self.specifications:
-                val = self.stl_spec.get_value(i['name'])[0]
+                val = self.stl_spec.get_value(i['name'])#ß[0]
                 single_rho[i['name']] = val 
                 total_rho += float(i['weight']) * val
                 

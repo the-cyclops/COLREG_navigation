@@ -50,7 +50,7 @@ def main():
     print("Environment loaded successfully.")
     
     # time_scale = 1.0 real tiem - 20.0 is 20x faster than real time
-    engine_config.set_configuration_parameters(width=800, height=600, time_scale=1.0)
+    engine_config.set_configuration_parameters(width=800, height=600, time_scale=10.0)
 
     # Debug info print behaviors available
     print("Behaviors found:", list(env.behavior_specs.keys()))
@@ -149,7 +149,7 @@ def main():
             rollout_buffer['next_states'] = next_obs
 
             robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': 0.5}
-
+            print("stiamo per fare update, robustness dict: ", robustness_dict)
             agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
 
             memory_buffer.clear_ppo()
