@@ -34,6 +34,23 @@ SAVE_INTERVAL = 1000
 
 colreg_path = "colreg_logic/colreg.yaml"
 
+def get_single_agent_obs(steps):
+    # Extract raw observations list
+    raw_obs = steps.obs
+    
+    # Check shapes to determine sensor order and extract agent 0 immediately
+    if raw_obs[0].shape[1] == RAYCAST_SIZE and raw_obs[1].shape[1] == OBSERVATION_SIZE:
+        ray_obs = raw_obs[0][0]
+        vec_obs = raw_obs[1][0]
+    elif raw_obs[0].shape[1] == OBSERVATION_SIZE and raw_obs[1].shape[1] == RAYCAST_SIZE:
+        ray_obs = raw_obs[1][0]
+        vec_obs = raw_obs[0][0]
+    else:
+        raise ValueError(f"Unexpected shapes: {raw_obs[0].shape}, {raw_obs[1].shape}")
+    
+    # Concatenate to get a 1D array
+    return np.concatenate((ray_obs, vec_obs)), vec_obs
+
 def main():
 
     colreg_handler = COLREGHandler()
@@ -68,20 +85,9 @@ def main():
         while s < TOT_STEPS: 
             
             while (len(memory_buffer.states) < ROLLOUT_SIZE):
-                # Decision_steps contain a list of observations from different sources
-                # [0] is the ray_cast_perception sensor, [1] is the manual vector observation 
-                if decision_steps.obs[0].shape[1] == RAYCAST_SIZE and decision_steps.obs[1].shape[1] == OBSERVATION_SIZE:
-                    ray_obs = decision_steps.obs[0][0]
-                    vec_obs = decision_steps.obs[1][0]
-                elif decision_steps.obs[0].shape[1] == OBSERVATION_SIZE and decision_steps.obs[1].shape[1] == RAYCAST_SIZE:
-                    ray_obs = decision_steps.obs[1][0]
-                    vec_obs = decision_steps.obs[0][0]
-                else:
-                    raise ValueError("Unexpected observation shapes: ", decision_steps.obs[0].shape, decision_steps.obs[1].shape)
                 
-                obs = np.concatenate((ray_obs, vec_obs)) 
-
-                obs_tensor = torch.from_numpy(obs).float().unsqueeze(0) # Add batch dimension 
+                obs, vec_obs = get_single_agent_obs(decision_steps)
+                obs_tensor = torch.from_numpy(obs).float().unsqueeze(0)
 
                 action_tensor, log_probabs = agent.get_action(obs_tensor)
                 action_numpy = action_tensor.detach().numpy()
@@ -139,6 +145,7 @@ def main():
 
 
 
+            next_state = get_single_agent_obs(decision_steps)[0]
             
             rollout_buffer = {}
             rollout_buffer['states'] =  memory_buffer.states
@@ -146,7 +153,7 @@ def main():
             rollout_buffer['logprobs'] = memory_buffer.logprobs
             rollout_buffer['rewards'] = np.array(memory_buffer.rewards)
             rollout_buffer['masks'] = 1 - np.array(memory_buffer.is_terminals)
-            rollout_buffer['next_state'] = next_obs
+            rollout_buffer['next_state'] = np.array(next_state)
             rollout_buffer['cost_r1'] = np.array(memory_buffer.cost_r1)
             rollout_buffer['cost_r2'] = np.array(memory_buffer.cost_r2)
 

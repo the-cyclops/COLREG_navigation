@@ -195,7 +195,7 @@ class ConstrainedPPOAgent:
         masks = torch.from_numpy(rollouts['masks']).float().to(self.device).detach()
         cost_r1 = torch.from_numpy(rollouts['cost_r1']).float().to(self.device).detach()
         cost_r2 = torch.from_numpy(rollouts['cost_r2']).float().to(self.device).detach()
-        next_state = torch.tensor(rollouts['next_state'], dtype=torch.float32).unsqueeze(0).to(self.device).detach()
+        next_state = torch.from_numpy(rollouts['next_state']).float().unsqueeze(0).to(self.device).detach()
 
         advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
         adv_reward, reward_returns = advantages["reward"]
