@@ -10,6 +10,7 @@ dependencies:
   - pytorch                      
   - torchvision
   - matplotlib
+  - tqdm                         # Progress bar per il training
   - grpcio>=1.48.2               # Installato via Conda per evitare errori di compilazione su M4
   - protobuf==3.20.3             # Versione specifica richiesta da ML-Agents
   - pip:
