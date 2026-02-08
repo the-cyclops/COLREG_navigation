@@ -184,18 +184,18 @@ class ConstrainedPPOAgent:
         Args:
             rollouts (dict): Dictionary containing raw lists from the buffer:
                              ['states', 'actions', 'rewards', 'masks', 
-                              'cost_r1', 'cost_r2', 'next_state', 'log_probs']
+                              'cost_r1', 'cost_r2', 'next_state', 'logprobs']
             robustness_dict (dict): Current min robustness values e.g. {'R1': -0.1, 'R2': 0.5}
         """
         # Calculate Advantages for reward and costs
         states = torch.stack(rollouts['states']).to(self.device).detach()
         actions = torch.stack(rollouts['actions']).to(self.device).detach()
         rewards = torch.tensor(rollouts['rewards'], dtype=torch.float32).to(self.device).detach()
-        old_log_probs = torch.stack(rollouts['log_probs']).to(self.device).detach()
+        old_log_probs = torch.stack(rollouts['logprobs']).to(self.device).detach()
         masks = torch.tensor(rollouts['masks'], dtype=torch.float32).to(self.device).detach()
         cost_r1 = torch.tensor(rollouts['cost_r1'], dtype=torch.float32).to(self.device).detach()
         cost_r2 = torch.tensor(rollouts['cost_r2'], dtype=torch.float32).to(self.device).detach()
-        next_state = rollouts['next_state'].to(self.device).detach()
+        next_state = torch.tensor(rollouts['next_state'], dtype=torch.float32).unsqueeze(0).to(self.device).detach()
 
         advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
         adv_reward, reward_returns = advantages["reward"]

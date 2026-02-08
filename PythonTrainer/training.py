@@ -145,8 +145,10 @@ def main():
             rollout_buffer['actions'] = memory_buffer.actions
             rollout_buffer['logprobs'] = memory_buffer.logprobs
             rollout_buffer['rewards'] = memory_buffer.rewards
-            rollout_buffer['is_terminals'] = memory_buffer.is_terminals
-            rollout_buffer['next_states'] = next_obs
+            rollout_buffer['masks'] = 1 - np.array(memory_buffer.is_terminals)
+            rollout_buffer['next_state'] = next_obs
+            rollout_buffer['cost_r1'] = memory_buffer.cost_r1
+            rollout_buffer['cost_r2'] = memory_buffer.cost_r2
 
             robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             print("stiamo per fare update, robustness dict: ", robustness_dict)
