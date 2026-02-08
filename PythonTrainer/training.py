@@ -16,7 +16,9 @@ from colreg_logic import rtamt_yml_parser
 model_name = "boat_agent_model"
 # None - use the Unity Editor (press Play)
 unity_env_path = None
-                       
+
+#DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+DEVICE = "cpu"
 # BoatAgent Parameters - must match those in Unity
 OBSERVATION_SIZE = 24 # From UnityEnvironment/Scripts/BoatAgent.cs
 RAYCAST_COUNT = 7 # 3 side rays + 1 front ray # From Unity RayPerceptionSensorComponent3D
@@ -31,7 +33,7 @@ testing = True
 EPISODES = 10
 ROLLOUT_SIZE = 2_048
 TOT_STEPS = 1_000_000
-SAVE_INTERVAL = 1000
+SAVE_INTERVAL = 20_480
 
 colreg_path = "colreg_logic/colreg.yaml"
 
@@ -74,7 +76,7 @@ def main():
     print("Behaviors found:", list(env.behavior_specs.keys()))
     behavior_name = list(env.behavior_specs.keys())[0] 
     
-    agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE)
+    agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE)
 
     print(f"Start training on: {behavior_name}")
 
@@ -92,10 +94,10 @@ def main():
             while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
                 obs, vec_obs = get_single_agent_obs(decision_steps)
-                obs_tensor = torch.from_numpy(obs).float().unsqueeze(0)
+                obs_tensor = torch.from_numpy(obs).float().unsqueeze(0).to(DEVICE)
 
                 action_tensor, log_probabs = agent.get_action(obs_tensor)
-                action_numpy = action_tensor.detach().numpy()
+                action_numpy = action_tensor.detach().cpu().numpy()
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
 
@@ -175,7 +177,6 @@ def main():
             agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
 
             memory_buffer.clear_ppo()
-            
             # Save the model occasionally
             if s % SAVE_INTERVAL == 0:
                 print(f"Saving model at step {s}...")
