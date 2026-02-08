@@ -148,7 +148,7 @@ def main():
             rollout_buffer['is_terminals'] = memory_buffer.is_terminals
             rollout_buffer['next_states'] = next_obs
 
-            robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': 0.5}
+            robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             print("stiamo per fare update, robustness dict: ", robustness_dict)
             agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
 
