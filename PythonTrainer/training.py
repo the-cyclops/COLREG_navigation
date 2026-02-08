@@ -166,17 +166,21 @@ def main():
             rollout_buffer['cost_r2'] = np.array(memory_buffer.cost_r2)
 
             robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
-            pbar.write(f"Update, reward: {rollout_buffer['rewards'].mean():.2f}, robustness dict: {robustness_dict}")
+            
+            log_dict = agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
+
+            reward_returns = log_dict['reward'][1]
+
+            memory_buffer.clear_ppo()
+
+            pbar.write(f"Update, reward: {reward_returns.mean():.2f}, robustness dict: {robustness_dict}")
 
             pbar.set_postfix({
-                'Reward': f"{rollout_buffer['rewards'].mean():.2f}",
+                'Reward': f"{reward_returns.mean():.2f}",
                 'R1': f"{robustness_dict['R1']:.2f}",
                 'R2': f"{robustness_dict['R2']:.2f}"
             })
-            
-            agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
 
-            memory_buffer.clear_ppo()
             # Save the model occasionally
             if s % SAVE_INTERVAL == 0:
                 print(f"Saving model at step {s}...")
