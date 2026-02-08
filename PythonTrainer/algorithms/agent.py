@@ -190,11 +190,11 @@ class ConstrainedPPOAgent:
         # Calculate Advantages for reward and costs
         states = torch.stack(rollouts['states']).to(self.device).detach()
         actions = torch.stack(rollouts['actions']).to(self.device).detach()
-        rewards = torch.tensor(rollouts['rewards'], dtype=torch.float32).to(self.device).detach()
+        rewards = torch.from_numpy(rollouts['rewards']).float().to(self.device).detach()
         old_log_probs = torch.stack(rollouts['logprobs']).to(self.device).detach()
-        masks = torch.tensor(rollouts['masks'], dtype=torch.float32).to(self.device).detach()
-        cost_r1 = torch.tensor(rollouts['cost_r1'], dtype=torch.float32).to(self.device).detach()
-        cost_r2 = torch.tensor(rollouts['cost_r2'], dtype=torch.float32).to(self.device).detach()
+        masks = torch.from_numpy(rollouts['masks']).float().to(self.device).detach()
+        cost_r1 = torch.from_numpy(rollouts['cost_r1']).float().to(self.device).detach()
+        cost_r2 = torch.from_numpy(rollouts['cost_r2']).float().to(self.device).detach()
         next_state = torch.tensor(rollouts['next_state'], dtype=torch.float32).unsqueeze(0).to(self.device).detach()
 
         advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
