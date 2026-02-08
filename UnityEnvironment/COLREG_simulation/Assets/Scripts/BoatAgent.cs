@@ -245,15 +245,9 @@ public class BoatAgent : Agent
         // Apply forces based on jet inputs
         boatPhysics.SetJetInputs(leftInput, rightInput);
 
-        // Calculate Reward
-        //TODO
+        AddReward(-0.0005f); 
 
     }
-
-    //public override void CalculateReward()
-    //{
-    //TODO
-    //}
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -286,11 +280,6 @@ public class BoatAgent : Agent
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode(); 
         }
-    }
-
-    public void FixedUpdate() {
-        // Penalità esistenziale per spronarlo a fare in fretta
-        AddReward(-0.0005f); 
     }
 
     // This maps your keyboard to the Action Buffers
