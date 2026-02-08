@@ -190,8 +190,8 @@ class ConstrainedPPOAgent:
         # Calculate Advantages for reward and costs
         states = torch.stack(rollouts['states']).to(self.device).detach()
         actions = torch.stack(rollouts['actions']).to(self.device).detach()
-        rewards = torch.from_numpy(rollouts['rewards']).float().to(self.device).detach()
-        old_log_probs = torch.stack(rollouts['logprobs']).to(self.device).detach()
+        rewards = torch.from_numpy(rollouts['rewards']).float().to(self.device).detach().squeeze()
+        old_log_probs = torch.stack(rollouts['logprobs']).to(self.device).detach().squeeze()
         masks = torch.from_numpy(rollouts['masks']).float().to(self.device).detach()
         cost_r1 = torch.from_numpy(rollouts['cost_r1']).float().to(self.device).detach()
         cost_r2 = torch.from_numpy(rollouts['cost_r2']).float().to(self.device).detach()

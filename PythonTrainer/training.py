@@ -124,6 +124,7 @@ def main():
                 memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_robustness=r1)
 
                 if memory_buffer.is_stl_ready():
+                    print("STL ready")
                     _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
                     
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
@@ -144,9 +145,8 @@ def main():
                     decision_steps, terminal_steps = env.get_steps(behavior_name)
 
 
-
             next_state = get_single_agent_obs(decision_steps)[0]
-            
+
             rollout_buffer = {}
             rollout_buffer['states'] =  memory_buffer.states
             rollout_buffer['actions'] = memory_buffer.actions
@@ -158,7 +158,7 @@ def main():
             rollout_buffer['cost_r2'] = np.array(memory_buffer.cost_r2)
 
             robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
-            print("stiamo per fare update, robustness dict: ", robustness_dict)
+            print("Update, robustness dict: ", robustness_dict)
             agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
 
             memory_buffer.clear_ppo()
