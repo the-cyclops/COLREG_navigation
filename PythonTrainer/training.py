@@ -130,7 +130,7 @@ def main():
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
 
                 memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_robustness=r1)
-
+                
                 if memory_buffer.is_stl_ready():
                     #print("STL ready")
                     _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
@@ -144,7 +144,7 @@ def main():
                     memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
                     memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
                 else: 
-                    memory_buffer.add_robustness(r1=0.0,r2=0.0)
+                    memory_buffer.add_robustness(r1=colreg_handler.MAX_ROBUSTNESS_CAP,r2=colreg_handler.MAX_ROBUSTNESS_CAP)
                     memory_buffer.add_costs(c_r1=0.0, c_r2=0.0)
 
                 if end_episode:
