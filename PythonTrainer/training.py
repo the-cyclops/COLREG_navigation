@@ -50,7 +50,7 @@ def main():
     print("Environment loaded successfully.")
     
     # time_scale = 1.0 real tiem - 20.0 is 20x faster than real time
-    engine_config.set_configuration_parameters(width=800, height=600, time_scale=20.0)
+    engine_config.set_configuration_parameters(width=800, height=600, time_scale=1.0)
 
     # Debug info print behaviors available
     print("Behaviors found:", list(env.behavior_specs.keys()))
@@ -71,17 +71,17 @@ def main():
                 # Decision_steps contain a list of observations from different sources
                 # [0] is the ray_cast_perception sensor, [1] is the manual vector observation 
                 if decision_steps.obs[0].shape[1] == RAYCAST_SIZE and decision_steps.obs[1].shape[1] == OBSERVATION_SIZE:
-                    ray_obs = decision_steps.obs[0]
-                    vec_obs = decision_steps.obs[1]
+                    ray_obs = decision_steps.obs[0][0]
+                    vec_obs = decision_steps.obs[1][0]
                 elif decision_steps.obs[0].shape[1] == OBSERVATION_SIZE and decision_steps.obs[1].shape[1] == RAYCAST_SIZE:
-                    ray_obs = decision_steps.obs[1]
-                    vec_obs = decision_steps.obs[0]
+                    ray_obs = decision_steps.obs[1][0]
+                    vec_obs = decision_steps.obs[0][0]
                 else:
                     raise ValueError("Unexpected observation shapes: ", decision_steps.obs[0].shape, decision_steps.obs[1].shape)
                 
-                obs = np.concatenate((ray_obs, vec_obs), axis=1)[0] # Get the first (and only) agent's observation
+                obs = np.concatenate((ray_obs, vec_obs)) 
 
-                obs_tensor = torch.from_numpy(obs).float()
+                obs_tensor = torch.from_numpy(obs).float().unsqueeze(0) # Add batch dimension 
 
                 action_tensor, log_probabs = agent.get_action(obs_tensor)
                 action_numpy = action_tensor.detach().numpy()
@@ -110,7 +110,7 @@ def main():
                 is_terminal=float(end_episode)
                 )
 
-                # Retrieving Robustness using RTAMT and storing it in the buffer for later use in the PPO update
+                
                 r1 = colreg_handler.get_R1_robustness(obs=vec_obs)
 
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
