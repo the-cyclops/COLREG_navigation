@@ -3,7 +3,7 @@ horizon: 40 # 1 / (Unity_100Hz / Decision_Period_5) * 40 steps = 2.0s
 constants:
   - name: V_MAX
     type: float
-    value: 2.0 # Maximum safe speed (m/s) reasonable for our boats
+    value: 2.1 # Maximum safe speed (m/s) reasonable for our boats
 variables:
   - name: boat_speed
     type: float
