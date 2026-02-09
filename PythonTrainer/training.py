@@ -32,13 +32,13 @@ BEHAVIOR_NAME = "BoatAgent"
 testing = True
 EPISODES = 10
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 3_000
+TOT_STEPS = 1_000_000
 
-SAVE_INTERVAL = 10_000
-
+SAVE_INTERVAL = 20_480
+START_SAFETY = 40_960
 colreg_path = "colreg_logic/colreg.yaml"
 
-loading_step = 2_048 # Set to a specific step number to load that checkpoint, or None to start fresh
+loading_step = None # Set to a specific step number to load that checkpoint, or None to start fresh
 
 def get_single_agent_obs(steps):
     # Extract raw observations list
@@ -65,6 +65,8 @@ def main():
 
     RTAMT = rtamt_yml_parser.RTAMTYmlParser(colreg_path)
 
+    safety_active = False
+
     # Channel used to speed up the game time
     engine_config = EngineConfigurationChannel()
     
@@ -81,7 +83,7 @@ def main():
     print("Behaviors found:", list(env.behavior_specs.keys()))
     behavior_name = list(env.behavior_specs.keys())[0] 
     
-    agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE)
+    agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=START_SAFETY)
 
     if loading_step is not None:
         checkpoint_path = f"Models/{model_name}_{loading_step}.pth"
@@ -112,6 +114,10 @@ def main():
         save_model = False
         
         while s < TOT_STEPS: 
+
+            if not safety_active and s >= START_SAFETY:
+                safety_active = True
+                pbar.write(f"Safety constraints activated at step {s}.")
             
             while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
@@ -193,13 +199,14 @@ def main():
             robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             
             log_dict = agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
+            
+            mode = log_dict['mode']
 
             reward_returns = log_dict['reward'][1]
 
             memory_buffer.clear_ppo()
 
-            pbar.write(f"Update, reward: {reward_returns.mean():.6f}, robustness R1: {robustness_dict['R1']:.6f}, robustness R2: {robustness_dict['R2']:.6f}")
-
+            pbar.write(f"----- Update! Mode: {mode} -----\nReward: {reward_returns.mean():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}") 
             pbar.set_postfix({
                 'Reward': f"{reward_returns.mean():.2f}",
                 'R1': f"{robustness_dict['R1']:.2f}",
