@@ -32,10 +32,13 @@ BEHAVIOR_NAME = "BoatAgent"
 testing = True
 EPISODES = 10
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 1_000_000
-SAVE_INTERVAL = 20_480
+TOT_STEPS = 3_000
+
+SAVE_INTERVAL = 10_000
 
 colreg_path = "colreg_logic/colreg.yaml"
+
+loading_step = 2_048 # Set to a specific step number to load that checkpoint, or None to start fresh
 
 def get_single_agent_obs(steps):
     # Extract raw observations list
@@ -55,6 +58,8 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
+
+    starting_step = 0
 
     colreg_handler = COLREGHandler()
 
@@ -78,16 +83,33 @@ def main():
     
     agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE)
 
-    print(f"Start training on: {behavior_name}")
+    if loading_step is not None:
+        checkpoint_path = f"Models/{model_name}_{loading_step}.pth"
+        print(f"Loading model from {checkpoint_path}...")
+        checkpoint = torch.load(checkpoint_path, map_location=DEVICE)
+        starting_step = checkpoint['step']
+        agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
+        agent.value_net.load_state_dict(checkpoint['value_state_dict'])
+        agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
+        agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
+        agent.policy_opt.load_state_dict(checkpoint['policy_opt_state_dict'])
+        agent.value_opt.load_state_dict(checkpoint['value_opt_state_dict'])
+        agent.cost_opts[0].load_state_dict(checkpoint['cost_safe_distance_opt_state_dict'])
+        agent.cost_opts[1].load_state_dict(checkpoint['cost_safe_speed_opt_state_dict'])
+        print(f"Model loaded, starting from step {starting_step}.")
+    else:
+        print(f"Start training on: {behavior_name}")
 
     memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
 
     try:
-        s = 0
+        s = starting_step
         decision_steps, terminal_steps = env.get_steps(behavior_name)
         
         # Progress bar per il training
         pbar = tqdm(total=TOT_STEPS, desc="Training", unit="steps")
+
+        save_model = False
         
         while s < TOT_STEPS: 
             
@@ -152,6 +174,9 @@ def main():
                     env.reset()
                     decision_steps, terminal_steps = env.get_steps(behavior_name)
 
+                if s % SAVE_INTERVAL == 0:
+                    save_model = True
+
 
             next_state = get_single_agent_obs(decision_steps)[0]
 
@@ -182,9 +207,23 @@ def main():
             })
 
             # Save the model occasionally
-            if s % SAVE_INTERVAL == 0:
+            if save_model:
                 print(f"Saving model at step {s}...")
-                torch.save(agent.state_dict(), f"Models/{model_name}_{s}.pth")
+                checkpoint = {
+                    'step': s,
+                    'policy_state_dict': agent.policy_net.state_dict(),
+                    'value_state_dict': agent.value_net.state_dict(),
+                    'cost_net_safe_distance_state_dict': agent.cost_net_safe_distance.state_dict(),
+                    'cost_net_safe_speed_state_dict': agent.cost_net_safe_speed.state_dict(),
+                    'policy_opt_state_dict': agent.policy_opt.state_dict(),
+                    'value_opt_state_dict': agent.value_opt.state_dict(),
+                    'cost_safe_distance_opt_state_dict': agent.cost_opts[0].state_dict(),
+                    'cost_safe_speed_opt_state_dict': agent.cost_opts[1].state_dict(),
+                    'robustness_r1': robustness_dict['R1'],
+                    'robustness_r2': robustness_dict['R2']
+                }
+                torch.save(checkpoint, f"Models/{model_name}_{s}.pth")
+                save_model = False
 
     except KeyboardInterrupt:
         print("Manual interruption...")
