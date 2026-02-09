@@ -250,6 +250,9 @@ class ConstrainedPPOAgent:
         violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
         # Case 1: No violations (NOMINAL MODE) -> Standard PPO update using reward advantage
         if not violated_rules or current_step < self.start_safety:
+            actual_mode = "NOMINAL"
+            if violated_rules:
+                actual_mode="NOMINAL (warmup)"
             policy_loss = self._get_ppo_loss(ratio, adv_reward)
             self.policy_opt.zero_grad()
             policy_loss.backward()
@@ -257,6 +260,7 @@ class ConstrainedPPOAgent:
         # Case 2: single violation -> Minimize specific cost (Maximize negative cost advantage)
         elif len(violated_rules) == 1:
             rule = violated_rules[0]
+            actual_mode = f"SINGLE VIOLATION {rule}"
             cost_adv = cost_config[rule]["adv"]
             # -cost_adv because we want to minimize cost
             policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
@@ -265,6 +269,7 @@ class ConstrainedPPOAgent:
             self.policy_opt.step()
         # Case 3: multiple violations -> Use CAGrad to find the best update direction
         else:
+            actual_mode = f"MULTIPLE VIOLATIONS {violated_rules}"
             grads = []
             for rule in violated_rules:
                 cost_adv = cost_config[rule]["adv"]
@@ -280,7 +285,7 @@ class ConstrainedPPOAgent:
                 self._set_flat_grad(merged_grad, self.policy_net)
                 self.policy_opt.step()
         return {
-            "mode": "nominal" if not violated_rules else "safety_violation",
+            "mode": actual_mode,
             "violated_rules": violated_rules,
             "robustness": {rule: robustness_dict[rule] for rule in violated_rules},
             "reward": (adv_reward, reward_returns),
