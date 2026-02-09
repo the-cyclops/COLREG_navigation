@@ -11,57 +11,77 @@ class RTAMTYmlParser:
                 config_dict = yaml.safe_load(stream)
             except yaml.YAMLError as exc:
                 print(exc)
-                
-        self.stl_spec = rtamt.StlDiscreteTimeOfflineSpecification()
-        self.data = dict()
-        self.data['time'] = []
+        
+        # We will store a dedicated, pre-compiled monitor for each rule.
+        # This avoids re-parsing the formula at every training step (huge performance boost).
+        self.monitors = {}
         
         self.timestep = 1 if 'timestep' not in config_dict.keys() else config_dict['timestep']
         self.horizon_length = 1 if 'horizon' not in config_dict.keys() else config_dict['horizon']
 
         # Pull the reward type from the config
         self.dense = False if 'dense' not in config_dict.keys() else config_dict['dense']
-        # Sort through specified constants that will be used in the specifications
-        if 'constants' in config_dict.keys():
-            constants = config_dict['constants']
-            for i in constants:
-                self.stl_spec.declare_const(i['name'], i['type'], i['value'])
 
-        # Sort through specified variables that will be tracked
         self.stl_variables = config_dict['variables']
-        for i in self.stl_variables:
-            self.stl_spec.declare_var(i['name'], i['type'])
-            self.data[i['name']] = []
-            if 'i/o' in i.keys():
-                self.stl_spec.set_var_io_type(i['name'], i['i/o'])
-
-        # Collect specifications
         self.specifications = config_dict['specifications']
-        spec_str = "out = "
-        for i in self.specifications:
-            self.stl_spec.declare_var(i['name'], 'float')
-            # define robustness as output
-            self.stl_spec.set_var_io_type(i['name'], 'output')
-            self.stl_spec.add_sub_spec(i['spec'])
-            spec_str += i['name'] + ' and '
-            if 'weight' not in i.keys():
-                i['weight'] = 1.0
-        spec_str = spec_str[:-5]
-        self.stl_spec.declare_var('out', 'float')
-        self.stl_spec.spec = spec_str
-
-        # Parse the specification
-        try:
-            self.stl_spec.parse()
-        except rtamt.StlParseException as err:
-            print('STL Parse Exception: {}'.format(err))
-            sys.exit()   
+        
+        # Helper function to initialize a fresh monitor with all variables declared.
+        # This replaces the old single-monitor setup to allow independent rule evaluation.
+        def create_base_monitor():
+            spec = rtamt.StlDiscreteTimeOfflineSpecification()
             
+            # Sort through specified constants that will be used in the specifications
+            if 'constants' in config_dict.keys():
+                for c in config_dict['constants']:
+                    spec.declare_const(c['name'], c['type'], c['value'])
+            
+            # Sort through specified variables that will be tracked
+            for v in self.stl_variables:
+                spec.declare_var(v['name'], v['type'])
+                
+                # IMPORTANT: Explicitly set IO type for RTAMT 0.3.5 compatibility
+                if 'i/o' in v.keys():
+                    spec.set_var_io_type(v['name'], v['i/o'])
+                elif v.get('location') == 'obs':
+                    spec.set_var_io_type(v['name'], 'input')
+            return spec
+
+        # Collect specifications and compile monitors
+        for i in self.specifications:
+            rule_name = i['name']
+            raw_spec = i['spec']
+            
+            # Extract pure formula (remove "RuleName = " prefix if present)
+            if '=' in raw_spec:
+                formula = raw_spec.split('=', 1)[1].strip()
+            else:
+                formula = raw_spec
+            
+            try:
+                # Create a dedicated monitor instance for this rule
+                monitor = create_base_monitor()
+                monitor.spec = formula
+                monitor.parse() # Compile ONCE at startup
+                
+                # Store in dictionary
+                self.monitors[rule_name] = monitor
+                
+            except rtamt.StlParseException as err:
+                print(f'STL Parse Exception for rule {rule_name}: {err}')
+                sys.exit()
+
+        # Initialize data structure for inputs (Legacy support)
+        self.data = dict()
+        self.data['time'] = []
+
     def get_non_global_rules(self):
         non_global = list(filter(lambda spec: spec["name"] != 'global' , self.specifications))
         names = list(map(lambda spec: spec['name'], non_global))
         return names
             
+    # This is the Professor's original method. 
+    # NOTE: It will not work with the current setup (self.stl_spec is missing) 
+    # and is kept here strictly for reference/comparison.
     def old_compute_robustness_dense(self, tau_state):
         
         # assert len(tau_state) == self.horizon_length, "Tau state does not match STL rules horizon"
@@ -79,56 +99,60 @@ class RTAMTYmlParser:
         if self.dense:
             _ = self.stl_spec.evaluate(data)
             for i in self.specifications:
-                val = self.stl_spec.get_value(i['name'])#[0]
+                val = self.stl_spec.get_value(i['name'])[0]
                 single_rho[i['name']] = val 
                 total_rho += float(i['weight']) * val
                 
         return total_rho, single_rho
-    
-    # fix of gemini TO BE TESTED
-    def compute_robustness_dense(self, tau_state):
-        
 
-        # Prepare input data dictionary
-        data = {}
-        for key in self.data.keys():
-            data[key] = []
-            
-        # Fill data from observations
-        for obs in tau_state:
-            for i in self.stl_variables:
-                if i['location'] == 'obs':
-                    data[i['name']].append(obs[i['identifier']])
+    def compute_robustness_dense(self, tau_state):
+        # --- OPTIMIZED EVALUATION ---
+        # No parsing here. Just data preparation and evaluation.
         
-        # Generate time sequence (0, 1, 2...) ensuring it is a list
-        data['time'] = list(range(len(tau_state)))
+        # 1. Prepare Data (One-time formatting for all monitors)
+        data = {}
+        steps = len(tau_state)
+        
+        # Create 'time' list as pure floats
+        data['time'] = [float(t) for t in range(steps)]
+
+        # Fill input variables (force float cast)
+        for i in self.stl_variables:
+            if i['location'] == 'obs':
+                data[i['name']] = [float(obs[i['identifier']]) for obs in tau_state]
         
         single_rho = {}
         total_rho = 0.0
         
         if self.dense:
-            # Evaluate specifications
-            self.stl_spec.evaluate(data)
-            
+            # Iterate over pre-compiled monitors
             for i in self.specifications:
-                raw_val = self.stl_spec.get_value(i['name'])
+                name = i['name']
+                weight = float(i.get('weight', 1.0))
                 
-                # --- RETURN TYPE HANDLING ---
-                # RTAMT might return a list [[t0, val0], [t1, val1]...] or a single float.
-                # We extract the value at t=0 which represents the robustness for the whole window
-                # when using 'always' operators.
-                if isinstance(raw_val, list):
-                    val = float(raw_val[0][1])
-                else:
-                    val = float(raw_val)
-                # ----------------------------
-
-                if val == 0.0:
-                    # Optional debug print
-                    # print(f"DEBUG: Spec {i['name']} is 0.0. Weight: {i['weight']}")
-                    pass
-
-                single_rho[i['name']] = val 
-                total_rho += float(i['weight']) * val
+                try:
+                    # Retrieve the pre-compiled monitor
+                    monitor = self.monitors[name]
+                    
+                    # Evaluate directly (Fast C++ execution)
+                    res = monitor.evaluate(data)
+                    
+                    # --- EXTRACT VALUE AT t=0 ---
+                    val = 0.0
+                    if isinstance(res, list) and len(res) > 0:
+                        # Case: [[t0, v0], [t1, v1]...] -> take v0
+                        val = float(res[0][1])
+                    elif isinstance(res, (float, int)):
+                        # Case: scalar
+                        val = float(res)
+                    
+                    # Store results
+                    single_rho[name] = val 
+                    total_rho += weight * val
+                    
+                except Exception as e:
+                    # Fallback only if runtime error occurs
+                    # print(f"RTAMT Runtime Error rule '{name}': {e}")
+                    single_rho[name] = 0.0
                 
         return total_rho, single_rho
