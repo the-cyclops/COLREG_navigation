@@ -129,13 +129,13 @@ def main():
 
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
 
-                memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_robustness=r1)
+                memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_robustness=float(r1))
                 
                 if memory_buffer.is_stl_ready():
                     #print("STL ready")
                     _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
                     
-                    rho_1 = single_rho.get('R1_safe_distance', 0.0)
+                    rho_1 = single_rho.get('R1_safe_distance', -10.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
                    
                     cost_1 = max(0, -rho_1)
@@ -173,7 +173,7 @@ def main():
 
             memory_buffer.clear_ppo()
 
-            pbar.write(f"Update, reward: {reward_returns.mean():.2f}, robustness dict: {robustness_dict}")
+            pbar.write(f"Update, reward: {reward_returns.mean():.6f}, robustness R1: {robustness_dict['R1']:.6f}, robustness R2: {robustness_dict['R2']:.6f}")
 
             pbar.set_postfix({
                 'Reward': f"{reward_returns.mean():.2f}",

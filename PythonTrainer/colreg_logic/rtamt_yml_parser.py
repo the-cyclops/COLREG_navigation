@@ -2,7 +2,6 @@ import yaml
 import rtamt
 import sys
 
-
 class RTAMTYmlParser: 
     
     def __init__(self, config_path: str):
@@ -13,7 +12,7 @@ class RTAMTYmlParser:
             except yaml.YAMLError as exc:
                 print(exc)
                 
-        self.stl_spec = rtamt.StlDiscreteTimeSpecification()
+        self.stl_spec = rtamt.StlDiscreteTimeOfflineSpecification()
         self.data = dict()
         self.data['time'] = []
         
@@ -40,7 +39,9 @@ class RTAMTYmlParser:
         self.specifications = config_dict['specifications']
         spec_str = "out = "
         for i in self.specifications:
-            #self.stl_spec.declare_var(i['name'], 'float')
+            self.stl_spec.declare_var(i['name'], 'float')
+            # define robustness as output
+            self.stl_spec.set_var_io_type(i['name'], 'output')
             self.stl_spec.add_sub_spec(i['spec'])
             spec_str += i['name'] + ' and '
             if 'weight' not in i.keys():
@@ -87,43 +88,45 @@ class RTAMTYmlParser:
     # fix of gemini TO BE TESTED
     def compute_robustness_dense(self, tau_state):
         
-        # Prepara i dati di input
+
+        # Prepare input data dictionary
         data = {}
         for key in self.data.keys():
             data[key] = []
             
-        # Riempie i dati dalle osservazioni
+        # Fill data from observations
         for obs in tau_state:
             for i in self.stl_variables:
                 if i['location'] == 'obs':
                     data[i['name']].append(obs[i['identifier']])
         
-        # Genera la sequenza temporale (0, 1, 2, ...)
+        # Generate time sequence (0, 1, 2...) ensuring it is a list
         data['time'] = list(range(len(tau_state)))
         
         single_rho = {}
         total_rho = 0.0
         
         if self.dense:
-            # Valuta le specifiche
+            # Evaluate specifications
             self.stl_spec.evaluate(data)
             
             for i in self.specifications:
                 raw_val = self.stl_spec.get_value(i['name'])
                 
-                # --- GESTIONE TIPO DI RITORNO (FIX IMPORTANTE) ---
-                # RTAMT spesso restituisce una lista [[t0, val0], [t1, val1]...]
+                # --- RETURN TYPE HANDLING ---
+                # RTAMT might return a list [[t0, val0], [t1, val1]...] or a single float.
+                # We extract the value at t=0 which represents the robustness for the whole window
+                # when using 'always' operators.
                 if isinstance(raw_val, list):
-                    # Prendiamo il valore al tempo 0 (inizio della finestra mobile)
-                    # che riassume la robustezza per tutto l'orizzonte
                     val = float(raw_val[0][1])
                 else:
-                    # Caso in cui restituisca direttamente un float
                     val = float(raw_val)
-                # -------------------------------------------------
+                # ----------------------------
 
                 if val == 0.0:
-                    print(f"DEBUG: Spec {i['name']} is 0.0. Weight: {i['weight']}")
+                    # Optional debug print
+                    # print(f"DEBUG: Spec {i['name']} is 0.0. Weight: {i['weight']}")
+                    pass
 
                 single_rho[i['name']] = val 
                 total_rho += float(i['weight']) * val
