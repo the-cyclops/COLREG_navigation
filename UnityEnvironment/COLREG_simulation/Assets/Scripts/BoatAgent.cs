@@ -28,6 +28,8 @@ public class BoatAgent : Agent
 
     public override void Initialize()
     {
+        this.MaxStep = 6000;
+
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
 
@@ -251,22 +253,21 @@ public class BoatAgent : Agent
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag("Obstacle"))
-        {   
-            SetReward(-1.0f);
-            if (debugMode) Debug.Log(GetCumulativeReward());
-            EndEpisode();
-        } else 
-        if (collision.gameObject.CompareTag("Wall")){
-            SetReward(-2f);
-            if (debugMode) Debug.Log(GetCumulativeReward());
-            EndEpisode();
-        } else
-        if (collision.gameObject.CompareTag("Boat")){
-            SetReward(-1.5f);
+        if (!collision.gameObject.CompareTag("Target")) {
+            if (collision.gameObject.CompareTag("Obstacle")) {   
+                AddReward(-1.0f);
+            } else 
+            if (collision.gameObject.CompareTag("Wall")){
+                AddReward(-2f);
+            } else 
+            if (collision.gameObject.CompareTag("Boat")){
+                AddReward(-1.5f);
+            } 
+
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode();
         }
+
     }
 
     private void OnTriggerEnter(Collider other)
