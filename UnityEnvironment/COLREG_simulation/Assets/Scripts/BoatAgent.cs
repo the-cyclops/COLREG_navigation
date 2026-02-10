@@ -14,7 +14,7 @@ public class BoatAgent : Agent
 
     private float arenaRadius = 15f;
 
-    [SerializeField] GameObject[] obstacles;
+    [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
     [SerializeField] GameObject intruderVessel2;
 
@@ -51,8 +51,12 @@ public class BoatAgent : Agent
     {
         float minDistance = 3.0f; // Minimum distance from obstacles
 
-        foreach (GameObject obstacle in obstacles)
+        foreach (Transform obstacle in obstacles.transform)
         {
+            if (debugMode)
+            {
+                Debug.Log($"Checking obstacle {obstacle.name}");
+            }
             Vector3 obstaclePos = obstacle.transform.localPosition;
             float distance = Vector2.Distance(new Vector2(obstaclePos.x, obstaclePos.z), pos);
             if (distance < minDistance)
