@@ -30,9 +30,8 @@ ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 testing = True
-EPISODES = 10
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 1_000_000
+TOT_STEPS = 5_000
 
 SAVE_INTERVAL = 20_480
 START_SAFETY = 40_960
@@ -59,7 +58,7 @@ def get_single_agent_obs(steps):
 
 def main():
 
-    starting_step = 0
+    starting_step = 2_048
 
     colreg_handler = COLREGHandler()
 
@@ -88,7 +87,7 @@ def main():
     if loading_step is not None:
         checkpoint_path = f"Models/{model_name}_{loading_step}.pth"
         print(f"Loading model from {checkpoint_path}...")
-        checkpoint = torch.load(checkpoint_path, map_location=DEVICE)
+        checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
         starting_step = checkpoint['step']
         agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
         agent.value_net.load_state_dict(checkpoint['value_state_dict'])
