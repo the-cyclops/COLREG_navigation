@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from mlagents_envs.environment import UnityEnvironment
@@ -29,15 +30,13 @@ INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE
 ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
-testing = True
 ROLLOUT_SIZE = 2_048
 TOT_STEPS = 1_000_000
 
 SAVE_INTERVAL = 20_480
-START_SAFETY = 40_960
+START_SAFETY = 501_760 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 colreg_path = "colreg_logic/colreg.yaml"
 
-loading_step = None # Set to a specific step number to load that checkpoint, or None to start fresh
 
 def get_single_agent_obs(steps):
     # Extract raw observations list
@@ -58,7 +57,9 @@ def get_single_agent_obs(steps):
 
 def main():
 
-    starting_step = 2_048
+    writer = SummaryWriter(log_dir=f"runs/{model_name}")
+
+    starting_step = 0
 
     colreg_handler = COLREGHandler()
 
@@ -84,8 +85,8 @@ def main():
     
     agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=START_SAFETY)
 
-    if loading_step is not None:
-        checkpoint_path = f"Models/{model_name}_{loading_step}.pth"
+    if starting_step != 0:
+        checkpoint_path = f"Models/{model_name}_{starting_step}.pth"
         print(f"Loading model from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
         starting_step = checkpoint['step']
@@ -202,6 +203,13 @@ def main():
             mode = log_dict['mode']
 
             reward_returns = log_dict['reward'][1]
+
+            writer.add_scalar("Training/Mean_Reward", reward_returns.mean().item(), s)
+            writer.add_scalar("Training/Robustness_R1_Physics", robustness_dict['R1'], s)
+            writer.add_scalar("Training/Robustness_R2_Physics", robustness_dict['R2'], s)
+            writer.add_scalar("Training/R1_cumulative_cost", log_dict['r1'][1].mean().item(), s)
+            writer.add_scalar("Training/R2_cumulative_cost", log_dict['r2'][1].mean().item(), s)
+            writer.add_text("Training/Mode_Log", mode, s)
 
             memory_buffer.clear_ppo()
 
