@@ -258,14 +258,15 @@ public class BoatAgent : Agent
     private void OnCollisionEnter(Collision collision)
     {
         if (!collision.gameObject.CompareTag("Target")) {
+            // same penalty for all collisons as professor suggested
             if (collision.gameObject.CompareTag("Obstacle")) {   
                 AddReward(-1.0f);
             } else 
             if (collision.gameObject.CompareTag("Wall")){
-                AddReward(-2f);
+                AddReward(-1.0f);
             } else 
             if (collision.gameObject.CompareTag("Boat")){
-                AddReward(-1.5f);
+                AddReward(-1.0f);
             } 
 
             if (debugMode) Debug.Log(GetCumulativeReward());
