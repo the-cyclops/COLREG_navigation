@@ -7,8 +7,8 @@ class COLREGHandler:
         self.k_dist = 20.0 
         self.k_intruder_vel_rel = 2.0 * max_linear_speed 
         
-        # Constant for robustness clipping (Avoids magic numbers)
-        self.MAX_ROBUSTNESS_CAP = 10.0
+        # Constant for safety signal clipping (Avoids magic numbers)
+        self.MAX_SAFETY_MARGIN_CAP = 10.0
 
     def get_ego_speed(self, obs_vector):
         """
@@ -50,16 +50,16 @@ class COLREGHandler:
 
         return [(pos_rel1, vel_rel1), (pos_rel2, vel_rel2)]
 
-    def compute_cpa_R1_robustness(self, pos_rel, vel_rel, safe_dist=3.0, t_horizon=20.0):
+    def compute_cpa_R1(self, pos_rel, vel_rel, safe_dist=1.0, t_horizon=10.0):
         """
-        Calculates safety margin based on CPA (Closest Point of Approach) over t_horizon seconds.
-        Returns: R1 Robustness (Predicted Min Distance - Safety Distance)
+        Calculates safety signal based on CPA (Closest Point of Approach) over t_horizon seconds.
+        Returns: R1 Signal (Predicted Min Distance - Safety Distance)
         """
         # --- PHYSICS CALCULATION (Real world units) ---
 
         # If visually padding (distance > 500m), skip physics logic
         if np.linalg.norm(pos_rel) > 500.0:
-            return self.MAX_ROBUSTNESS_CAP
+            return self.MAX_SAFETY_MARGIN_CAP
 
         dv2 = np.dot(vel_rel, vel_rel)
         
@@ -68,40 +68,40 @@ class COLREGHandler:
         else:
             t_cpa = -np.dot(pos_rel, vel_rel) / dv2
         
-        # 1. Diverging (Moving away) -> Robustness based on current distance
+        # 1. Diverging (Moving away) -> Safety signal based on current distance
         if t_cpa < 0:
             min_dist = np.linalg.norm(pos_rel)
-        # 2. Converging slowly (Risk beyond horizon) -> Robustness based on distance at horizon
+        # 2. Converging slowly (Risk beyond horizon) -> Safety signal based on distance at horizon
         elif t_cpa > t_horizon:
             pos_at_horizon = pos_rel + vel_rel * t_horizon
             min_dist = np.linalg.norm(pos_at_horizon)
-        # 3. Converging fast (Risk imminent) -> Robustness based on CPA distance
+        # 3. Converging fast (Risk imminent) -> Safety signal based on CPA distance
         else:
             pos_cpa = pos_rel + vel_rel * t_cpa
             min_dist = np.linalg.norm(pos_cpa)
 
         # --- OUTPUT CLIPPING ---
         
-        # This is the "uncapped" robustness
-        raw_robustness = min_dist - safe_dist
+        # This is the "uncapped" safety signal (can be negative for violations, positive for safe)
+        raw_margin = min_dist - safe_dist
         
         # Apply strict clipping.
         # Negative values (violations) are preserved as-is.
         # Positive values (safe) are capped to stabilize Value Network training.
-        return min(raw_robustness, self.MAX_ROBUSTNESS_CAP)
+        return min(raw_margin, self.MAX_SAFETY_MARGIN_CAP)
 
-    def get_R1_robustness(self, obs, safe_dist=3.0):
+    def get_R1_safety_signal(self, obs, safe_dist=1.0):
         """
         Main function to call in the training loop for Rule R1.
-        Returns the worst (minimum) robustness among all intruders.
+        Returns the worst (minimum) signal value, which will be used by rtamt for robustness calculation.
         """
         intruders_data = self.denormalize_intruder_observation(obs)
-        rho_values = []
+        signals = []
         
         for pos, vel in intruders_data:
-            # Calculate individual robustness per intruder
-            rho = self.compute_cpa_R1_robustness(pos, vel, safe_dist=safe_dist)
-            rho_values.append(rho)
+            # Calculate individual safety signal per intruder
+            signal = self.compute_cpa_R1(pos, vel, safe_dist=safe_dist)
+            signals.append(signal)
             
-        # Return the critical robustness (the lowest one)
-        return min(rho_values)
+        # Return the critical safety signal (the lowest one)
+        return min(signals)

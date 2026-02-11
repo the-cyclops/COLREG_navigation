@@ -9,13 +9,13 @@ variables:
     type: float
     location: obs
     identifier: 0 # Index in stl_window vector (Physical Ego Speed)
-  - name: r1_robustness
+  - name: r1_signal
     type: float
     location: obs
-    identifier: 1 # Index in stl_window vector (Pre-calculated Safety Margin: PredictedDist - SafeDist)
+    identifier: 1 # Index in stl_window vector (Pre-calculated Safety Signal: MinPredictedDist - SafeDist)
 specifications:
-  - name: R1_safe_distance # R1: Maintain a safety margin (Robustness >= 0 means no collision risk in a t_horizon)
-    spec: R1_safe_distance = always(r1_robustness >= 0.0)
+  - name: R1_safe_distance # R1: Maintain a safety margin (Signal >= 0 means no collision risk in a t_horizon)
+    spec: R1_safe_distance = always(r1_signal >= 0.0)
     weight: 1.0
   - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
     spec: R2_safe_speed = always(boat_speed <= V_MAX)
