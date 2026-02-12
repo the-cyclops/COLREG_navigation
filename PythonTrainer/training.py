@@ -24,8 +24,9 @@ DEVICE = "cpu"
 OBSERVATION_SIZE = 24 # From UnityEnvironment/Scripts/BoatAgent.cs
 RAYCAST_COUNT = 7 # 3 side rays + 1 front ray # From Unity RayPerceptionSensorComponent3D
 RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
+NUM_ROBUSTNESS_FLAG = 2 # R1, R2
 
-INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE
+INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
 
 ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
@@ -77,7 +78,7 @@ def main():
     print("Environment loaded successfully.")
     
     # time_scale = 1.0 real tiem - 20.0 is 20x faster than real time
-    engine_config.set_configuration_parameters(width=800, height=600, time_scale=10.0)
+    engine_config.set_configuration_parameters(width=800, height=600, time_scale=20.0)
 
     # Debug info print behaviors available
     print("Behaviors found:", list(env.behavior_specs.keys()))
@@ -122,7 +123,9 @@ def main():
             while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
                 obs, vec_obs = get_single_agent_obs(decision_steps)
-                obs_tensor = torch.from_numpy(obs).float().unsqueeze(0).to(DEVICE)
+                r1, r2 = memory_buffer.compute_markovian_flags()
+                obs_augmented = np.concatenate((obs, [r1, r2]))
+                obs_tensor = torch.from_numpy(obs_augmented).float().unsqueeze(0).to(DEVICE)
 
                 action_tensor, log_probabs = agent.get_action(obs_tensor)
                 action_numpy = action_tensor.detach().cpu().numpy()
@@ -137,12 +140,7 @@ def main():
                 decision_steps, terminal_steps = env.get_steps(behavior_name)
                 end_episode = len(terminal_steps) > 0
 
-                if end_episode:
-                    next_obs = terminal_steps.obs
-                    reward = terminal_steps.reward
-                else:
-                    next_obs = decision_steps.obs
-                    reward = decision_steps.reward
+                reward = float(terminal_steps.reward[0]) if end_episode else float(decision_steps.reward[0])
 
                 memory_buffer.add_ppo_transition(
                 state=obs_tensor, 
@@ -151,30 +149,24 @@ def main():
                 reward=reward, 
                 is_terminal=float(end_episode)
                 )
-
                 
-                r1 = colreg_handler.get_R1_safety_signal(obs=vec_obs)
+                r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs)
 
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
 
-                memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_signal=float(r1))
+                memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_signal=float(r1_signal))
                 
-                if memory_buffer.is_stl_ready():
-                    #print("STL ready")
-                    _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
-                    
-                    rho_1 = single_rho.get('R1_safe_distance', 0.0)
-                    rho_2 = single_rho.get('R2_safe_speed', 0.0)
-                   # TODO forse -> normalizzare/clippare i costi?
-                   # potrebbe rho essere già clippata a max 1 ?  
-                    cost_1 = max(0, -rho_1)
-                    cost_2 = max(0, -rho_2)
 
-                    memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
-                    memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
-                else: 
-                    memory_buffer.add_robustness(r1=1.0,r2=1.0)
-                    memory_buffer.add_costs(c_r1=0.0, c_r2=0.0)
+                _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
+                
+                rho_1 = single_rho.get('R1_safe_distance', 0.0)
+                rho_2 = single_rho.get('R2_safe_speed', 0.0)
+                # TODO forse -> normalizzare/clippare i costi?
+                cost_1 = max(0, -rho_1)
+                cost_2 = max(0, -rho_2)
+                memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
+                memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
+
 
                 if end_episode:
                     memory_buffer.clear_stl_window()
@@ -186,14 +178,15 @@ def main():
 
 
             next_state = get_single_agent_obs(decision_steps)[0]
-
+            r1_next, r2_next = memory_buffer.compute_markovian_flags()
+            next_state_augmented = np.concatenate((next_state, [r1_next, r2_next]))
             rollout_buffer = {}
             rollout_buffer['states'] =  memory_buffer.states
             rollout_buffer['actions'] = memory_buffer.actions
             rollout_buffer['logprobs'] = memory_buffer.logprobs
             rollout_buffer['rewards'] = np.array(memory_buffer.rewards)
             rollout_buffer['masks'] = 1 - np.array(memory_buffer.is_terminals)
-            rollout_buffer['next_state'] = np.array(next_state)
+            rollout_buffer['next_state'] = np.array(next_state_augmented)
             rollout_buffer['cost_r1'] = np.array(memory_buffer.cost_r1)
             rollout_buffer['cost_r2'] = np.array(memory_buffer.cost_r2)
 

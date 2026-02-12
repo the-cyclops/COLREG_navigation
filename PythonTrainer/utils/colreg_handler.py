@@ -8,7 +8,7 @@ class COLREGHandler:
         self.k_intruder_vel_rel = 2.0 * max_linear_speed 
         
         # Constant for safety signal clipping (Avoids magic numbers)
-        self.MAX_SAFETY_MARGIN_CAP = 10.0
+        self.MAX_SAFETY_MARGIN_CAP = 1.0
 
     def get_ego_speed(self, obs_vector):
         """
@@ -29,7 +29,7 @@ class COLREGHandler:
         raw_dist1 = obs_vector[13]
         
         if raw_dist1 > 0.99:
-            dist1 = 1000.0
+            dist1 = 100.0
         else:
             # Denormalization of rational function: dist = (k * raw) / (1 - raw)
             dist1 = (self.k_dist * raw_dist1) / (1.0 - raw_dist1 + 1e-6)
@@ -41,7 +41,7 @@ class COLREGHandler:
         dir2 = obs_vector[17:20]
         raw_dist2 = obs_vector[20]
         if raw_dist2 > 0.99:
-            dist2 = 1000.0
+            dist2 = 100.0
         else:
             dist2 = (self.k_dist * raw_dist2) / (1.0 - raw_dist2 + 1e-6)
             
@@ -54,6 +54,7 @@ class COLREGHandler:
         """
         Calculates safety signal based on CPA (Closest Point of Approach) over t_horizon seconds.
         Returns: R1 Signal (Predicted Min Distance - Safety Distance)
+        Interpretation: possitive values indicate safety margin, negative values indicate violation.
         """
         # --- PHYSICS CALCULATION (Real world units) ---
 

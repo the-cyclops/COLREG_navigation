@@ -20,6 +20,8 @@ class Memory:
         # Sliding window for temporal logic evaluation (physical data)
         self.stl_window = deque(maxlen=stl_horizon)
 
+        self.clear_stl_window()
+
     def add_ppo_transition(self, state, action, logprob, reward, is_terminal):
         """Store transition data for PPO update."""
         self.states.append(state)
@@ -57,7 +59,31 @@ class Memory:
     def clear_stl_window(self):
         """Clear temporal window at the beginning of each episode."""
         self.stl_window.clear()
+        # Initialize with safe defaults, 1.0 is the same as MAX_SAFETY_MARGIN_CAP in colreg_handler.py
+        for _ in range(self.stl_window.maxlen):
+            self.stl_window.append([0.0, 1.0]) 
 
-    def is_stl_ready(self):
-        """Check if the buffer has enough samples for STL evaluation."""
-        return len(self.stl_window) == self.stl_window.maxlen
+    
+    def compute_markovian_flags(self, R2_v_max=2.1):
+        # R2_v_max is the same as V_max in the COLREG rules
+        r1_rho = 0.0
+        r2_rho = 0.0
+        tau = self.stl_window.maxlen
+
+        for sample in self.stl_window:
+            # sample[0] = boat_speed, sample[1] = r1_signal
+
+            #  R1 (distance): G[r1_signal >= 0]
+            if sample[1] >= 0.0:
+                r1_rho = min(r1_rho + 1.0 / (float(tau + 1)), 1.0)
+            else:
+                r1_rho = 0.0
+
+            #  R2 (speed): G[boat_speed <= v_max]
+            if sample[0] <= R2_v_max:
+                r2_rho = min(r2_rho + 1.0 / (float(tau + 1)), 1.0)
+            else:
+                r2_rho = 0.0
+
+        # Scale flags in [-0.5, 0.5]
+        return r1_rho - 0.5, r2_rho - 0.5
