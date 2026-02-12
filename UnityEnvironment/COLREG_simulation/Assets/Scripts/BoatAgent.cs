@@ -4,6 +4,7 @@ using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.Splines;
+using System.IO;
 
 
 public class BoatAgent : Agent
@@ -14,12 +15,17 @@ public class BoatAgent : Agent
 
     private float arenaRadius = 15f;
 
+    private float spawnObstacleRadius = 1f;
+
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
     [SerializeField] GameObject intruderVessel2;
 
     SplineAnimate splineAnimator1;
     SplineAnimate splineAnimator2;
+
+    [SerializeField] GameObject HorizontalPath;
+    [SerializeField] GameObject VerticalPath;
     
     private Vector3 initialPosition;
     private Quaternion initialRotation;
@@ -49,7 +55,7 @@ public class BoatAgent : Agent
 
     private bool CheckTargetPosition(Vector2 pos)
     {
-        float minDistance = 3.0f; // Minimum distance from obstacles
+        float minDistance = 1.5f + spawnObstacleRadius; // Minimum distance from obstacles
 
         foreach (Transform obstacle in obstacles.transform)
         {
@@ -82,23 +88,67 @@ public class BoatAgent : Agent
         target.transform.localPosition = targetPosition;
     }
 
+    private void MoveObstacles()
+    {
+        foreach (Transform obstacle in obstacles.transform)
+        {
+            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * spawnObstacleRadius;
+            Vector3 newPos = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
+            GameObject obstacleObj = obstacle.Find("Sphere").gameObject;
+            obstacleObj.transform.localPosition = newPos;
+        }
+    }
+
+    private void MoveIntruders()
+    {
+        // Vertical Path
+
+        float PathLength = UnityEngine.Random.Range(0f, 1f);
+        float PathWidth = UnityEngine.Random.Range(0f, 1f);
+
+        float scaleX = 1 + (PathLength/10f);
+        float scaleZ = 1 + (PathWidth/10f);
+
+        VerticalPath .transform.localScale = new Vector3(scaleX, 1f, scaleZ);
+
+        splineAnimator1.StartOffset = UnityEngine.Random.Range(0f, 1f);
+        splineAnimator1.ElapsedTime = 0f;
+        splineAnimator1.Play();
+
+        // Horizontal Path
+
+        PathLength = UnityEngine.Random.Range(0f, 1f);
+        PathWidth = UnityEngine.Random.Range(0f, 1f);
+
+        scaleX = 1 + (PathLength/10f);
+        scaleZ = 1 + (PathWidth/10f);
+
+        HorizontalPath.transform.localScale = new Vector3(scaleX, 1f, scaleZ);
+
+        splineAnimator2.StartOffset = UnityEngine.Random.Range(0f, 1f);
+        splineAnimator2.ElapsedTime = 0f;
+        splineAnimator2.Play();
+        
+    }
+
     public override void OnEpisodeBegin()
     {
-        //Reset Boat Velocities
-        boatPhysics.ResetVelocities();
+        
+        // Move Obstacles
+        MoveObstacles();
+
+        // Move Intruders
+        MoveIntruders();
 
         // Move Target 
         MoveTarget();
 
+        //Reset Boat Velocities
+        boatPhysics.ResetVelocities();
+
         // Reset Boat Position and Rotation
         transform.localPosition = initialPosition;
         transform.localRotation = initialRotation;
-
-        splineAnimator1.ElapsedTime = 0f;
-        splineAnimator2.ElapsedTime = 0f;
-
-        splineAnimator1.Play();
-        splineAnimator2.Play();
 
         Physics.SyncTransforms();
     }
