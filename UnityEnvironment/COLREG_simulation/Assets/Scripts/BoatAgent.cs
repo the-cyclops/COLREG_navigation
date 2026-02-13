@@ -1,10 +1,8 @@
-using System;
 using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.Splines;
-using System.IO;
 
 
 public class BoatAgent : Agent
@@ -14,6 +12,8 @@ public class BoatAgent : Agent
     public GameObject target;
 
     private float arenaRadius = 15f;
+
+    private float maxTargetDistance = 7f;
 
     private float spawnObstacleRadius = 1f;
 
@@ -113,6 +113,11 @@ public class BoatAgent : Agent
 
         splineAnimator1.StartOffset = UnityEngine.Random.Range(0f, 1f);
         splineAnimator1.ElapsedTime = 0f;
+        if (splineAnimator1.AnimationMethod == SplineAnimate.Method.Speed)
+        {
+            splineAnimator1.MaxSpeed = UnityEngine.Random.Range(2.1f, 2.5f); 
+            if (debugMode) Debug.Log($"Setting Spline Animator 1 Max Speed to a random value between 2.1 and 2.5: {splineAnimator1.MaxSpeed}");
+        }
         splineAnimator1.Play();
 
         // Horizontal Path
@@ -127,6 +132,11 @@ public class BoatAgent : Agent
 
         splineAnimator2.StartOffset = UnityEngine.Random.Range(0f, 1f);
         splineAnimator2.ElapsedTime = 0f;
+        if (splineAnimator2.AnimationMethod == SplineAnimate.Method.Speed)
+        {
+            splineAnimator2.MaxSpeed = UnityEngine.Random.Range(2.1f, 2.5f); 
+            if (debugMode) Debug.Log($"Setting Spline Animator 2 Max Speed to a random value between 2.1 and 2.5: {splineAnimator2.MaxSpeed}");
+        }
         splineAnimator2.Play();
         
     }
@@ -179,7 +189,7 @@ public class BoatAgent : Agent
         // Rational normalization d/(d+k) with k=20. Range: [0, 1]
         // Obs Index [3]: Target Distance - How far is the target
         if (debugMode) Debug.Log("Target Distance: " + targetDistance.ToString("F2"));
-        sensor.AddObservation(targetDistance / (20f + targetDistance));
+        sensor.AddObservation(targetDistance / (maxTargetDistance + targetDistance));
 
         // Fetch Boat Velocity
         // InverseTransformDirection converts world space velocity to local space
@@ -214,7 +224,7 @@ public class BoatAgent : Agent
             float intruder1Dist = intruder1RelativePos.magnitude;
             // Obs Index [13]: Intruder 1 Distance
             if (debugMode) Debug.Log("Intruder 1 Distance: " + intruder1Dist.ToString("F2"));
-            sensor.AddObservation(intruder1Dist / (20f + intruder1Dist)); // Normalized Distance
+            sensor.AddObservation(intruder1Dist / (maxTargetDistance + intruder1Dist)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // We calculate the vector difference in world space, then convert to local
@@ -258,7 +268,7 @@ public class BoatAgent : Agent
             float intruder2Dist = intruder2RelativePos.magnitude;
             if (debugMode) Debug.Log("Intruder 2 Distance: " + intruder2Dist.ToString("F2"));
             // Obs Index [20]: Intruder 2 Distance
-            sensor.AddObservation(intruder2Dist / (20f + intruder2Dist)); // Normalized Distance
+            sensor.AddObservation(intruder2Dist / (maxTargetDistance + intruder2Dist)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // We calculate the vector difference in world space, then convert to local

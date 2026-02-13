@@ -4,7 +4,7 @@ class COLREGHandler:
     def __init__(self, max_linear_speed=2.5):
         self.max_linear_speed = max_linear_speed
         # Parameters of Unity C# normalization
-        self.k_dist = 20.0 
+        self.k_dist = 7.0 
         self.k_intruder_vel_rel = 2.0 * max_linear_speed 
         
         # Constant for safety signal clipping (Avoids magic numbers)
