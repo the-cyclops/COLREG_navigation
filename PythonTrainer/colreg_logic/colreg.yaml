@@ -1,3 +1,4 @@
+timestep: 0.05 
 dense: True
 horizon: 40 # 1 / (Unity_100Hz / Decision_Period_5) * 40 steps = 2.0s
 constants:
