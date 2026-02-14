@@ -1,4 +1,4 @@
-# --- Unity: COLREG_simulation (Nested) ---
+# --- Unity: COLREG_simulation (Nested) and Builds ---
 **/COLREG_simulation/[Ll]ibrary/
 **/COLREG_simulation/[Tt]emp/
 **/COLREG_simulation/[Oo]bj/
@@ -11,7 +11,7 @@
 *.slnx
 *.userprefs
 mono_crash.*
-
+Builds/
 # --- Unity objects from thesis project ---
 UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab
 UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab.meta
