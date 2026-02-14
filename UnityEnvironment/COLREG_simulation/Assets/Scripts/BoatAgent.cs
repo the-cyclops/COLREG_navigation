@@ -13,8 +13,6 @@ public class BoatAgent : Agent
 
     private float arenaRadius = 15f;
 
-    private float maxTargetDistance = 7f;
-
     private float spawnObstacleRadius = 1f;
 
     [SerializeField] GameObject obstacles;
@@ -29,6 +27,7 @@ public class BoatAgent : Agent
     
     private Vector3 initialPosition;
     private Quaternion initialRotation;
+    private float previousDistanceToTarget;
 
     [SerializeField] private bool debugMode = false;
 
@@ -161,6 +160,8 @@ public class BoatAgent : Agent
         transform.localRotation = initialRotation;
 
         Physics.SyncTransforms();
+
+        previousDistanceToTarget = Vector3.Distance(transform.localPosition, target.transform.localPosition);
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -186,10 +187,10 @@ public class BoatAgent : Agent
         // Fetch Target Distance
         float targetDistance = targetRelativePos.magnitude;
         // Normalized Distance (Assuming max distance of 20 units) 
-        // Rational normalization d/(d+k) with k=20. Range: [0, 1]
+        // Rational normalization d/(d+k) with k=15. Range: [0, 1]
         // Obs Index [3]: Target Distance - How far is the target
         if (debugMode) Debug.Log("Target Distance: " + targetDistance.ToString("F2"));
-        sensor.AddObservation(targetDistance / (maxTargetDistance + targetDistance));
+        sensor.AddObservation(targetDistance / (arenaRadius + targetDistance));
 
         // Fetch Boat Velocity
         // InverseTransformDirection converts world space velocity to local space
@@ -224,7 +225,7 @@ public class BoatAgent : Agent
             float intruder1Dist = intruder1RelativePos.magnitude;
             // Obs Index [13]: Intruder 1 Distance
             if (debugMode) Debug.Log("Intruder 1 Distance: " + intruder1Dist.ToString("F2"));
-            sensor.AddObservation(intruder1Dist / (maxTargetDistance + intruder1Dist)); // Normalized Distance
+            sensor.AddObservation(intruder1Dist / (arenaRadius + intruder1Dist)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // We calculate the vector difference in world space, then convert to local
@@ -268,7 +269,7 @@ public class BoatAgent : Agent
             float intruder2Dist = intruder2RelativePos.magnitude;
             if (debugMode) Debug.Log("Intruder 2 Distance: " + intruder2Dist.ToString("F2"));
             // Obs Index [20]: Intruder 2 Distance
-            sensor.AddObservation(intruder2Dist / (maxTargetDistance + intruder2Dist)); // Normalized Distance
+            sensor.AddObservation(intruder2Dist / (arenaRadius + intruder2Dist)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // We calculate the vector difference in world space, then convert to local
@@ -310,6 +311,11 @@ public class BoatAgent : Agent
 
         // Apply forces based on jet inputs
         boatPhysics.SetJetInputs(leftInput, rightInput);
+
+        float currentDistanceToTarget = Vector3.Distance(transform.localPosition, target.transform.localPosition);
+        float distanceReward = previousDistanceToTarget - currentDistanceToTarget; 
+        AddReward(distanceReward * 0.1f); // Scale the reward for distance improvement
+        previousDistanceToTarget = currentDistanceToTarget;
 
         AddReward(-0.0005f); 
 
