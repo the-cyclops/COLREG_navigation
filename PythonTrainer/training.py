@@ -1,5 +1,6 @@
 import random
 import os
+import time
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -18,7 +19,7 @@ from colreg_logic import rtamt_yml_parser
 
 model_name = "boat_agent_model_initial"
 # None - use the Unity Editor (press Play)
-unity_env_path = "../Builds/training_build.app" 
+unity_env_path = "../Builds/training_gui.app" 
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -34,10 +35,10 @@ ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 1_000_000
+TOT_STEPS = 1_024_000 # 500 updates
 
 SAVE_INTERVAL = 20_480
-START_SAFETY = 501_760 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
+START_SAFETY = 512_000 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 colreg_path = "colreg_logic/colreg.yaml"
 
 SAFE_DISTANCE = 1.0
@@ -67,11 +68,12 @@ def get_single_agent_obs(steps):
 def main():
 
     seeds= [1, 3, 7, 34, 42]
-    seed_iteration = 1
+    seed_iteration = 0
     for seed in seeds:
+        seed_iteration += 1
         print(f"--- Avvio Training Seed {seed} ({seed_iteration}/5) ---")
         set_all_seeds(seed)
-        seed_iteration += 1
+
         save_dir = f"Models/{model_name}/seed_{seed}"
         os.makedirs(save_dir, exist_ok=True)
 
@@ -100,8 +102,8 @@ def main():
         env.reset()
         print("Environment loaded successfully.")
     
-        # time_scale = 1.0 real tiem - 20.0 is 20x faster than real time
-        engine_config.set_configuration_parameters(width=800, height=600, time_scale=20.0)
+        # time_scale = 1.0 real time - 20.0 is 20x faster than real time
+        engine_config.set_configuration_parameters(width=800, height=600, time_scale=40.0)
 
         # Debug info print behaviors available
         print("Behaviors found:", list(env.behavior_specs.keys()))
@@ -133,7 +135,7 @@ def main():
             decision_steps, terminal_steps = env.get_steps(behavior_name)
         
             # Progress bar per il training
-            pbar = tqdm(total=TOT_STEPS, desc="Training", unit="steps")
+            pbar = tqdm(total=TOT_STEPS, desc=f"Training {seed_iteration}/5", unit="steps")
 
             save_model = False
 
@@ -291,6 +293,7 @@ def main():
             env.close()
             writer.close()
             print(f"Environment with seed {seed} closed.")
+            time.sleep(5) 
 
 if __name__ == "__main__":
     main()
