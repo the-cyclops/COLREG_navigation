@@ -40,6 +40,8 @@ SAVE_INTERVAL = 20_480
 START_SAFETY = 501_760 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 colreg_path = "colreg_logic/colreg.yaml"
 
+SAFE_DISTANCE = 1.0
+
 def set_all_seeds(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -65,11 +67,11 @@ def get_single_agent_obs(steps):
 def main():
 
     seeds= [1] #[1, 3, 7, 34, 42]
-
+    seed_iteration = 1
     for seed in seeds:
-        print(f"--- Avvio Training Seed {seed} ({seed + 1}/5) ---")
+        print(f"--- Avvio Training Seed {seed} ({seed_iteration}/5) ---")
         set_all_seeds(seed)
-
+        seed_iteration += 1
         save_dir = f"Models/{model_name}/seed_{seed}"
         os.makedirs(save_dir, exist_ok=True)
 
@@ -171,7 +173,7 @@ def main():
                     is_terminal=float(end_episode)
                     )
                 
-                    r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs)
+                    r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
 
                     physical_speed = colreg_handler.get_ego_speed(vec_obs)
 
@@ -183,7 +185,7 @@ def main():
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
                     # TODO forse -> normalizzare/clippare i costi?
-                    cost_1 = max(0, -rho_1)
+                    cost_1 = max(0, -rho_1) / SAFE_DISTANCE
                     cost_2 = max(0, -rho_2)
                     memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
                     memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
