@@ -12,6 +12,7 @@
 *.userprefs
 mono_crash.*
 Builds/
+
 # --- Unity objects from thesis project ---
 UnityEnvironment/COLREG_simulation/Assets/Models/Boat.prefab
 UnityEnvironment/COLREG_simulation/Assets/Models/Pool.prefab.meta
@@ -25,8 +26,9 @@ __pycache__/
 *.py[cod]
 **/Pythontrainer/results/
 
-# --- Models ---
+# --- Models checkpoints and tensorboard runs ---
 **/Models/
+**/runs/
 
 # --- IDE & OS (Global junk) ---
 .vscode/
