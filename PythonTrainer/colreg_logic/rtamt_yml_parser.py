@@ -112,9 +112,9 @@ class RTAMTYmlParser:
         # 1. Prepare Data (One-time formatting for all monitors)
         data = {}
         steps = len(tau_state)
-        
+        dt = float(self.timestep)
         # Create 'time' list as pure floats
-        data['time'] = [float(t) for t in range(steps)]
+        data['time'] = [float(t) * dt for t in range(steps)]
 
         # Fill input variables (force float cast)
         for i in self.stl_variables:
