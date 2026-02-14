@@ -18,7 +18,7 @@ from colreg_logic import rtamt_yml_parser
 
 model_name = "boat_agent_model_initial"
 # None - use the Unity Editor (press Play)
-unity_env_path = None
+unity_env_path = "../Builds/training_build.app" 
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -66,7 +66,7 @@ def get_single_agent_obs(steps):
 
 def main():
 
-    seeds= [1] #[1, 3, 7, 34, 42]
+    seeds= [1, 3, 7, 34, 42]
     seed_iteration = 1
     for seed in seeds:
         print(f"--- Avvio Training Seed {seed} ({seed_iteration}/5) ---")
