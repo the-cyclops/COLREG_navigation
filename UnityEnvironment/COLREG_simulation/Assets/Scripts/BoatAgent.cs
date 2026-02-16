@@ -15,6 +15,10 @@ public class BoatAgent : Agent
 
     private float spawnObstacleRadius = 1f;
 
+    private int current_step = 0;
+    private int startSafetyStep = 512_000;
+    private float currentSpawnRadius = 9f;
+
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
     [SerializeField] GameObject intruderVessel2;
@@ -76,9 +80,22 @@ public class BoatAgent : Agent
     private void MoveTarget()
     {
         // Random.insideUnitCircle returns a random point inside a circle with radius 1.
-        // We multiply it by (arenaRadius - 1) to ensure the target stays within the arena bounds, leaving a 1 unit margin from the edge. 
+        // We multiply it by (arenaRadius - currentSpawnRadius) to ensure the target stays within a bounds depending on currentSpawnRadius
+        // initially currentSpawnRadius is 9
+        if (current_step >= startSafetyStep / 4)
+        {
+            if (current_step >= startSafetyStep)
+            {
+                currentSpawnRadius = 1f; 
+                
+            }
+            else
+            {
+                currentSpawnRadius = 5f;
+            }
+        }
 
-        Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-1);
+        Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentSpawnRadius);
         while (!CheckTargetPosition(randomCircle))
         {
             randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-1);
@@ -323,20 +340,22 @@ public class BoatAgent : Agent
 
         AddReward(-0.0005f); 
 
+        current_step++;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
         if (!collision.gameObject.CompareTag("Target")) {
             // same penalty for all collisons as professor suggested
+            // max penalty of being alive for maxsteps is -3
             if (collision.gameObject.CompareTag("Obstacle")) {   
-                AddReward(-1.0f);
+                AddReward(-5.0f);
             } else 
             if (collision.gameObject.CompareTag("Wall")){
-                AddReward(-1.0f);
+                AddReward(-5.0f);
             } else 
             if (collision.gameObject.CompareTag("Boat")){
-                AddReward(-1.0f);
+                AddReward(-5.0f);
             } 
 
             if (debugMode) Debug.Log(GetCumulativeReward());
@@ -349,7 +368,7 @@ public class BoatAgent : Agent
     {
         if (other.CompareTag("Target"))
         {
-            SetReward(1.0f);
+            SetReward(10.0f);
             // 2. Coloriamo il pavimento di verde per feedback visivo (Opzionale ma bello)
             // StartCoroutine(SwapGroundMaterial(successMaterial, 0.5f));
 
