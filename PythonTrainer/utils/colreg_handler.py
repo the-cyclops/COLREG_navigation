@@ -14,8 +14,8 @@ class COLREGHandler:
         """
         Extracts and denormalizes the Ego boat linear speed (Rule R2).
         """
-        # Indices 6, 7, 8 are the normalized local velocity vector
-        norm_vel_vector = obs_vector[6:9]
+        # Indices 4,5,6   are the normalized local velocity vector
+        norm_vel_vector = obs_vector[4:7]
         norm_speed = np.linalg.norm(norm_vel_vector)
         phys_speed = norm_speed * self.max_linear_speed
         return phys_speed
