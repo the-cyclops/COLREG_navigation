@@ -93,8 +93,12 @@ public class BoatAgent : Agent
         {
             Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * spawnObstacleRadius;
             Vector3 newPos = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
-            GameObject obstacleObj = obstacle.Find("Sphere").gameObject;
-            obstacleObj.transform.localPosition = newPos;
+            Transform sphereTransform = obstacle.Find("Sphere");
+            if (sphereTransform != null)
+            {
+                GameObject obstacleObj = sphereTransform.gameObject;
+                obstacleObj.transform.localPosition = newPos;
+            }
         }
     }
 
