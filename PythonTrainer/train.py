@@ -19,7 +19,8 @@ from colreg_logic import rtamt_yml_parser
 
 model_name = "boat_agent_model_initial"
 # None - use the Unity Editor (press Play)
-unity_env_path = "../Builds/train_gui.app" 
+# "../Builds/train_gui.app"  - path to macos build
+unity_env_path = "../Builds/train_gui.app"  
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -103,7 +104,7 @@ def main():
         print("Environment loaded successfully.")
     
         # time_scale = 1.0 real time - 20.0 is 20x faster than real time
-        engine_config.set_configuration_parameters(width=800, height=600, time_scale=40.0)
+        engine_config.set_configuration_parameters(width=800, height=600, time_scale=20.0)
 
         # Debug info print behaviors available
         print("Behaviors found:", list(env.behavior_specs.keys()))
