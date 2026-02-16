@@ -33,7 +33,7 @@ public class BoatAgent : Agent
 
     public override void Initialize()
     {
-        this.MaxStep = 6000;
+        this.MaxStep = 30000; // timer limit for episode, max 5 minutes 
 
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
