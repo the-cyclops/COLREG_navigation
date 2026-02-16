@@ -19,7 +19,7 @@ from colreg_logic import rtamt_yml_parser
 
 model_name = "boat_agent_model_initial"
 # None - use the Unity Editor (press Play)
-unity_env_path = "../Builds/training_gui.app" 
+unity_env_path = "../Builds/train_gui.app" 
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
