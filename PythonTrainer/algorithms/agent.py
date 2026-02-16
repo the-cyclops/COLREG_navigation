@@ -127,6 +127,7 @@ class ConstrainedPPOAgent:
             else:
                 action = dist.sample()
             
+            action = torch.clamp(action, -1.0, 1.0)
             log_prob = dist.log_prob(action).sum(dim=-1)
             
         return action, log_prob
