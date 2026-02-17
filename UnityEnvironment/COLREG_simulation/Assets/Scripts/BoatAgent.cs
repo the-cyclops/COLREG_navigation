@@ -16,7 +16,7 @@ public class BoatAgent : Agent
     private float spawnObstacleRadius = 1f;
 
     private int current_step = 0;
-    private int startSafetyStep = 512_000;
+    private int startSafetyStep = 2_560_000;
     private float currentSpawnRadius = 9f;
 
     [SerializeField] GameObject obstacles;

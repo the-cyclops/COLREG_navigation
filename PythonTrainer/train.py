@@ -17,10 +17,11 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_model_initial"
+model_name = "boat_agent_model_initial_5M_steps"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
-unity_env_path = "../Builds/train_gui.app"  
+# "../Builds/train_5M.app" - path for 5M
+unity_env_path = "../Builds/train_5M.app" 
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -36,10 +37,10 @@ ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 1_024_000 # 500 updates
+TOT_STEPS = 5_120_000 # 2500 updates
 
 SAVE_INTERVAL = 20_480
-START_SAFETY = 512_000 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
+START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 colreg_path = "colreg_logic/colreg.yaml"
 
 SAFE_DISTANCE = 1.0
@@ -98,13 +99,15 @@ def main():
         env = UnityEnvironment(
             file_name=unity_env_path, 
             side_channels=[engine_config],
-            seed=seed)
+            seed=seed,
+            no_graphics=True
+        )
     
         env.reset()
         print("Environment loaded successfully.")
     
         # time_scale = 1.0 real time - 20.0 is 20x faster than real time
-        engine_config.set_configuration_parameters(width=800, height=600, time_scale=20.0)
+        engine_config.set_configuration_parameters(width=800, height=600, time_scale=40.0)
 
         # Debug info print behaviors available
         print("Behaviors found:", list(env.behavior_specs.keys()))
