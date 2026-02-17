@@ -17,7 +17,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_model_testing"
+model_name = "boat_agent_model_v2_5M_steps"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
