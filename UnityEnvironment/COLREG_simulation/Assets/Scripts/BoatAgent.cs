@@ -17,7 +17,7 @@ public class BoatAgent : Agent
 
     private int current_step = 0;
     private int startSafetyStep = 2_560_000;
-    private float currentSpawnRadius = 9f;
+    private float currentReductionRadius = 9f;
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -80,25 +80,25 @@ public class BoatAgent : Agent
     private void MoveTarget()
     {
         // Random.insideUnitCircle returns a random point inside a circle with radius 1.
-        // We multiply it by (arenaRadius - currentSpawnRadius) to ensure the target stays within a bounds depending on currentSpawnRadius
-        // initially currentSpawnRadius is 9
-        if (current_step >= startSafetyStep / 4)
+        // We multiply it by (arenaRadius - currentReductionRadius) to ensure the target stays within a bounds depending on currentReductionRadius
+        // initially currentReductionRadius is 9
+        if (current_step >= startSafetyStep / 2)
         {
             if (current_step >= startSafetyStep)
             {
-                currentSpawnRadius = 1f; 
+                currentReductionRadius = 1f; 
                 
             }
             else
             {
-                currentSpawnRadius = 5f;
+                currentReductionRadius = 5f;
             }
         }
 
-        Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentSpawnRadius);
+        Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentReductionRadius);
         while (!CheckTargetPosition(randomCircle))
         {
-            randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-1);
+            randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentReductionRadius);
         }
         Vector3 targetPosition = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
         target.transform.localPosition = targetPosition;
@@ -131,11 +131,11 @@ public class BoatAgent : Agent
 
         VerticalPath .transform.localScale = new Vector3(scaleX, 1f, scaleZ);
 
-        splineAnimator1.StartOffset = 0f; //UnityEngine.Random.Range(0f, 1f);
+        splineAnimator1.StartOffset = UnityEngine.Random.Range(0f, 1f);
         splineAnimator1.ElapsedTime = 0f;
         if (splineAnimator1.AnimationMethod == SplineAnimate.Method.Speed)
         {
-            splineAnimator1.MaxSpeed = 0f;//UnityEngine.Random.Range(2.1f, 2.5f); 
+            splineAnimator1.MaxSpeed = UnityEngine.Random.Range(2.1f, 2.5f); 
             if (debugMode) Debug.Log($"Setting Spline Animator 1 Max Speed to a random value between 2.1 and 2.5: {splineAnimator1.MaxSpeed}");
         }
         splineAnimator1.Play();
@@ -324,6 +324,7 @@ public class BoatAgent : Agent
     }
 
     // This method is called every step during training OR by your keyboard in Heuristic mode
+    // the agent will have a maximum number of 6000 step per episode
     public override void OnActionReceived(ActionBuffers actions)
     {
         var continuousActions = actions.ContinuousActions;
@@ -333,12 +334,19 @@ public class BoatAgent : Agent
         // Apply forces based on jet inputs
         boatPhysics.SetJetInputs(leftInput, rightInput);
 
+        // Reward to incentivize getting closer to the target
         float currentDistanceToTarget = Vector3.Distance(transform.localPosition, target.transform.localPosition);
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; 
-        AddReward(distanceReward * 0.1f); // Scale the reward for distance improvement
+        AddReward(distanceReward * 0.05f); // Scale the reward for distance improvement
         previousDistanceToTarget = currentDistanceToTarget;
 
-        AddReward(-0.0005f); 
+        // Reward to incetivize mantainig direction towards the target
+        Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
+        float alignment = Vector3.Dot(transform.forward, dirToTarget);
+        AddReward(alignment * 0.0001f); 
+
+        // Time penalty
+        AddReward(-0.0001f); 
 
         current_step++;
     }
@@ -347,15 +355,15 @@ public class BoatAgent : Agent
     {
         if (!collision.gameObject.CompareTag("Target")) {
             // same penalty for all collisons as professor suggested
-            // max penalty of being alive for maxsteps is -3
+            // max penalty of being alive for maxsteps is -0.0001 * 6000 = -0.6
             if (collision.gameObject.CompareTag("Obstacle")) {   
-                AddReward(-5.0f);
+                AddReward(-1.0f);
             } else 
             if (collision.gameObject.CompareTag("Wall")){
-                AddReward(-5.0f);
+                AddReward(-1.0f);
             } else 
             if (collision.gameObject.CompareTag("Boat")){
-                AddReward(-5.0f);
+                AddReward(-1.0f);
             } 
 
             if (debugMode) Debug.Log(GetCumulativeReward());
@@ -368,7 +376,7 @@ public class BoatAgent : Agent
     {
         if (other.CompareTag("Target"))
         {
-            SetReward(10.0f);
+            AddReward(1.0f);
             // 2. Coloriamo il pavimento di verde per feedback visivo (Opzionale ma bello)
             // StartCoroutine(SwapGroundMaterial(successMaterial, 0.5f));
 
