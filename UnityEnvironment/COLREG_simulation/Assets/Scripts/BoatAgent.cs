@@ -131,7 +131,7 @@ public class BoatAgent : Agent
 
         VerticalPath .transform.localScale = new Vector3(scaleX, 1f, scaleZ);
 
-        splineAnimator1.StartOffset = UnityEngine.Random.Range(0f, 1f);
+        splineAnimator1.StartOffset = 0f; //UnityEngine.Random.Range(0f, 1f);
         splineAnimator1.ElapsedTime = 0f;
         if (splineAnimator1.AnimationMethod == SplineAnimate.Method.Speed)
         {
