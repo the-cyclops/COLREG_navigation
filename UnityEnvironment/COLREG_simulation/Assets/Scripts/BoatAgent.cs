@@ -135,7 +135,7 @@ public class BoatAgent : Agent
         splineAnimator1.ElapsedTime = 0f;
         if (splineAnimator1.AnimationMethod == SplineAnimate.Method.Speed)
         {
-            splineAnimator1.MaxSpeed = UnityEngine.Random.Range(2.1f, 2.5f); 
+            splineAnimator1.MaxSpeed = 0f;//UnityEngine.Random.Range(2.1f, 2.5f); 
             if (debugMode) Debug.Log($"Setting Spline Animator 1 Max Speed to a random value between 2.1 and 2.5: {splineAnimator1.MaxSpeed}");
         }
         splineAnimator1.Play();
