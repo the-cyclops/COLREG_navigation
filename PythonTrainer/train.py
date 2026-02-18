@@ -17,7 +17,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "TEST"
+model_name = "boat_agent_model_tuned_rewards_v1"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -169,17 +169,12 @@ def main():
                     action_tuple = ActionTuple()
                     action_tuple.add_continuous(action_numpy)
 
-                    #TEMPORARY
-                    mean,_ ,std = agent.policy_net(obs_tensor)
-                    mean_buffer.append(mean.detach().cpu().numpy())
-                    std_buffer.append(std.detach().cpu().numpy())
+                    #TEMPORARYù
+                    with torch.no_grad():
+                        mean,_ ,std = agent.policy_net(obs_tensor)
+                        mean_buffer.append(mean.detach().cpu().numpy())
+                        std_buffer.append(std.detach().cpu().numpy())
 
-                    #TEMPORARY Saving single mean and std in a file for analysis
-                    if not os.path.exists(f"mean_std_{seed_iteration}.txt"):
-                        with open(f"mean_std_{seed_iteration}.txt", "w") as f:
-                            f.write("mean,std\n")
-                    with open(f"mean_std_{seed_iteration}.txt", "a") as f:
-                        f.write(f"{mean.detach().cpu().numpy()[0]},{std.detach().cpu().numpy()[0]}\n")
 
                     env.set_actions(behavior_name, action_tuple)
                     env.step()

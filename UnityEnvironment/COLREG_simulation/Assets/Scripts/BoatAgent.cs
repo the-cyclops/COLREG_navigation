@@ -37,7 +37,7 @@ public class BoatAgent : Agent
 
     public override void Initialize()
     {
-        this.MaxStep = 30000; // timer limit for episode, max 5 minutes 
+        this.MaxStep = 9000; // timer limit for episode, max 1,5 minute 
 
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
@@ -324,7 +324,7 @@ public class BoatAgent : Agent
     }
 
     // This method is called every step during training OR by your keyboard in Heuristic mode
-    // the agent will have a maximum number of 6000 step per episode
+    // the agent will have a maximum number of 9k step per episode
     public override void OnActionReceived(ActionBuffers actions)
     {
         var continuousActions = actions.ContinuousActions;
@@ -337,17 +337,19 @@ public class BoatAgent : Agent
         // Reward to incentivize getting closer to the target
         float currentDistanceToTarget = Vector3.Distance(transform.localPosition, target.transform.localPosition);
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; 
-        AddReward(distanceReward * 0.05f); // Scale the reward for distance improvement
+        AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         previousDistanceToTarget = currentDistanceToTarget;
 
-        // Reward to incetivize mantainig direction towards the target
+        // Reward to incetivize mantainig direction and speed towards the target
         Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
-        float alignment = Vector3.Dot(transform.forward, dirToTarget);
-        AddReward(alignment * 0.0001f); 
+        float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
+        if (velocityTowardsTarget > 0)
+        {
+            AddReward(velocityTowardsTarget * 0.002f); 
+        }
 
         // Time penalty
-        AddReward(-0.0001f); 
-
+        AddReward(-5.0f / MaxStep); 
         current_step++;
     }
 
@@ -355,15 +357,15 @@ public class BoatAgent : Agent
     {
         if (!collision.gameObject.CompareTag("Target")) {
             // same penalty for all collisons as professor suggested
-            // max penalty of being alive for maxsteps is -0.0001 * 6000 = -0.6
+            // max penalty of being alive for maxsteps 
             if (collision.gameObject.CompareTag("Obstacle")) {   
-                AddReward(-1.0f);
+                AddReward(-2.0f);
             } else 
             if (collision.gameObject.CompareTag("Wall")){
-                AddReward(-1.0f);
+                AddReward(-2.0f);
             } else 
             if (collision.gameObject.CompareTag("Boat")){
-                AddReward(-1.0f);
+                AddReward(-2.0f);
             } 
 
             if (debugMode) Debug.Log(GetCumulativeReward());
@@ -376,7 +378,7 @@ public class BoatAgent : Agent
     {
         if (other.CompareTag("Target"))
         {
-            AddReward(1.0f);
+            AddReward(10.0f);
             // 2. Coloriamo il pavimento di verde per feedback visivo (Opzionale ma bello)
             // StartCoroutine(SwapGroundMaterial(successMaterial, 0.5f));
 
