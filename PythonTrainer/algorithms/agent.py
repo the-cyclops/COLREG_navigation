@@ -257,7 +257,7 @@ class ConstrainedPPOAgent:
             policy_loss = self._get_ppo_loss(ratio, adv_reward)
             self.policy_opt.zero_grad()
             policy_loss.backward()
-            self.policy_opt.step()
+
         # Case 2: single violation -> Minimize specific cost (Maximize negative cost advantage)
         elif len(violated_rules) == 1:
             rule = violated_rules[0]
@@ -267,7 +267,7 @@ class ConstrainedPPOAgent:
             policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
             self.policy_opt.zero_grad()
             policy_loss.backward()
-            self.policy_opt.step()
+
         # Case 3: multiple violations -> Use CAGrad to find the best update direction
         else:
             actual_mode = f"MULTIPLE VIOLATIONS {violated_rules}"
@@ -284,7 +284,13 @@ class ConstrainedPPOAgent:
                 grad_vec = torch.stack(grads)
                 merged_grad = self.cagrad_helper.cagrad(grad_vec, num_tasks=len(violated_rules))
                 self._set_flat_grad(merged_grad, self.policy_net)
-                self.policy_opt.step()
+
+        
+        # clip gradient to prevent exploding gradients (optional, can be tuned or removed)
+        torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
+
+        self.policy_opt.step()
+
         return {
             "mode": actual_mode,
             "violated_rules": violated_rules,
