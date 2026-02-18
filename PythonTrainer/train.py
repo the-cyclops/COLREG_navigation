@@ -151,6 +151,11 @@ def main():
                 if not safety_active and s >= START_SAFETY:
                     safety_active = True
                     pbar.write(f"Safety constraints activated at step {s}.")
+
+                #TEMPORARY
+
+                mean_buffer = []
+                std_buffer = []
             
                 while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
@@ -163,6 +168,18 @@ def main():
                     action_numpy = action_tensor.detach().cpu().numpy()
                     action_tuple = ActionTuple()
                     action_tuple.add_continuous(action_numpy)
+
+                    #TEMPORARY
+                    mean,_ ,std = agent.policy_net(obs_tensor)
+                    mean_buffer.append(mean.detach().cpu().numpy())
+                    std_buffer.append(std.detach().cpu().numpy())
+
+                    #TEMPORARY Saving single mean and std in a file for analysis
+                    if not os.path.exists(f"mean_std_{seed_iteration}.txt"):
+                        with open(f"mean_std_{seed_iteration}.txt", "w") as f:
+                            f.write("mean,std\n")
+                    with open(f"mean_std_{seed_iteration}.txt", "a") as f:
+                        f.write(f"{mean.detach().cpu().numpy()[0]},{std.detach().cpu().numpy()[0]}\n")
 
                     env.set_actions(behavior_name, action_tuple)
                     env.step()
@@ -256,6 +273,10 @@ def main():
                 writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
                 writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
                 writer.add_text("Training/Mode_Log", mode, s)
+
+                #TEMPORARY
+                writer.add_scalar("Training/Policy_Mean", np.mean(mean_buffer), s)
+                writer.add_scalar("Training/Policy_Std", np.mean(std_buffer), s)
 
                 memory_buffer.clear_ppo()
 
