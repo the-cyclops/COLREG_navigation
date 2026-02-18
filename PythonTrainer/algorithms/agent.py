@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from algorithms.networks import Policy, Value
+from algorithms.networks import Policy, Value, CostValue
 from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
@@ -15,10 +15,10 @@ class ConstrainedPPOAgent:
         self.value_net = Value(state_size).to(self.device)        
         # COLREG Cost Networks
         # Rule R1: Vessels always have to keep a safe distance between each other
-        self.cost_net_safe_distance = Value(state_size).to(self.device)
+        self.cost_net_safe_distance = CostValue(state_size).to(self.device)
 
         # Rule R2: A vessel shall always maintain a safe speed 
-        self.cost_net_safe_speed = Value(state_size).to(self.device)   
+        self.cost_net_safe_speed = CostValue(state_size).to(self.device)   
         
         # Optimizers
         self.policy_opt = optim.Adam(self.policy_net.parameters(), lr=lr)
@@ -162,8 +162,8 @@ class ConstrainedPPOAgent:
             r2_next_cost_pred = self.cost_net_safe_speed(next_state).item()
 
         # Main Reward (Maximization)
-        reward_returns = self._calculate_gae(rewards, value_preds, next_value_pred, masks)
-        adv_reward = reward_returns - value_preds
+        gae_returns = self._calculate_gae(rewards, value_preds, next_value_pred, masks)
+        adv_reward = gae_returns - value_preds
 
         # Cost R1 (Minimization) 
         # Using "cumulative_cost" to indicate sum of future penalties
@@ -175,7 +175,7 @@ class ConstrainedPPOAgent:
         adv_r2 = r2_cumulative_cost - r2_cost_preds
 
         return {
-            "reward": (adv_reward, reward_returns),
+            "reward": (adv_reward, gae_returns),
             "r1": (adv_r1, r1_cumulative_cost),
             "r2": (adv_r2, r2_cumulative_cost)
         }
@@ -199,7 +199,7 @@ class ConstrainedPPOAgent:
         next_state = torch.from_numpy(rollouts['next_state']).float().unsqueeze(0).to(self.device).detach()
 
         advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
-        adv_reward, reward_returns = advantages["reward"]
+        adv_reward, gae_returns = advantages["reward"]
         adv_r1, r1_cumulative_cost = advantages["r1"]
         adv_r2, r2_cumulative_cost = advantages["r2"]
         # Normalize advantages to stabilize training
@@ -228,7 +228,7 @@ class ConstrainedPPOAgent:
         # update Value critic
         self.value_opt.zero_grad()
         value_preds = self.value_net(states).squeeze()
-        value_loss = torch.nn.MSELoss()(value_preds, reward_returns)
+        value_loss = torch.nn.MSELoss()(value_preds, gae_returns)
         value_loss.backward()
         self.value_opt.step()
 
@@ -289,7 +289,7 @@ class ConstrainedPPOAgent:
             "mode": actual_mode,
             "violated_rules": violated_rules,
             "robustness": {rule: robustness_dict[rule] for rule in violated_rules},
-            "reward": (adv_reward, reward_returns),
+            "reward": (adv_reward, gae_returns),
             "r1": (adv_r1, r1_cumulative_cost),
             "r2": (adv_r2, r2_cumulative_cost)
         }

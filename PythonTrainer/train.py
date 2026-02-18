@@ -17,7 +17,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_model_v2_5M_steps"
+model_name = "TEST"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -84,7 +84,7 @@ def main():
         starting_step = 0
 
         last_checkpoint_path = None
-        best_feasible_reward = -float('inf')
+        best_feasible_return = -float('inf')
 
         colreg_handler = COLREGHandler()
 
@@ -137,7 +137,10 @@ def main():
         try:
             s = starting_step
             decision_steps, terminal_steps = env.get_steps(behavior_name)
-        
+
+            current_return = 0.0
+            returns_episodes = []
+
             # Progress bar per il training
             pbar = tqdm(total=TOT_STEPS, desc=f"Training {seed_iteration}/5", unit="steps")
 
@@ -170,6 +173,7 @@ def main():
                     end_episode = len(terminal_steps) > 0
 
                     reward = float(terminal_steps.reward[0]) if end_episode else float(decision_steps.reward[0])
+                    current_return += reward
 
                     memory_buffer.add_ppo_transition(
                     state=obs_tensor, 
@@ -198,6 +202,8 @@ def main():
 
 
                     if end_episode:
+                        returns_episodes.append(current_return)
+                        current_return = 0.0
                         memory_buffer.clear_stl_window()
                         env.reset()
                         decision_steps, terminal_steps = env.get_steps(behavior_name)
@@ -225,23 +231,33 @@ def main():
             
                 mode = log_dict['mode']
 
-                reward_returns = log_dict['reward'][1]
+                rewards = rollout_buffer['rewards']
+                gae_returns = log_dict['reward'][1]
 
-                writer.add_scalar("Training/Mean_Reward", reward_returns.mean().item(), s)
-                writer.add_scalar("Training/Robustness_R1_Physics", robustness_dict['R1'], s)
-                writer.add_scalar("Training/Robustness_R2_Physics", robustness_dict['R2'], s)
-                writer.add_scalar("Training/R1_cumulative_cost", log_dict['r1'][1].mean().item(), s)
-                writer.add_scalar("Training/R2_cumulative_cost", log_dict['r2'][1].mean().item(), s)
-                writer.add_text("Training/Mode_Log", mode, s)
+                pbar.write(f"----- Update! Mode: {mode} -----\n Reward: {rewards.mean().item():.4f} | GAE_returns: {gae_returns.mean().item():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}") 
+                
+                mean_return = None
+                if returns_episodes:
+                    mean_return = np.mean(returns_episodes)
+                    pbar.write(f"Mean Return: {mean_return:.2f}")
+                    writer.add_scalar("Training/Mean_Return", mean_return, s)
+                    returns_episodes.clear()
 
-                memory_buffer.clear_ppo()
-
-                pbar.write(f"----- Update! Mode: {mode} -----\nReward: {reward_returns.mean():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}") 
                 pbar.set_postfix({
-                    'Reward': f"{reward_returns.mean():.2f}",
+                    'Reward': f"{rewards.mean().item():.2f}",
                     'R1': f"{robustness_dict['R1']:.2f}",
                     'R2': f"{robustness_dict['R2']:.2f}"
                 })
+
+                writer.add_scalar("Training/Mean_Reward", rewards.mean().item(), s)
+                writer.add_scalar("Training/Value_target_mean_GAE_returns", gae_returns.mean().item(), s)
+                writer.add_scalar("Training/Robustness_R1_Physics", robustness_dict['R1'], s)
+                writer.add_scalar("Training/Robustness_R2_Physics", robustness_dict['R2'], s)
+                writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
+                writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
+                writer.add_text("Training/Mode_Log", mode, s)
+
+                memory_buffer.clear_ppo()
 
                 # Save the model occasionally
                 if save_model:
@@ -271,20 +287,20 @@ def main():
                     
                     last_checkpoint_path = current_path
 
-                    current_mean_reward = reward_returns.mean().item()
+
                     current_r1 = robustness_dict['R1']
                     current_r2 = robustness_dict['R2']
                     
 
                     is_feasible = (current_r1 >= 0.0) and (current_r2 >= 0.0)
-
-                    if is_feasible and (current_mean_reward > best_feasible_reward):
-                        best_feasible_reward = current_mean_reward
-                        best_path = f"{save_dir}/best_feasible_model.pth"
+                    if mean_return is not None:
+                        if is_feasible and (mean_return > best_feasible_return):
+                            best_feasible_return = mean_return
+                            best_path = f"{save_dir}/best_feasible_model.pth"
                         
-                        # Salva copia specifica
-                        torch.save(checkpoint, best_path)
-                        pbar.write(f"*** NEW BEST FEASIBLE MODEL! Reward: {best_feasible_reward:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+                            # Salva copia specifica
+                            torch.save(checkpoint, best_path)
+                            pbar.write(f"*** NEW BEST FEASIBLE MODEL! Return: {best_feasible_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
 
                     save_model = False
 
