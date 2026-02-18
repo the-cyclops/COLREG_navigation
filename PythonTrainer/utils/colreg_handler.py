@@ -50,7 +50,7 @@ class COLREGHandler:
 
         return [(pos_rel1, vel_rel1), (pos_rel2, vel_rel2)]
 
-    def compute_cpa_R1(self, pos_rel, vel_rel, safe_dist=1.0, t_horizon=5.0):
+    def compute_cpa_R1(self, pos_rel, vel_rel, safe_dist=1.0, t_horizon=7.0):
         """
         Calculates safety signal based on CPA (Closest Point of Approach) over t_horizon seconds.
         Returns: R1 Signal (Predicted Min Distance - Safety Distance)
