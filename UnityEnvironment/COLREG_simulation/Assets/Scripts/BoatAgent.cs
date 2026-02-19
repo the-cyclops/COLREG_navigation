@@ -17,7 +17,7 @@ public class BoatAgent : Agent
 
     private int current_step = 0;
     private int startSafetyStep = 2_560_000;
-    private float currentReductionRadius = 9f;
+    private float currentReductionRadius = 13f;
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -76,12 +76,11 @@ public class BoatAgent : Agent
         return true; // Valid position
     }   
 
-    // This method creates a new
+
     private void MoveTarget()
     {
-        // Random.insideUnitCircle returns a random point inside a circle with radius 1.
-        // We multiply it by (arenaRadius - currentReductionRadius) to ensure the target stays within a bounds depending on currentReductionRadius
-        // initially currentReductionRadius is 9
+        // Set the curriculum radius based on the training step
+        // initially currentReductionRadius is 13
         if (current_step >= startSafetyStep / 2)
         {
             if (current_step >= startSafetyStep)
@@ -91,16 +90,29 @@ public class BoatAgent : Agent
             }
             else
             {
-                currentReductionRadius = 5f;
+                currentReductionRadius = 7f;
             }
         }
-
-        Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentReductionRadius);
-        while (!CheckTargetPosition(randomCircle))
+        else
         {
-            randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentReductionRadius);
+            currentReductionRadius = 13f;
         }
-        Vector3 targetPosition = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
+        
+        float maxSpawnDist = arenaRadius - currentReductionRadius;
+        float minSpawnDist = 0.5f + spawnObstacleRadius; // Minimum distance from target
+        // Randomly sample a point within a donut-shaped area 
+        // bounded by minSpawnDist and maxSpawnDist to prevent overlapping with target at spawn
+        Vector2 randomPoint;
+        do
+        {
+            //randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentReductionRadius);
+            Vector2 randomDir = UnityEngine.Random.insideUnitCircle.normalized;
+            float randomDist = UnityEngine.Random.Range(minSpawnDist, maxSpawnDist);
+            randomPoint = randomDir * randomDist;
+        }
+        while (!CheckTargetPosition(randomPoint));
+
+        Vector3 targetPosition = new Vector3(randomPoint.x, 0.0f, randomPoint.y);
         target.transform.localPosition = targetPosition;
     }
 
