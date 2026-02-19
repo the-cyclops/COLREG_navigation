@@ -276,8 +276,7 @@ def main():
                 memory_buffer.clear_ppo()
 
                 # Save the model occasionally
-                if save_model:
-                    checkpoint = {
+                checkpoint = {
                         'step': s,
                         'policy_state_dict': agent.policy_net.state_dict(),
                         'value_state_dict': agent.value_net.state_dict(),
@@ -290,6 +289,7 @@ def main():
                         'robustness_r1': robustness_dict['R1'],
                         'robustness_r2': robustness_dict['R2']
                     }
+                if save_model:
                     current_path = f"{save_dir}/steps_{s}.pth"
                     torch.save(checkpoint, current_path)
                     pbar.write(f"Checkpoint saved: {current_path}")
@@ -302,23 +302,20 @@ def main():
                                 pbar.write(f"Warning: could not delete old checkpoint: {e}")
                     
                     last_checkpoint_path = current_path
-
-
-                    current_r1 = robustness_dict['R1']
-                    current_r2 = robustness_dict['R2']
-                    
-
-                    is_feasible = (current_r1 >= 0.0) and (current_r2 >= 0.0)
-                    if mean_return is not None:
-                        if is_feasible and (mean_return > best_feasible_return):
-                            best_feasible_return = mean_return
-                            best_path = f"{save_dir}/best_feasible_model.pth"
-                        
-                            # Salva copia specifica
-                            torch.save(checkpoint, best_path)
-                            pbar.write(f"*** NEW BEST FEASIBLE MODEL! Return: {best_feasible_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
-
                     save_model = False
+
+                current_r1 = robustness_dict['R1']
+                current_r2 = robustness_dict['R2']             
+
+                is_feasible = (current_r1 >= 0.0) and (current_r2 >= 0.0)
+                if mean_return is not None and s>= START_SAFETY:
+                    if is_feasible and (mean_return > best_feasible_return):
+                        best_feasible_return = mean_return
+                        best_path = f"{save_dir}/best_feasible_model.pth"
+                    
+                        # Salva copia specifica
+                        torch.save(checkpoint, best_path)
+                        pbar.write(f"*** NEW BEST FEASIBLE MODEL! Return: {best_feasible_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
 
         except KeyboardInterrupt:
             print("Manual interruption...")
