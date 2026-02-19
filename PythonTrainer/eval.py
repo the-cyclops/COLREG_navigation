@@ -15,9 +15,9 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_model_v2_5M_steps"
+model_name = "boat_agent_model_tuned_rewards_v1"
 seed = 1 
-unity_env_path = "../Builds/train_5M.app" 
+unity_env_path = None #"../Builds/train_5M.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 24 
 RAYCAST_COUNT = 7 
