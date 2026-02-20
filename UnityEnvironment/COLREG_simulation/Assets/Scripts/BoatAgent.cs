@@ -14,10 +14,10 @@ public class BoatAgent : Agent
     private float arenaRadius = 15f;
 
     private float spawnObstacleRadius = 1f;
+    private float currentReductionRadius = 13f;
 
     private int current_step = 0;
     private int startSafetyStep = 2_560_000;
-    private float currentReductionRadius = 13f;
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -353,15 +353,15 @@ public class BoatAgent : Agent
         previousDistanceToTarget = currentDistanceToTarget;
 
         // Reward to incetivize mantainig direction and speed towards the target
-        Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
-        float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
-        if (velocityTowardsTarget > 0)
-        {
-            AddReward(velocityTowardsTarget * 0.002f); 
-        }
+        //Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
+        //float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
+        //if (velocityTowardsTarget > 0)
+        //{
+        //    AddReward(velocityTowardsTarget * 0.002f); 
+        //}
 
         // Time penalty
-        AddReward(-5.0f / MaxStep); 
+        AddReward(-5.0f / MaxStep);  
         current_step++;
     }
 
@@ -370,16 +370,9 @@ public class BoatAgent : Agent
         if (!collision.gameObject.CompareTag("Target")) {
             // same penalty for all collisons as professor suggested
             // max penalty of being alive for maxsteps 
-            if (collision.gameObject.CompareTag("Obstacle")) {   
-                AddReward(-2.0f);
-            } else 
-            if (collision.gameObject.CompareTag("Wall")){
-                AddReward(-2.0f);
-            } else 
-            if (collision.gameObject.CompareTag("Boat")){
-                AddReward(-2.0f);
-            } 
-
+            if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Wall") || collision.gameObject.CompareTag("Boat")) {
+                AddReward(-10.0f);
+            }
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode();
         }
@@ -390,7 +383,7 @@ public class BoatAgent : Agent
     {
         if (other.CompareTag("Target"))
         {
-            AddReward(10.0f);
+            AddReward(15.0f);
             // 2. Coloriamo il pavimento di verde per feedback visivo (Opzionale ma bello)
             // StartCoroutine(SwapGroundMaterial(successMaterial, 0.5f));
 
