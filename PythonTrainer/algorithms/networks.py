@@ -13,7 +13,8 @@ class Policy(nn.Module):
         self.action_mean.weight.data.mul_(0.1)
         self.action_mean.bias.data.mul_(0.0)
 
-        self.action_log_std = nn.Parameter(torch.zeros(1, num_outputs))
+        #self.action_log_std = nn.Parameter(torch.zeros(1, num_outputs))
+        self.action_log_std = nn.Parameter(torch.full((1, num_outputs), -0.5))
 
         self.saved_actions = []
         self.rewards = []
@@ -25,6 +26,8 @@ class Policy(nn.Module):
 
         action_mean = torch.tanh(self.action_mean(x))
         action_log_std = self.action_log_std.expand_as(action_mean)
+        # clamp log std to avoid going outside of the action space [-1, 1]
+        action_log_std = torch.clamp(action_log_std, min=-2.0, max=-0.5)
         action_std = torch.exp(action_log_std) 
 
         return action_mean, action_log_std, action_std
