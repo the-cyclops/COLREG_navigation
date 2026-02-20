@@ -26,12 +26,17 @@ public class BoatAgent : Agent
     SplineAnimate splineAnimator1;
     SplineAnimate splineAnimator2;
 
-    [SerializeField] GameObject HorizontalPath;
-    [SerializeField] GameObject VerticalPath;
+    [SerializeField] GameObject Path1;
+    [SerializeField] GameObject Path2;
     
     private Vector3 initialPosition;
     private Quaternion initialRotation;
     private float previousDistanceToTarget;
+
+    private float intruder1Speed;
+    private float intruder2Speed;
+    private Vector3 intruder1Velocity;
+    private Vector3 intruder2Velocity;
 
     [SerializeField] private bool debugMode = false;
 
@@ -53,6 +58,21 @@ public class BoatAgent : Agent
             var bp = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>();
             Debug.Log($"Behavior Name: {bp.BehaviorName}");
             Debug.Log($"Space Size da Inspector: {bp.BrainParameters.VectorObservationSize}");
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (intruderVessel1 != null && intruderVessel1.activeInHierarchy)
+        {
+            splineAnimator1.ElapsedTime += splineAnimator1.MaxSpeed * Time.fixedDeltaTime;
+            intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
+        }
+
+        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy)
+        {
+            splineAnimator2.ElapsedTime += splineAnimator2.MaxSpeed * Time.fixedDeltaTime;
+            intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
         }
     }
 
@@ -133,44 +153,38 @@ public class BoatAgent : Agent
 
     private void MoveIntruders()
     {
-        // Vertical Path
+        // ---Path 1---
+        float scaleX1 = UnityEngine.Random.Range(0.9f, 1.1f);
+        float scaleZ1 = UnityEngine.Random.Range(0.9f, 1.1f);
+        Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
 
-        float PathLength = UnityEngine.Random.Range(0f, 1f);
-        float PathWidth = UnityEngine.Random.Range(0f, 1f);
+        // Definiamo la velocità nel mondo (es. 2.3 m/s)
+        intruder1Speed = UnityEngine.Random.Range(2.1f, 2.5f);
+        float maxScale1 = Mathf.Max(scaleX1, scaleZ1);
 
-        float scaleX = 1 + (PathLength/10f);
-        float scaleZ = 1 + (PathWidth/10f);
+        // Impostiamo ElapsedTime a un punto casuale senza bias
+        splineAnimator1.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator1.Duration);
 
-        VerticalPath .transform.localScale = new Vector3(scaleX, 1f, scaleZ);
+        // Calcoliamo la velocità locale per far sì che la velocità mondo sia corretta
+        // Usiamo MaxSpeed come contenitore per il calcolo nel FixedUpdate
+        splineAnimator1.MaxSpeed = intruder1Speed / maxScale1;
 
-        splineAnimator1.StartOffset = UnityEngine.Random.Range(0f, 1f);
-        splineAnimator1.ElapsedTime = 0f;
-        if (splineAnimator1.AnimationMethod == SplineAnimate.Method.Speed)
+        // --- Path 2---
+        float scaleX2 = UnityEngine.Random.Range(0.9f, 1.1f);
+        float scaleZ2 = UnityEngine.Random.Range(0.9f, 1.1f);
+        Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
+
+        intruder2Speed = UnityEngine.Random.Range(2.1f, 2.5f);
+        float maxScale2 = Mathf.Max(scaleX2, scaleZ2);
+
+        splineAnimator2.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator2.Duration);
+        splineAnimator2.MaxSpeed = intruder2Speed / maxScale2;
+
+        if (debugMode)
         {
-            splineAnimator1.MaxSpeed = UnityEngine.Random.Range(2.1f, 2.5f); 
-            if (debugMode) Debug.Log($"Setting Spline Animator 1 Max Speed to a random value between 2.1 and 2.5: {splineAnimator1.MaxSpeed}");
+            Debug.Log($"Intruder 1 World Speed: {intruder1Speed} | Local MaxSpeed: {splineAnimator1.MaxSpeed}");
+            Debug.Log($"Intruder 2 World Speed: {intruder2Speed} | Local MaxSpeed: {splineAnimator2.MaxSpeed}");
         }
-        splineAnimator1.Play();
-
-        // Horizontal Path
-
-        PathLength = UnityEngine.Random.Range(0f, 1f);
-        PathWidth = UnityEngine.Random.Range(0f, 1f);
-
-        scaleX = 1 + (PathLength/10f);
-        scaleZ = 1 + (PathWidth/10f);
-
-        HorizontalPath.transform.localScale = new Vector3(scaleX, 1f, scaleZ);
-
-        splineAnimator2.StartOffset = UnityEngine.Random.Range(0f, 1f);
-        splineAnimator2.ElapsedTime = 0f;
-        if (splineAnimator2.AnimationMethod == SplineAnimate.Method.Speed)
-        {
-            splineAnimator2.MaxSpeed = UnityEngine.Random.Range(2.1f, 2.5f); 
-            if (debugMode) Debug.Log($"Setting Spline Animator 2 Max Speed to a random value between 2.1 and 2.5: {splineAnimator2.MaxSpeed}");
-        }
-        splineAnimator2.Play();
-        
     }
 
     public override void OnEpisodeBegin()
@@ -193,6 +207,9 @@ public class BoatAgent : Agent
         transform.localRotation = initialRotation;
 
         Physics.SyncTransforms();
+
+        intruder1Velocity = Vector3.zero;
+        intruder2Velocity = Vector3.zero;
 
         previousDistanceToTarget = Vector3.Distance(transform.localPosition, target.transform.localPosition);
     }
@@ -262,23 +279,12 @@ public class BoatAgent : Agent
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // We calculate the vector difference in world space, then convert to local
-            Rigidbody intruderRb1 = intruderVessel1.GetComponent<Rigidbody>();
-            if (intruderRb1 == null)
-            {
-                if (debugMode) Debug.LogWarning("Intruder Vessel 1 does not have a Rigidbody component!");
-                sensor.AddObservation(Vector3.zero); // Rel Vel
-            } else
-            {
-                Vector3 relativeVelocityWorld1 = intruderRb1.linearVelocity - rb.linearVelocity;
-                Vector3 localRelativeVelocity1 = transform.InverseTransformDirection(relativeVelocityWorld1);
-
-                // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
-                // Obs Index [14,15,16]: Intruder 1 Relative Velocity (Local space)
-                if (debugMode) Debug.Log("Intruder 1 Relative Velocity: " + localRelativeVelocity1.ToString("F2"));
-                sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity1 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));    
-            }
-
-            
+            Vector3 relativeVelocityWorld1 = intruder1Velocity - rb.linearVelocity;
+            Vector3 localRelativeVelocity1 = transform.InverseTransformDirection(relativeVelocityWorld1);
+            // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
+            // Obs Index [14,15,16]: Intruder 1 Relative Velocity (Local space)
+            if (debugMode) Debug.Log("Intruder 1 Relative Velocity: " + localRelativeVelocity1.ToString("F2"));
+            sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity1 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));   
         }
         else
         {
@@ -306,21 +312,12 @@ public class BoatAgent : Agent
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // We calculate the vector difference in world space, then convert to local
-            Rigidbody intruderRb2 = intruderVessel2.GetComponent<Rigidbody>();
-            if (intruderRb2 == null)            {
-                if (debugMode) Debug.LogWarning("Intruder Vessel 2 does not have a Rigidbody component!");
-                sensor.AddObservation(Vector3.zero); // Rel Vel
-            } else
-            {
-                Vector3 relativeVelocityWorld2 = intruderRb2.linearVelocity - rb.linearVelocity;
-                Vector3 localRelativeVelocity2 = transform.InverseTransformDirection(relativeVelocityWorld2);
-            
-                // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
-                // Obs Index [21,22,23]: Intruder 2 Relative Velocity (Local space)
-                if (debugMode) Debug.Log("Intruder 2 Relative Velocity: " + localRelativeVelocity2.ToString("F2"));
-                sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity2 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));    
-            }
-            
+            Vector3 relativeVelocityWorld2 = intruder2Velocity - rb.linearVelocity;
+            Vector3 localRelativeVelocity2 = transform.InverseTransformDirection(relativeVelocityWorld2);
+            // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
+            // Obs Index [21,22,23]: Intruder 2 Relative Velocity (Local space)
+            if (debugMode) Debug.Log("Intruder 2 Relative Velocity: " + localRelativeVelocity2.ToString("F2"));
+            sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity2 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
         }
         else
         {

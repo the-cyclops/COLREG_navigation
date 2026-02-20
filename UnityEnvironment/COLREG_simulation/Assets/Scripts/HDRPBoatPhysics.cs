@@ -29,6 +29,8 @@ public class HDRPBoatPhysics : MonoBehaviour
     public float nominalMaxAngularSpeed = 1.4f;
     
     private Rigidbody rb;
+    private float currentLeftInput = 0f;
+    private float currentRightInput = 0f;
 
     void Start()
     {
@@ -51,6 +53,12 @@ public class HDRPBoatPhysics : MonoBehaviour
         // Applica una forza contraria SOLO all'asse X (laterale)
         // L'asse Z (avanti) e Y (verticale) vengono ignorati da questa forza
         rb.AddRelativeForce(new Vector3(-localVel.x * sideDrag, 0, 0), ForceMode.Acceleration);
+
+        float leftForce = currentLeftInput * maxThrust;
+        float rightForce = currentRightInput * maxThrust;
+
+        rb.AddForceAtPosition(transform.forward * leftForce, leftJet.position);
+        rb.AddForceAtPosition(transform.forward * rightForce, rightJet.position);
     }
 
     void ApplyPointBuoyancy(Transform floater)
@@ -100,15 +108,13 @@ public class HDRPBoatPhysics : MonoBehaviour
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
         }
+        currentLeftInput = 0f;
+        currentRightInput = 0f;
     }
 
     public void SetJetInputs(float leftInput, float rightInput)
     {
-        float leftForce = leftInput * maxThrust;
-        float rightForce = rightInput * maxThrust;
-
-        rb.AddForceAtPosition(transform.forward * leftForce, leftJet.position);
-        rb.AddForceAtPosition(transform.forward * rightForce, rightJet.position);
-
+        currentLeftInput = leftInput;
+        currentRightInput = rightInput;
     }
 }
