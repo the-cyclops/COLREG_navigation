@@ -106,7 +106,7 @@ def main():
         env.reset()
         print("Environment loaded successfully.")
     
-        # time_scale = 1.0 real time - 20.0 is 20x faster than real time
+        # time_scale = 1.0 real time 20 step/s - 40.0 is 40x faster than real time 800 step/s
         engine_config.set_configuration_parameters(width=800, height=600, time_scale=40.0)
 
         # Debug info print behaviors available
