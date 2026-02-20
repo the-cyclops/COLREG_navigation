@@ -17,11 +17,11 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_model_tuned_rewards_smaller_radius_v1"
+model_name = "boat_agent_tuned_rewards_smaller_radius_v2"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
-unity_env_path = "../Builds/train_5M_smaller_radius.app"
+unity_env_path = "../Builds/train_5M.app"
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
