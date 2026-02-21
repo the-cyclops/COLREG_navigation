@@ -42,7 +42,7 @@ public class BoatAgent : Agent
 
     public override void Initialize()
     {
-        this.MaxStep = 9000; // timer limit for episode, max 1,5 minute 
+        this.MaxStep = 5000; // timer limit for episode, max 5000/100 = 50 s
 
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
@@ -211,7 +211,9 @@ public class BoatAgent : Agent
         intruder1Velocity = Vector3.zero;
         intruder2Velocity = Vector3.zero;
 
-        previousDistanceToTarget = Vector3.Distance(transform.localPosition, target.transform.localPosition);
+        Vector2 boatPos2D = new Vector2(transform.localPosition.x, transform.localPosition.z);
+        Vector2 targetPos2D = new Vector2(target.transform.localPosition.x, target.transform.localPosition.z);
+        previousDistanceToTarget = Vector2.Distance(boatPos2D, targetPos2D);
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -344,7 +346,9 @@ public class BoatAgent : Agent
         boatPhysics.SetJetInputs(leftInput, rightInput);
 
         // Reward to incentivize getting closer to the target
-        float currentDistanceToTarget = Vector3.Distance(transform.localPosition, target.transform.localPosition);
+        Vector2 boatPos2D = new Vector2(transform.localPosition.x, transform.localPosition.z);
+        Vector2 targetPos2D = new Vector2(target.transform.localPosition.x, target.transform.localPosition.z);
+        float currentDistanceToTarget = Vector2.Distance(boatPos2D, targetPos2D);
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; 
         AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         previousDistanceToTarget = currentDistanceToTarget;
