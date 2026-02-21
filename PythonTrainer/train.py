@@ -17,7 +17,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_tuned_rewards_smaller_radius_v2"
+model_name = "boat_agent_tuned_rewards_higher_gamma_v1"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -32,7 +32,7 @@ RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2
 
 INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
-
+GAMMA = 0.995
 ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
@@ -41,6 +41,7 @@ TOT_STEPS = 5_120_000 # 2500 updates
 
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
+
 colreg_path = "colreg_logic/colreg.yaml"
 
 SAFE_DISTANCE = 1.0
@@ -113,7 +114,7 @@ def main():
         print("Behaviors found:", list(env.behavior_specs.keys()))
         behavior_name = list(env.behavior_specs.keys())[0] 
     
-        agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=START_SAFETY)
+        agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=START_SAFETY, gamma=GAMMA)
 
         if starting_step != 0:
             checkpoint_path = f"Models/{model_name}/seed_{seed}/steps_{starting_step}.pth"

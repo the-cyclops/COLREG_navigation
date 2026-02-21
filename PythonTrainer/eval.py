@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_model_tuned_rewards_smaller_radius_v1"
+model_name = "boat_agent_tuned_rewards_smaller_radius_v2"
 seed = 1 
 unity_env_path = None #"../Builds/train_5M.app" 
 DEVICE = "cpu"
