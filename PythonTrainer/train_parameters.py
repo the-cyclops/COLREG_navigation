@@ -123,7 +123,7 @@ def main():
         print("Behaviors found:", list(env.behavior_specs.keys()))
         behavior_name = list(env.behavior_specs.keys())[0] 
     
-        # Ensure ConstrainedPPOAgent __init__ accepts lr and entropy_coef
+        # Ensure ConstrainedPPOAgent __init__ accepts lr and entropy_coeff
         agent = ConstrainedPPOAgent(
             INPUT_SIZE, 
             ACTION_SIZE, 
@@ -131,7 +131,7 @@ def main():
             start_safety=START_SAFETY, 
             gamma=GAMMA,
             lr=lr,
-            entropy_coef=entropy
+            entropy_coeff=entropy 
         )
 
         if starting_step != 0:
