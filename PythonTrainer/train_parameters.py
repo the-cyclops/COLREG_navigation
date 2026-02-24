@@ -3,6 +3,7 @@ import os
 import time
 import numpy as np
 import torch
+import itertools
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -17,7 +18,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_tuned_rewards_higher_gamma_v1"
+model_name = "boat_agent_tuning_v1"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -40,11 +41,16 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 5_120_000 # 2500 updates
 
 SAVE_INTERVAL = 20_480
-START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
+START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a multiple of rollout size
 
 colreg_path = "colreg_logic/colreg.yaml"
 
 SAFE_DISTANCE = 1.0
+
+# Hyperparameter Grid
+LEARNING_RATES = [1e-4, 3e-4, 1e-3]
+ENTROPY_COEFS = [0.001, 0.01, 0.05]
+FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -70,17 +76,20 @@ def get_single_agent_obs(steps):
 
 def main():
 
-    seeds= [1, 3, 7, 34, 42]
-    seed_iteration = 0
-    for seed in seeds:
-        seed_iteration += 1
-        print(f"--- Avvio Training Seed {seed} ({seed_iteration}/5) ---")
-        set_all_seeds(seed)
+    hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS))
+    total_runs = len(hp_combinations)
+    
+    for run_idx, (lr, entropy) in enumerate(hp_combinations, 1):
+        
+        run_name = f"lr_{lr}_ent_{entropy}"
+        print(f"\n--- Starting Training Run ({run_idx}/{total_runs}) | LR: {lr}, Entropy: {entropy} ---")
+        
+        set_all_seeds(FIXED_SEED)
 
-        save_dir = f"Models/{model_name}/seed_{seed}"
+        save_dir = f"Models/{model_name}/{run_name}"
         os.makedirs(save_dir, exist_ok=True)
 
-        writer = SummaryWriter(log_dir=f"runs/{model_name}/seed_{seed}")
+        writer = SummaryWriter(log_dir=f"runs/{model_name}/{run_name}")
 
         starting_step = 0
 
@@ -100,7 +109,7 @@ def main():
         env = UnityEnvironment(
             file_name=unity_env_path, 
             side_channels=[engine_config],
-            seed=seed,
+            seed=FIXED_SEED,
             no_graphics=False
         )
     
@@ -114,10 +123,19 @@ def main():
         print("Behaviors found:", list(env.behavior_specs.keys()))
         behavior_name = list(env.behavior_specs.keys())[0] 
     
-        agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=START_SAFETY, gamma=GAMMA)
+        # Ensure ConstrainedPPOAgent __init__ accepts lr and entropy_coef
+        agent = ConstrainedPPOAgent(
+            INPUT_SIZE, 
+            ACTION_SIZE, 
+            device=DEVICE, 
+            start_safety=START_SAFETY, 
+            gamma=GAMMA,
+            lr=lr,
+            entropy_coef=entropy
+        )
 
         if starting_step != 0:
-            checkpoint_path = f"Models/{model_name}/seed_{seed}/steps_{starting_step}.pth"
+            checkpoint_path = f"Models/{model_name}/{run_name}/steps_{starting_step}.pth"
             print(f"Loading model from {checkpoint_path}...")
             checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
             starting_step = checkpoint['step']
@@ -142,8 +160,8 @@ def main():
             current_return = 0.0
             returns_episodes = []
 
-            # Progress bar per il training
-            pbar = tqdm(total=TOT_STEPS, desc=f"Training {seed_iteration}/5", unit="steps")
+            # Training progress bar
+            pbar = tqdm(total=TOT_STEPS, desc=f"Run {run_idx}/{total_runs} [LR:{lr} Ent:{entropy}]", unit="steps")
 
             save_model = False
 
@@ -153,8 +171,7 @@ def main():
                     safety_active = True
                     pbar.write(f"Safety constraints activated at step {s}.")
 
-                #TEMPORARY
-
+                # TEMPORARY
                 mean_buffer = []
                 std_buffer = []
             
@@ -170,12 +187,11 @@ def main():
                     action_tuple = ActionTuple()
                     action_tuple.add_continuous(action_numpy)
 
-                    #TEMPORARYù
+                    # TEMPORARY
                     with torch.no_grad():
-                        mean,_ ,std = agent.policy_net(obs_tensor)
+                        mean, _, std = agent.policy_net(obs_tensor)
                         mean_buffer.append(mean.detach().cpu().numpy())
                         std_buffer.append(std.detach().cpu().numpy())
-
 
                     env.set_actions(behavior_name, action_tuple)
                     env.step()
@@ -189,11 +205,11 @@ def main():
                     current_return += reward
 
                     memory_buffer.add_ppo_transition(
-                    state=obs_tensor, 
-                    action=action_tensor, 
-                    logprob=log_probabs,
-                    reward=reward, 
-                    is_terminal=float(end_episode)
+                        state=obs_tensor, 
+                        action=action_tensor, 
+                        logprob=log_probabs,
+                        reward=reward, 
+                        is_terminal=float(end_episode)
                     )
                 
                     r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
@@ -207,12 +223,11 @@ def main():
                 
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
-                    # TODO forse -> normalizzare/clippare i costi?
+                    
                     cost_1 = max(0, -rho_1) / SAFE_DISTANCE
                     cost_2 = max(0, -rho_2)
-                    memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
+                    memory_buffer.add_robustness(r1=rho_1, r2=rho_2)
                     memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
-
 
                     if end_episode:
                         returns_episodes.append(current_return)
@@ -224,10 +239,10 @@ def main():
                     if s % SAVE_INTERVAL == 0:
                         save_model = True
 
-
                 next_state = get_single_agent_obs(decision_steps)[0]
                 r1_next, r2_next = memory_buffer.compute_markovian_flags()
                 next_state_augmented = np.concatenate((next_state, [r1_next, r2_next]))
+                
                 rollout_buffer = {}
                 rollout_buffer['states'] =  memory_buffer.states
                 rollout_buffer['actions'] = memory_buffer.actions
@@ -240,7 +255,7 @@ def main():
 
                 robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             
-                log_dict = agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
+                log_dict = agent.update(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s)
             
                 mode = log_dict['mode']
 
@@ -270,7 +285,7 @@ def main():
                 writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
                 writer.add_text("Training/Mode_Log", mode, s)
 
-                #TEMPORARY
+                # TEMPORARY
                 writer.add_scalar("Training/Policy_Mean", np.mean(mean_buffer), s)
                 writer.add_scalar("Training/Policy_Std", np.mean(std_buffer), s)
 
@@ -309,24 +324,25 @@ def main():
                 current_r2 = robustness_dict['R2']             
 
                 is_feasible = (current_r1 >= 0.0) and (current_r2 >= 0.0)
-                if mean_return is not None and s>= START_SAFETY:
+                if mean_return is not None and s >= START_SAFETY:
                     if is_feasible and (mean_return > best_feasible_return):
                         best_feasible_return = mean_return
                         best_path = f"{save_dir}/best_feasible_model.pth"
                     
-                        # Salva copia specifica
+                        # Save specific copy
                         torch.save(checkpoint, best_path)
-                        pbar.write(f"*** NEW BEST FEASIBLE MODEL! Return: {best_feasible_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+                        pbar.write(f"*** NEW BEST FEASIBLE MODEL! Return: {best_feasible_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}    ***")
 
         except KeyboardInterrupt:
-            print("Manual interruption...")
-            break
+            print("Manual interruption... Exiting the entire grid search.")
+            # Break completely out of the function so it doesn't just jump to the next hyperparameter set
+            return
 
         finally:
             pbar.close()
             env.close()
             writer.close()
-            print(f"Environment with seed {seed} closed.")
+            print(f"Environment for LR: {lr}, Entropy: {entropy} closed.")
             time.sleep(5) 
 
 if __name__ == "__main__":
