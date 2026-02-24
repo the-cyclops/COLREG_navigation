@@ -33,6 +33,11 @@ class ConstrainedPPOAgent:
     
     # ----- Helper Functions for Cagrad and GAE computation -----
 
+    def _generate_batches(self, total_size, batch_size):
+        indices = torch.randperm(total_size)
+        for start_idx in range(0, total_size, batch_size):
+            yield indices[start_idx:start_idx + batch_size]
+
     def _compute_flat_grad(self, loss, network, retain_graph=False):
         """
         Computes gradients for a specific loss and returns them as a flattened tensor.
@@ -128,7 +133,6 @@ class ConstrainedPPOAgent:
             else:
                 action = dist.sample()
             
-            action = torch.clamp(action, -1.0, 1.0)
             log_prob = dist.log_prob(action).sum(dim=-1)
             
         return action, log_prob
@@ -301,6 +305,165 @@ class ConstrainedPPOAgent:
 
         self.policy_opt.step()
 
+        return {
+            "mode": actual_mode,
+            "violated_rules": violated_rules,
+            "robustness": {rule: robustness_dict[rule] for rule in violated_rules},
+            "reward": (adv_reward, gae_returns),
+            "r1": (adv_r1, r1_cumulative_cost),
+            "r2": (adv_r2, r2_cumulative_cost)
+        }
+    
+    # We iterate n_epochs times over the collected data to increase sample efficiency.
+    # In each epoch, we shuffle the data and perform updates on small random subsets (minibatches) of dimension batch_size.
+    def update_with_minibatches(self, rollouts, robustness_dict, current_step, entropy_coeff=None, n_epochs=10, batch_size=64):
+        """
+        Args:
+            rollouts (dict): Dictionary containing raw lists from the buffer:
+                             ['states', 'actions', 'rewards', 'masks', 
+                              'cost_r1', 'cost_r2', 'next_state', 'logprobs']
+            robustness_dict (dict): Current min robustness values e.g. {'R1': -0.1, 'R2': 0.5}
+            entropy_coeff (float): Coefficient for entropy regularization
+            n_epochs (int): Number of times to iterate over the entire buffer
+            batch_size (int): Size of the mini-batches
+        """
+        if entropy_coeff is None:
+            entropy_coeff = self.entropy_coeff
+        
+        # Calculate Advantages for reward and costs (ON FULL BUFFER to preserve temporal dependencies)
+        states = torch.stack(rollouts['states']).to(self.device).detach()
+        actions = torch.stack(rollouts['actions']).to(self.device).detach()
+        rewards = torch.from_numpy(rollouts['rewards']).float().to(self.device).detach().squeeze()
+        old_log_probs = torch.stack(rollouts['logprobs']).to(self.device).detach().squeeze()
+        masks = torch.from_numpy(rollouts['masks']).float().to(self.device).detach()
+        cost_r1 = torch.from_numpy(rollouts['cost_r1']).float().to(self.device).detach()
+        cost_r2 = torch.from_numpy(rollouts['cost_r2']).float().to(self.device).detach()
+        next_state = torch.from_numpy(rollouts['next_state']).float().unsqueeze(0).to(self.device).detach()
+
+        advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
+        adv_reward, gae_returns = advantages["reward"]
+        adv_r1, r1_cumulative_cost = advantages["r1"]
+        adv_r2, r2_cumulative_cost = advantages["r2"]
+        
+        # Normalize advantages to stabilize training (on the whole buffer)
+        adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
+
+        # not normalizing cost advantage to preserve scale for cagrad
+        #adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
+        #adv_r2 = (adv_r2 - adv_r2.mean()) / (adv_r2.std() + 1e-8)
+
+        # Determine the training mode once for the entire update
+        violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
+        # Case 1: No violations (NOMINAL MODE)
+        if not violated_rules or current_step < self.start_safety:
+            actual_mode = "NOMINAL"
+            if violated_rules:
+                actual_mode="NOMINAL (warmup)"
+        # Case 2: single violation 
+        elif len(violated_rules) == 1:
+            actual_mode = f"SINGLE VIOLATION {violated_rules[0]}"
+        # Case 3: multiple violations
+        else:
+            actual_mode = f"MULTIPLE VIOLATIONS {violated_rules}"
+
+        total_samples = states.size(0)
+
+        # PPO Multi-Epoch & Minibatch Training Loop
+        for epoch in range(n_epochs):
+            for batch_indices in self._generate_batches(total_samples, batch_size):
+                
+                # Extract mini-batch tensors
+                b_states = states[batch_indices]
+                b_actions = actions[batch_indices]
+                b_old_log_probs = old_log_probs[batch_indices]
+                b_gae_returns = gae_returns[batch_indices]
+                b_adv_reward = adv_reward[batch_indices]
+                b_adv_r1 = adv_r1[batch_indices]
+                b_r1_cum_cost = r1_cumulative_cost[batch_indices]
+                b_adv_r2 = adv_r2[batch_indices]
+                b_r2_cum_cost = r2_cumulative_cost[batch_indices]
+
+                # setup for update (batched version)
+                b_cost_config = {
+                    "R1": {
+                        "adv": b_adv_r1,
+                        "cumulative_cost": b_r1_cum_cost,
+                        "network": self.cost_net_safe_distance,
+                        "optimizer": self.cost_opts[0]
+                    },
+                    "R2": {
+                        "adv": b_adv_r2,
+                        "cumulative_cost": b_r2_cum_cost,
+                        "network": self.cost_net_safe_speed,
+                        "optimizer": self.cost_opts[1]
+                    }
+                }
+
+                # update Value critic
+                self.value_opt.zero_grad()
+                value_preds = self.value_net(b_states).squeeze()
+                value_loss = torch.nn.MSELoss()(value_preds, b_gae_returns)
+                value_loss.backward()
+                self.value_opt.step()
+
+                # update Cost critics
+                for rule, config in b_cost_config.items():
+                    net = config["network"]
+                    opt = config["optimizer"]
+                    cumulative_cost = config["cumulative_cost"]
+
+                    opt.zero_grad()
+                    cost_preds = net(b_states).squeeze()
+                    cost_loss = torch.nn.MSELoss()(cost_preds, cumulative_cost)
+                    cost_loss.backward()
+                    opt.step()
+                
+                # Policy Update Logic
+                cur_log_probs, entropy = self.evaluate_actions(b_states, b_actions)
+                ratio = torch.exp(cur_log_probs - b_old_log_probs)
+
+                # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
+                entropy_loss = -entropy_coeff * entropy.mean()
+
+                # Case 1: No violations (NOMINAL MODE) -> Standard PPO update using reward advantage
+                if not violated_rules or current_step < self.start_safety:
+                    policy_loss = self._get_ppo_loss(ratio, b_adv_reward) + entropy_loss
+                    self.policy_opt.zero_grad()
+                    policy_loss.backward()
+
+                # Case 2: single violation -> Minimize specific cost (Maximize negative cost advantage)
+                elif len(violated_rules) == 1:
+                    rule = violated_rules[0]
+                    cost_adv = b_cost_config[rule]["adv"]
+                    # -cost_adv because we want to minimize cost
+                    policy_loss = self._get_ppo_loss(ratio, -cost_adv) + entropy_loss
+                    self.policy_opt.zero_grad()
+                    policy_loss.backward()
+
+                # Case 3: multiple violations -> Use CAGrad to find the best update direction
+                else:
+                    grads = []
+                    for rule in violated_rules:
+                        cost_adv = b_cost_config[rule]["adv"]
+                        policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
+                        flat_grad = self._compute_flat_grad(policy_loss, self.policy_net, retain_graph=True)
+                        if flat_grad is not None:
+                            grads.append(flat_grad)
+                    
+                    if grads:
+                        grad_vec = torch.stack(grads)
+                        merged_grad = self.cagrad_helper.cagrad(grad_vec, num_tasks=len(violated_rules))
+                        entropy_grad = self._compute_flat_grad(entropy_loss, self.policy_net, retain_graph=False)
+                        if entropy_grad is not None:
+                            merged_grad += entropy_grad
+                        self._set_flat_grad(merged_grad, self.policy_net)
+                
+                # clip gradient to prevent exploding gradients (optional, can be tuned or removed)
+                torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
+
+                self.policy_opt.step()
+
+        # Return full tensors for accurate logging in train.py
         return {
             "mode": actual_mode,
             "violated_rules": violated_rules,
