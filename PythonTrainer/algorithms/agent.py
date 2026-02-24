@@ -427,7 +427,8 @@ class ConstrainedPPOAgent:
                 
                 # Policy Update Logic
                 cur_log_probs, entropy = self.evaluate_actions(b_states, b_actions)
-                ratio = torch.exp(cur_log_probs - b_old_log_probs)
+                # clamp to prevent nan crashes
+                ratio = torch.exp(torch.clamp(cur_log_probs - b_old_log_probs, min=-20.0, max=5.0))
 
                 # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
                 entropy_loss = -entropy_coeff * entropy.mean()
