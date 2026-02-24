@@ -17,7 +17,7 @@ public class BoatAgent : Agent
     private float currentReductionRadius = 13f;
 
     private int current_step = 0;
-    private int startSafetyStep = 2_560_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
+    private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
