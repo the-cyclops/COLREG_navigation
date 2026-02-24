@@ -18,11 +18,11 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_tuning_v1"
+model_name = "Grid_Search_parameters"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
-unity_env_path = "../Builds/train_5M.app"
+unity_env_path = "../Builds/emptyscene.app"
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -38,7 +38,7 @@ ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 5_120_000 # 2500 updates
+TOT_STEPS = 2_048_000 # 1000 updates
 
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a multiple of rollout size
@@ -255,7 +255,7 @@ def main():
 
                 robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             
-                log_dict = agent.update(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s)
+                log_dict = agent.update_with_minibatches(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s)
             
                 mode = log_dict['mode']
 
@@ -284,10 +284,13 @@ def main():
                 writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
                 writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
                 writer.add_text("Training/Mode_Log", mode, s)
-
-                # TEMPORARY
-                writer.add_scalar("Training/Policy_Mean", np.mean(mean_buffer), s)
-                writer.add_scalar("Training/Policy_Std", np.mean(std_buffer), s)
+                writer.add_scalar("Policy/Policy_Mean", np.mean(mean_buffer), s)
+                writer.add_scalar("Policy/Policy_Std", np.mean(std_buffer), s)
+                writer.add_scalar("Policy/Entropy", log_dict['entropy'], s)
+                writer.add_scalar("Loss/Policy", log_dict['policy_loss'], s)
+                writer.add_scalar("Loss/Value", log_dict['value_loss'], s)
+                writer.add_scalar("Loss/Cost_R1", log_dict['cost_loss_r1'], s)
+                writer.add_scalar("Loss/Cost_R2", log_dict['cost_loss_r2'], s)
 
                 memory_buffer.clear_ppo()
 
