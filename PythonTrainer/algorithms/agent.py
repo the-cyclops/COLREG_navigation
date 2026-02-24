@@ -5,12 +5,13 @@ from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
 class ConstrainedPPOAgent:
-    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=40_960, device='cpu'):
+    def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=40_960, device='cpu', 
+                 entropy_coeff=0.01):
         self.gamma = gamma
         self.ppo_eps = ppo_eps
         self.start_safety = start_safety
         self.device = device
-
+        self.entropy_coeff = entropy_coeff
         self.policy_net = Policy(state_size, action_size).to(self.device)
         self.value_net = Value(state_size).to(self.device)        
         # COLREG Cost Networks
@@ -136,7 +137,8 @@ class ConstrainedPPOAgent:
         action_mean, _, action_std = self.policy_net(states)
         dist = torch.distributions.Normal(action_mean, action_std)
         action_log_probs = dist.log_prob(actions).sum(dim=-1)
-        return action_log_probs
+        entropy = dist.entropy().sum(dim=-1)
+        return action_log_probs, entropy
 
     def compute_all_advantages(self, states, next_state, rewards, cost_r1, cost_r2, masks):
         """
@@ -180,7 +182,7 @@ class ConstrainedPPOAgent:
             "r2": (adv_r2, r2_cumulative_cost)
         }
 
-    def update(self, rollouts, robustness_dict, current_step):
+    def update(self, rollouts, robustness_dict, current_step, entropy_coeff=None):
         """
         Args:
             rollouts (dict): Dictionary containing raw lists from the buffer:
@@ -188,6 +190,9 @@ class ConstrainedPPOAgent:
                               'cost_r1', 'cost_r2', 'next_state', 'logprobs']
             robustness_dict (dict): Current min robustness values e.g. {'R1': -0.1, 'R2': 0.5}
         """
+        if entropy_coeff is None:
+            entropy_coeff = self.entropy_coeff
+        
         # Calculate Advantages for reward and costs
         states = torch.stack(rollouts['states']).to(self.device).detach()
         actions = torch.stack(rollouts['actions']).to(self.device).detach()
@@ -245,8 +250,11 @@ class ConstrainedPPOAgent:
             opt.step()
         
         # Policy Update Logic
-        cur_log_probs = self.evaluate_actions(states, actions)
+        cur_log_probs, entropy = self.evaluate_actions(states, actions)
         ratio = torch.exp(cur_log_probs - old_log_probs)
+
+        # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
+        entropy_loss = -entropy_coeff * entropy.mean()
 
         violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
         # Case 1: No violations (NOMINAL MODE) -> Standard PPO update using reward advantage
@@ -254,7 +262,7 @@ class ConstrainedPPOAgent:
             actual_mode = "NOMINAL"
             if violated_rules:
                 actual_mode="NOMINAL (warmup)"
-            policy_loss = self._get_ppo_loss(ratio, adv_reward)
+            policy_loss = self._get_ppo_loss(ratio, adv_reward) + entropy_loss
             self.policy_opt.zero_grad()
             policy_loss.backward()
 
@@ -264,7 +272,7 @@ class ConstrainedPPOAgent:
             actual_mode = f"SINGLE VIOLATION {rule}"
             cost_adv = cost_config[rule]["adv"]
             # -cost_adv because we want to minimize cost
-            policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
+            policy_loss = self._get_ppo_loss(ratio, -cost_adv) + entropy_loss
             self.policy_opt.zero_grad()
             policy_loss.backward()
 
@@ -275,16 +283,18 @@ class ConstrainedPPOAgent:
             for rule in violated_rules:
                 cost_adv = cost_config[rule]["adv"]
                 policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
-                is_last = (rule == violated_rules[-1])
-                flat_grad = self._compute_flat_grad(policy_loss, self.policy_net, retain_graph=not is_last)
+                #is_last = (rule == violated_rules[-1])
+                flat_grad = self._compute_flat_grad(policy_loss, self.policy_net, retain_graph=True)
                 if flat_grad is not None:
                     grads.append(flat_grad)
             
             if grads:
                 grad_vec = torch.stack(grads)
                 merged_grad = self.cagrad_helper.cagrad(grad_vec, num_tasks=len(violated_rules))
+                entropy_grad = self._compute_flat_grad(entropy_loss, self.policy_net, retain_graph=False)
+                if entropy_grad is not None:
+                    merged_grad += entropy_grad
                 self._set_flat_grad(merged_grad, self.policy_net)
-
         
         # clip gradient to prevent exploding gradients (optional, can be tuned or removed)
         torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
