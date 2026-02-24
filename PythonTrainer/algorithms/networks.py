@@ -24,10 +24,8 @@ class Policy(nn.Module):
         x = torch.relu(self.affine1(x))
         x = torch.relu(self.affine2(x))
 
-        action_mean = torch.tanh(self.action_mean(x))
+        action_mean = self.action_mean(x)
         action_log_std = self.action_log_std.expand_as(action_mean)
-        # clamp log std to avoid going outside of the action space [-1, 1]
-        action_log_std = torch.clamp(action_log_std, min=-2.0, max=-0.5)
         action_std = torch.exp(action_log_std) 
 
         return action_mean, action_log_std, action_std
