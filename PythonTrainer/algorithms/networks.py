@@ -26,6 +26,8 @@ class Policy(nn.Module):
 
         action_mean = self.action_mean(x)
         action_log_std = self.action_log_std.expand_as(action_mean)
+        # clamp to avoid division by zero when calculating log_prob
+        action_log_std = torch.clamp(action_log_std, min=-20.0, max=2.0)
         action_std = torch.exp(action_log_std) 
 
         return action_mean, action_log_std, action_std
