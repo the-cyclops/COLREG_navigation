@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+import numpy as np
 from algorithms.networks import Policy, Value, CostValue
 from utils.cagrad import Cagrad_all
 from copy import deepcopy
@@ -366,6 +367,9 @@ class ConstrainedPPOAgent:
         else:
             actual_mode = f"MULTIPLE VIOLATIONS {violated_rules}"
 
+        pg_losses, v_losses, ent_vals = [], [], []
+        c_losses_r1, c_losses_r2 = [], []
+
         total_samples = states.size(0)
 
         # PPO Multi-Epoch & Minibatch Training Loop
@@ -405,6 +409,7 @@ class ConstrainedPPOAgent:
                 value_loss = torch.nn.MSELoss()(value_preds, b_gae_returns)
                 value_loss.backward()
                 self.value_opt.step()
+                v_losses.append(value_loss.item())
 
                 # update Cost critics
                 for rule, config in b_cost_config.items():
@@ -417,6 +422,8 @@ class ConstrainedPPOAgent:
                     cost_loss = torch.nn.MSELoss()(cost_preds, cumulative_cost)
                     cost_loss.backward()
                     opt.step()
+                    if rule == "R1": c_losses_r1.append(cost_loss.item())
+                    if rule == "R2": c_losses_r2.append(cost_loss.item())
                 
                 # Policy Update Logic
                 cur_log_probs, entropy = self.evaluate_actions(b_states, b_actions)
@@ -424,12 +431,14 @@ class ConstrainedPPOAgent:
 
                 # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
                 entropy_loss = -entropy_coeff * entropy.mean()
+                ent_vals.append(entropy.mean().item())
 
                 # Case 1: No violations (NOMINAL MODE) -> Standard PPO update using reward advantage
                 if not violated_rules or current_step < self.start_safety:
                     policy_loss = self._get_ppo_loss(ratio, b_adv_reward) + entropy_loss
                     self.policy_opt.zero_grad()
                     policy_loss.backward()
+                    pg_losses.append(policy_loss.item())
 
                 # Case 2: single violation -> Minimize specific cost (Maximize negative cost advantage)
                 elif len(violated_rules) == 1:
@@ -439,13 +448,16 @@ class ConstrainedPPOAgent:
                     policy_loss = self._get_ppo_loss(ratio, -cost_adv) + entropy_loss
                     self.policy_opt.zero_grad()
                     policy_loss.backward()
+                    pg_losses.append(policy_loss.item())
 
                 # Case 3: multiple violations -> Use CAGrad to find the best update direction
                 else:
+                    batch_pg_losses = []
                     grads = []
                     for rule in violated_rules:
                         cost_adv = b_cost_config[rule]["adv"]
-                        policy_loss = self._get_ppo_loss(ratio, -cost_adv) 
+                        policy_loss = self._get_ppo_loss(ratio, -cost_adv)
+                        batch_pg_losses.append(policy_loss.item()) 
                         flat_grad = self._compute_flat_grad(policy_loss, self.policy_net, retain_graph=True)
                         if flat_grad is not None:
                             grads.append(flat_grad)
@@ -457,6 +469,7 @@ class ConstrainedPPOAgent:
                         if entropy_grad is not None:
                             merged_grad += entropy_grad
                         self._set_flat_grad(merged_grad, self.policy_net)
+                        pg_losses.append(np.mean(batch_pg_losses))
                 
                 # clip gradient to prevent exploding gradients (optional, can be tuned or removed)
                 torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
@@ -470,5 +483,10 @@ class ConstrainedPPOAgent:
             "robustness": {rule: robustness_dict[rule] for rule in violated_rules},
             "reward": (adv_reward, gae_returns),
             "r1": (adv_r1, r1_cumulative_cost),
-            "r2": (adv_r2, r2_cumulative_cost)
+            "r2": (adv_r2, r2_cumulative_cost),
+            "policy_loss": np.mean(pg_losses) if pg_losses else 0,
+            "value_loss": np.mean(v_losses) if v_losses else 0,
+            "entropy": np.mean(ent_vals) if ent_vals else 0,
+            "cost_loss_r1": np.mean(c_losses_r1) if c_losses_r1 else 0,
+            "cost_loss_r2": np.mean(c_losses_r2) if c_losses_r2 else 0
         }
