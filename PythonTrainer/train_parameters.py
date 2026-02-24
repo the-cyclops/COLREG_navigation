@@ -41,7 +41,7 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 2_048_000 # 1000 updates
 
 SAVE_INTERVAL = 20_480
-START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a multiple of rollout size
+START_SAFETY = TOT_STEPS +1 # Stay in rewar-only for parameter tuning
 
 colreg_path = "colreg_logic/colreg.yaml"
 
