@@ -269,10 +269,13 @@ def main():
                 writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
                 writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
                 writer.add_text("Training/Mode_Log", mode, s)
-
-                #TEMPORARY
-                writer.add_scalar("Training/Policy_Mean", np.mean(mean_buffer), s)
-                writer.add_scalar("Training/Policy_Std", np.mean(std_buffer), s)
+                writer.add_scalar("Policy/Policy_Mean", np.mean(mean_buffer), s)
+                writer.add_scalar("Policy/Policy_Std", np.mean(std_buffer), s)
+                writer.add_scalar("Policy/Entropy", log_dict['entropy'], s)
+                writer.add_scalar("Loss/Policy", log_dict['policy_loss'], s)
+                writer.add_scalar("Loss/Value", log_dict['value_loss'], s)
+                writer.add_scalar("Loss/Cost_R1", log_dict['cost_loss_r1'], s)
+                writer.add_scalar("Loss/Cost_R2", log_dict['cost_loss_r2'], s)
 
                 memory_buffer.clear_ppo()
 
