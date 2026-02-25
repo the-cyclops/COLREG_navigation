@@ -339,6 +339,10 @@ public class BoatAgent : Agent
     public override void OnActionReceived(ActionBuffers actions)
     {
         var continuousActions = actions.ContinuousActions;
+
+        // L2 Energy Penalty
+        AddReward(-0.001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
+        
         float leftInput = Mathf.Clamp(continuousActions[0], -1f, 1f);
         float rightInput = Mathf.Clamp(continuousActions[1], -1f, 1f);
 
@@ -354,12 +358,12 @@ public class BoatAgent : Agent
         previousDistanceToTarget = currentDistanceToTarget;
 
         // Reward to incetivize mantainig direction and speed towards the target
-        //Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
-        //float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
-        //if (velocityTowardsTarget > 0)
-        //{
-        //    AddReward(velocityTowardsTarget * 0.002f); 
-        //}
+        Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
+        float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
+        if (velocityTowardsTarget > 0)
+        {
+            AddReward(velocityTowardsTarget * 0.002f); 
+        }
 
         // Time penalty
         AddReward(-5.0f / MaxStep);  

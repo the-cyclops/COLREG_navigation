@@ -18,7 +18,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "Grid_Search_parameters"
+model_name = "Grid_Search_L2_Energy_Penalty"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -221,9 +221,9 @@ def main():
 
                     _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
                 
-                    rho_1 = single_rho.get('R1_safe_distance', 0.0)
-                    rho_2 = single_rho.get('R2_safe_speed', 0.0)
-                    
+                    #rho_1 = single_rho.get('R1_safe_distance', 0.0)
+                    #rho_2 = single_rho.get('R2_safe_speed', 0.0)
+                    rho_1, rho_2 = 1.0, 1.0
                     cost_1 = max(0, -rho_1) / SAFE_DISTANCE
                     cost_2 = max(0, -rho_2)
                     memory_buffer.add_robustness(r1=rho_1, r2=rho_2)

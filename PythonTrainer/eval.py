@@ -15,9 +15,9 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_tuned_rewards_smaller_radius_v2"
+model_name = "Grid_Search_parameters"
 seed = 1 
-unity_env_path = None #"../Builds/train_5M.app" 
+unity_env_path = "../Builds/emptyscene.app" #"../Builds/train_5M.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 24 
 RAYCAST_COUNT = 7 
@@ -43,7 +43,8 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
+    #checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
+    checkpoint_path = f"Models/{model_name}/lr_0.001_ent_0.01/steps_2048000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
 
     colreg_handler = COLREGHandler()
