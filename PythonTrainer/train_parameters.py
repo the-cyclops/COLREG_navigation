@@ -48,7 +48,7 @@ colreg_path = "colreg_logic/colreg.yaml"
 SAFE_DISTANCE = 1.0
 
 # Hyperparameter Grid
-LEARNING_RATES = [1e-4, 3e-4, 1e-3]
+LEARNING_RATES = [1e-4, 3e-4, 5e-4]
 ENTROPY_COEFS = [0.005, 0.01, 0.05]
 FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
