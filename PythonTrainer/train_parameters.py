@@ -28,7 +28,7 @@ unity_env_path = "../Builds/emptyscene.app"
 DEVICE = "cpu"
 # BoatAgent Parameters - must match those in Unity
 OBSERVATION_SIZE = 24 # From UnityEnvironment/Scripts/BoatAgent.cs
-RAYCAST_COUNT = 7 # 3 side rays + 1 front ray # From Unity RayPerceptionSensorComponent3D
+RAYCAST_COUNT = 7 # 3 side rays + 1 front ray  From Unity RayPerceptionSensorComponent3D
 RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2
 
@@ -41,7 +41,7 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 2_048_000 # 1000 updates
 
 SAVE_INTERVAL = 20_480
-START_SAFETY = TOT_STEPS +1 # Stay in rewar-only for parameter tuning
+START_SAFETY = TOT_STEPS +1 # Stay in reward-only for parameter tuning
 
 colreg_path = "colreg_logic/colreg.yaml"
 
@@ -49,7 +49,7 @@ SAFE_DISTANCE = 1.0
 
 # Hyperparameter Grid
 LEARNING_RATES = [1e-4, 3e-4, 1e-3]
-ENTROPY_COEFS = [0.001, 0.01, 0.05]
+ENTROPY_COEFS = [0.005, 0.01, 0.05]
 FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
 def set_all_seeds(seed):
