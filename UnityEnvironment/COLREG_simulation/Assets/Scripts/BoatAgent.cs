@@ -361,10 +361,10 @@ public class BoatAgent : Agent
         // Reward to incetivize mantainig direction and speed towards the target
         Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
         float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
-        if (velocityTowardsTarget > 0)
-        {
-            AddReward(velocityTowardsTarget * 0.01f); 
-        }
+        AddReward(velocityTowardsTarget * 0.01f); 
+
+        // Small penalty to reduce rotation on the spot
+        AddReward(-0.002f * Mathf.Abs(rb.angularVelocity.y));
 
         // Time penalty
         AddReward(-5.0f / MaxStep);  
