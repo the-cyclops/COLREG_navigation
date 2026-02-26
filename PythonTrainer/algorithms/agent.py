@@ -347,7 +347,7 @@ class ConstrainedPPOAgent:
         adv_r2, r2_cumulative_cost = advantages["r2"]
         
         # Normalize advantages to stabilize training (on the whole buffer)
-        adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
+        #adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
 
         # not normalizing cost advantage to preserve scale for cagrad
         #adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
@@ -386,6 +386,9 @@ class ConstrainedPPOAgent:
                 b_r1_cum_cost = r1_cumulative_cost[batch_indices]
                 b_adv_r2 = adv_r2[batch_indices]
                 b_r2_cum_cost = r2_cumulative_cost[batch_indices]
+
+                # Normalize advantage on mini-batch for reward as done in stable-baseline3
+                b_adv_reward = (b_adv_reward - b_adv_reward.mean()) / (b_adv_reward.std() + 1e-8)
 
                 # setup for update (batched version)
                 b_cost_config = {
