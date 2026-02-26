@@ -25,12 +25,8 @@ class Policy(nn.Module):
             nn.init.orthogonal_(layer.weight, gain=gain)
             if layer.bias is not None:
                 nn.init.zeros_(layer.bias)
-        self.action_log_std = nn.Parameter(torch.zeros(1, num_outputs))
-        #self.action_log_std = nn.Parameter(torch.full((1, num_outputs), -0.5))
-
-        #self.saved_actions = []
-        #self.rewards = []
-        #self.final_value = 0
+        #self.action_log_std = nn.Parameter(torch.zeros(1, num_outputs))
+        self.action_log_std = nn.Parameter(torch.full((1, num_outputs), -0.5))
 
     def forward(self, x):
         x = torch.relu(self.affine1(x))

@@ -18,7 +18,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "Grid_Search_hardcap_std"
+model_name = "Grid_Search_gamma_0.99_L2_energy_stdclamp_0.0" # For saving models and TensorBoard logs
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -33,7 +33,7 @@ RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2
 
 INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
-GAMMA = 0.995
+GAMMA = 0.99
 ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
@@ -48,8 +48,8 @@ colreg_path = "colreg_logic/colreg.yaml"
 SAFE_DISTANCE = 1.0
 
 # Hyperparameter Grid
-LEARNING_RATES = [1e-4, 3e-4, 5e-4]
-ENTROPY_COEFS = [0.001, 0.005, 0.01]
+LEARNING_RATES = [3e-5, 1e-4, 3e-4]
+ENTROPY_COEFS = [0.0, 0.0001, 0.001]
 FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
 def set_all_seeds(seed):

@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "Grid_Search_L2_energy_penalty"
+model_name = "Grid_Search_hardcap_std"
 seed = 1 
 unity_env_path = "../Builds/emptyscene.app" #"../Builds/train_5M.app" 
 DEVICE = "cpu"
@@ -44,7 +44,7 @@ def get_single_agent_obs(steps):
 
 def main():
     #checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
-    checkpoint_path = f"Models/{model_name}/lr_0.0001_ent_0.01/steps_2048000.pth"
+    checkpoint_path = f"Models/{model_name}/lr_0.0001_ent_0.001/steps_1024000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
 
     colreg_handler = COLREGHandler()
