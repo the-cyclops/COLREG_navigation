@@ -363,7 +363,7 @@ public class BoatAgent : Agent
         float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
         if (velocityTowardsTarget > 0)
         {
-            AddReward(velocityTowardsTarget * 0.002f); 
+            AddReward(velocityTowardsTarget * 0.01f); 
         }
 
         // Time penalty
