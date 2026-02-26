@@ -101,5 +101,6 @@ class CostValue(nn.Module):
         x = torch.relu(self.affine1(x))
         x = torch.relu(self.affine2(x))
 
-        state_values = self.softplus(self.value_head(x))
+        #state_values = self.softplus(self.value_head(x))
+        state_values = self.value_head(x)
         return state_values
