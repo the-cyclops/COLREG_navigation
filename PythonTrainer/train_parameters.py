@@ -18,7 +18,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "Grid_Search_tanh"
+model_name = "Grid_Search_hardcap_std"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -49,7 +49,7 @@ SAFE_DISTANCE = 1.0
 
 # Hyperparameter Grid
 LEARNING_RATES = [1e-4, 3e-4, 5e-4]
-ENTROPY_COEFS = [0.005, 0.01, 0.05]
+ENTROPY_COEFS = [0.001, 0.005, 0.01]
 FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
 def set_all_seeds(seed):

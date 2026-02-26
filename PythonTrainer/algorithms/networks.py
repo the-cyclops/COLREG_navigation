@@ -25,8 +25,8 @@ class Policy(nn.Module):
             nn.init.orthogonal_(layer.weight, gain=gain)
             if layer.bias is not None:
                 nn.init.zeros_(layer.bias)
-        #self.action_log_std = nn.Parameter(torch.zeros(1, num_outputs))
-        self.action_log_std = nn.Parameter(torch.full((1, num_outputs), -0.5))
+        self.action_log_std = nn.Parameter(torch.zeros(1, num_outputs))
+        #self.action_log_std = nn.Parameter(torch.full((1, num_outputs), -0.5))
 
         #self.saved_actions = []
         #self.rewards = []
@@ -36,10 +36,10 @@ class Policy(nn.Module):
         x = torch.relu(self.affine1(x))
         x = torch.relu(self.affine2(x))
 
-        action_mean = torch.tanh(self.action_mean(x))
+        action_mean = self.action_mean(x)
         action_log_std = self.action_log_std.expand_as(action_mean)
         # clamp to avoid division by zero when calculating log_prob
-        action_log_std = torch.clamp(action_log_std, min=-20.0, max=2.0)
+        action_log_std = torch.clamp(action_log_std, min=-20.0, max=0.0)
         action_std = torch.exp(action_log_std) 
 
         return action_mean, action_log_std, action_std
