@@ -38,7 +38,7 @@ ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 2_048_000 # 1000 updates
+TOT_STEPS = 1_024_000# 500 updates
 
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS +1 # Stay in reward-only for parameter tuning

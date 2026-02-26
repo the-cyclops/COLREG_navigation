@@ -36,7 +36,7 @@ class Policy(nn.Module):
         x = torch.relu(self.affine1(x))
         x = torch.relu(self.affine2(x))
 
-        action_mean = self.action_mean(x)
+        action_mean = torch.tanh(self.action_mean(x))
         action_log_std = self.action_log_std.expand_as(action_mean)
         # clamp to avoid division by zero when calculating log_prob
         action_log_std = torch.clamp(action_log_std, min=-20.0, max=2.0)
