@@ -341,8 +341,9 @@ public class BoatAgent : Agent
         var continuousActions = actions.ContinuousActions;
 
         // L2 Energy Penalty
-        AddReward(-0.001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
-        
+        //AddReward(-0.001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
+        // L1 Energy Penalty
+        AddReward(-0.001f * (Mathf.Abs(continuousActions[0]) + Mathf.Abs(continuousActions[1])));
         float leftInput = Mathf.Clamp(continuousActions[0], -1f, 1f);
         float rightInput = Mathf.Clamp(continuousActions[1], -1f, 1f);
 
