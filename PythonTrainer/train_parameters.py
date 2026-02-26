@@ -18,7 +18,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "Grid_Search_L1_Energy_Penalty"
+model_name = "Grid_Search_tanh"
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
