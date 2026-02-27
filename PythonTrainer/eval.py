@@ -15,8 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "Grid_Search_gamma_0.99_L2_energy_stdclamp_0.0"
-seed = 1 
+model_name = "Grid_Search_DifferentialDrive_gamma_0.99_L2_energy_stdclamp_0.0"
 unity_env_path = "../Builds/emptyscene.app" #"../Builds/train_5M.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 24 
@@ -29,6 +28,12 @@ ACTION_SIZE = 2
 colreg_path = "colreg_logic/colreg.yaml"
 SAFE_DISTANCE = 1.0
 NUM_EVAL_EPISODES = 10 
+FIXED_SEED = 402
+
+def set_all_seeds(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
 def get_single_agent_obs(steps):
     raw_obs = steps.obs
@@ -43,10 +48,11 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
+    set_all_seeds(FIXED_SEED)
     #checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
-    checkpoint_path = f"Models/{model_name}/lr_3e-05_ent_0.0/steps_1024000.pth"
+    checkpoint_path = f"Models/{model_name}/lr_0.0001_ent_0.0001/steps_1024000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
-
+    
     colreg_handler = COLREGHandler()
     RTAMT = rtamt_yml_parser.RTAMTYmlParser(colreg_path)
     memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
@@ -55,7 +61,7 @@ def main():
     env = UnityEnvironment(
         file_name=unity_env_path, 
         side_channels=[engine_config],
-        seed=seed,
+        seed=FIXED_SEED,
         no_graphics=False 
     )
     env.reset()

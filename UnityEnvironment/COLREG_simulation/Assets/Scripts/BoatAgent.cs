@@ -341,7 +341,7 @@ public class BoatAgent : Agent
         var continuousActions = actions.ContinuousActions;
 
         // L2 Energy Penalty
-        AddReward(-0.0001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
+        AddReward(-0.01f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
         // L1 Energy Penalty
         //AddReward(-0.001f * (Mathf.Abs(continuousActions[0]) + Mathf.Abs(continuousActions[1])));
         
@@ -367,11 +367,11 @@ public class BoatAgent : Agent
 
         // Reward to incetivize mantainig direction and speed towards the target
         Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
-        float velocityTowardsTarget = Vector3.Dot(rb.linearVelocity, dirToTarget);
-        AddReward(velocityTowardsTarget * 0.01f); 
+        float facingTarget = Vector3.Dot(transform.forward, dirToTarget);
+        AddReward(facingTarget * 0.0005f);
 
         // Small penalty to reduce rotation on the spot
-        AddReward(-0.002f * Mathf.Abs(rb.angularVelocity.y));
+        AddReward(-0.005f * Mathf.Abs(rb.angularVelocity.y));
 
         // Time penalty
         AddReward(-5.0f / MaxStep);  
@@ -384,7 +384,7 @@ public class BoatAgent : Agent
             // same penalty for all collisons as professor suggested
             // max penalty of being alive for maxsteps 
             if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Wall") || collision.gameObject.CompareTag("Boat")) {
-                AddReward(-10.0f);
+                AddReward(-6.0f);
             }
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode();

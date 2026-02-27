@@ -18,7 +18,7 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "Grid_Search_DifferentialDrive_gamma_0.99_L2_energy_stdclamp_0.0" # For saving models and TensorBoard logs
+model_name = "Grid_Search_DifferentialDrive_gamma_0.99_higherL2_energy_stdclamp_0.0_lesspenaltyobstacle" # For saving models and TensorBoard logs
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
