@@ -344,9 +344,16 @@ public class BoatAgent : Agent
         AddReward(-0.0001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
         // L1 Energy Penalty
         //AddReward(-0.001f * (Mathf.Abs(continuousActions[0]) + Mathf.Abs(continuousActions[1])));
-        float leftInput = Mathf.Clamp(continuousActions[0], -1f, 1f);
-        float rightInput = Mathf.Clamp(continuousActions[1], -1f, 1f);
+        
+        // Differential Thrust Mapping
+        //float leftInput = Mathf.Clamp(continuousActions[0], -1f, 1f);
+        //float rightInput = Mathf.Clamp(continuousActions[1], -1f, 1f);
 
+        // Differential Drive Mixer
+        float throttle = Mathf.Clamp(continuousActions[0], -1f, 1f);
+        float steering = Mathf.Clamp(continuousActions[1], -1f, 1f);
+        float leftInput = Mathf.Clamp(throttle + steering, -1f, 1f);
+        float rightInput = Mathf.Clamp(throttle - steering, -1f, 1f);
         // Apply forces based on jet inputs
         boatPhysics.SetJetInputs(leftInput, rightInput);
 
