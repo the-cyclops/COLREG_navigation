@@ -342,7 +342,7 @@ public class BoatAgent : Agent
         var continuousActions = actions.ContinuousActions;
 
         // L2 Energy Penalty
-        AddReward(-0.001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
+        //AddReward(-0.001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
         // L1 Energy Penalty
         //AddReward(-0.001f * (Mathf.Abs(continuousActions[0]) + Mathf.Abs(continuousActions[1])));
         
@@ -353,6 +353,8 @@ public class BoatAgent : Agent
         // Differential Drive Mixer
         float throttle = Mathf.Clamp(continuousActions[0], -1f, 1f);
         float steering = Mathf.Clamp(continuousActions[1], -1f, 1f);
+        // L2 penalty after clamp 
+        AddReward(-0.001f * ((throttle * throttle) + (steering * steering)));
         float leftInput = throttle + steering;
         float rightInput = throttle - steering;
 

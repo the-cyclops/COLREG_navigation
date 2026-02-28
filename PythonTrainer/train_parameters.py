@@ -74,7 +74,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_L2_energy_0.001_stdclamp_lesspenaltyobstacle_lowercurrentReductionRadius" # For saving models and TensorBoard logs
+    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_L2_energy_on_clamped_0.001_stdclamp_lesspenaltyobstacle_lowercurrentReductionRadius" # For saving models and TensorBoard logs
 
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS))
     total_runs = len(hp_combinations)
