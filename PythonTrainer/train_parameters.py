@@ -18,7 +18,6 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "Grid_Search_DifferentialDrive_gamma_0.99_higherL2_energy_stdclamp_0.0_lesspenaltyobstacle" # For saving models and TensorBoard logs
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
@@ -75,6 +74,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
+    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_L2_energy_0.001_stdclamp_lesspenaltyobstacle_lowercurrentReductionRadius" # For saving models and TensorBoard logs
 
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS))
     total_runs = len(hp_combinations)

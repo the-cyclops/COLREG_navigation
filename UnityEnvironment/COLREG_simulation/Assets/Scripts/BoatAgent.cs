@@ -14,10 +14,11 @@ public class BoatAgent : Agent
     private float arenaRadius = 15f;
 
     private float spawnObstacleRadius = 1f;
-    private float currentReductionRadius = 13f;
+    private float currentReductionRadius = 10f;
 
     private int current_step = 0;
-    private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
+    // TO MODIFY WHEN TRAIN STARTS
+    private int startSafetyStep = 768_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -110,16 +111,16 @@ public class BoatAgent : Agent
             }
             else
             {
-                currentReductionRadius = 7f;
+                currentReductionRadius = 5f;
             }
         }
         else
         {
-            currentReductionRadius = 13f;
+            currentReductionRadius = 10f;
         }
         
         float maxSpawnDist = arenaRadius - currentReductionRadius;
-        float minSpawnDist = 0.5f + spawnObstacleRadius; // Minimum distance from target
+        float minSpawnDist = 2f + spawnObstacleRadius; // Minimum distance from target
         // Randomly sample a point within a donut-shaped area 
         // bounded by minSpawnDist and maxSpawnDist to prevent overlapping with target at spawn
         Vector2 randomPoint;
@@ -341,7 +342,7 @@ public class BoatAgent : Agent
         var continuousActions = actions.ContinuousActions;
 
         // L2 Energy Penalty
-        AddReward(-0.01f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
+        AddReward(-0.001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
         // L1 Energy Penalty
         //AddReward(-0.001f * (Mathf.Abs(continuousActions[0]) + Mathf.Abs(continuousActions[1])));
         
@@ -352,8 +353,16 @@ public class BoatAgent : Agent
         // Differential Drive Mixer
         float throttle = Mathf.Clamp(continuousActions[0], -1f, 1f);
         float steering = Mathf.Clamp(continuousActions[1], -1f, 1f);
-        float leftInput = Mathf.Clamp(throttle + steering, -1f, 1f);
-        float rightInput = Mathf.Clamp(throttle - steering, -1f, 1f);
+        float leftInput = throttle + steering;
+        float rightInput = throttle - steering;
+
+        float maxInput = Mathf.Max(Mathf.Abs(leftInput), Mathf.Abs(rightInput));
+        // Normalize inputs if any exceeds the range [-1, 1] to maintain the intended throttle/steering ratio
+        if (maxInput > 1f)
+        {
+            leftInput /= maxInput;
+            rightInput /= maxInput;
+        }
         // Apply forces based on jet inputs
         boatPhysics.SetJetInputs(leftInput, rightInput);
 
