@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "Grid_Search_DifferentialDrive_gamma_0.99_higherL2_energy_stdclamp_0.0_lesspenaltyobstacle"
+model_name = "Grid_Search_DifferentialNormalized_gamma_0.99_L2_energy_on_clamped_0.001_stdclamp_lesspenaltyobstacle_lowercurrentReductionRadius"
 unity_env_path = "../Builds/emptyscene.app" #"../Builds/train_5M.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 24 

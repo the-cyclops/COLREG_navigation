@@ -354,7 +354,7 @@ public class BoatAgent : Agent
         float throttle = Mathf.Clamp(continuousActions[0], -1f, 1f);
         float steering = Mathf.Clamp(continuousActions[1], -1f, 1f);
         // L2 penalty after clamp 
-        AddReward(-0.001f * ((throttle * throttle) + (steering * steering)));
+        //AddReward(-0.001f * ((throttle * throttle) + (steering * steering)));
         float leftInput = throttle + steering;
         float rightInput = throttle - steering;
 
@@ -379,13 +379,13 @@ public class BoatAgent : Agent
         // Reward to incetivize mantainig direction and speed towards the target
         Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
         float facingTarget = Vector3.Dot(transform.forward, dirToTarget);
-        AddReward(facingTarget * 0.0005f);
+        //AddReward(facingTarget * 0.0005f);
 
         // Small penalty to reduce rotation on the spot
-        AddReward(-0.005f * Mathf.Abs(rb.angularVelocity.y));
+        //AddReward(-0.005f * Mathf.Abs(rb.angularVelocity.y));
 
         // Time penalty
-        AddReward(-5.0f / MaxStep);  
+        //AddReward(-5.0f / MaxStep);  
         current_step++;
     }
 
@@ -395,7 +395,7 @@ public class BoatAgent : Agent
             // same penalty for all collisons as professor suggested
             // max penalty of being alive for maxsteps 
             if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Wall") || collision.gameObject.CompareTag("Boat")) {
-                AddReward(-6.0f);
+                //AddReward(-6.0f);
             }
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode();
