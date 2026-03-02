@@ -222,45 +222,48 @@ public class BoatAgent : Agent
         //TODO CHECK THE ORDER OF OBSERVATIONS - IT MATTERS?
 
         // Observation Structure:
-        // 0-2: Target Relative Position (3)
-        // 3:   Target Distance (1)
-        // 4-6: Linear Velocity (3)
-        // 7-9: Angular Velocity (3)
-        // 10-16: Intruder Vessel 1 - Position, Distance, Relative Velocity (7)
-        // 17-23: Intruder Vessel 2 - Position, Distance, Relative Velocity (7)
+        // 0-1: Target Relative Position (2) - X and Z in local space (direction to the target)
+        // 2:   Target Distance (1)
+        // 3-4: Linear Velocity (2) - X and Z in local space
+        // 5: Angular Velocity (1) - Yaw (Y) in local space
+        // 6-10: Intruder Vessel 1 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
+        // 11-15: Intruder Vessel 2 - Position, Distance, Relative Velocity (5) = (3 + 1 + 3)
 
         // --- SELF & TARGET OBSERVATIONS ---
 
         // Fetch Target Position Relative to Boat
         Vector3 targetRelativePos = transform.InverseTransformPoint(target.transform.position);
-        if (debugMode) Debug.Log("Target Relative Position: " + targetRelativePos.ToString("F2"));
-        // Obs Index [0,1,2]: Target Relative Position (Local space) - Direction to the target
-        sensor.AddObservation(targetRelativePos.normalized);
+        Vector2 targetRelativePos2D = new Vector2(targetRelativePos.x, targetRelativePos.z);
+        if (debugMode) Debug.Log("Target Relative Position: " + targetRelativePos2D.ToString("F2"));
+        // Obs Index [0,1]: Target Relative Position (Local space) - Direction to the target
+        sensor.AddObservation(targetRelativePos2D.normalized);
 
         // Fetch Target Distance
         float targetDistance = targetRelativePos.magnitude;
         // Normalized Distance (Assuming max distance of 20 units) 
         // Rational normalization d/(d+k) with k=15. Range: [0, 1]
-        // Obs Index [3]: Target Distance - How far is the target
+        // Obs Index [2]: Target Distance - How far is the target
         if (debugMode) Debug.Log("Target Distance: " + targetDistance.ToString("F2"));
         sensor.AddObservation(targetDistance / (arenaRadius + targetDistance));
 
         // Fetch Boat Velocity
         // InverseTransformDirection converts world space velocity to local space
         Vector3 localLinearVelocity = transform.InverseTransformDirection(rb.linearVelocity);
+        Vector2 localLinearVelocity2D = new Vector2(localLinearVelocity.x, localLinearVelocity.z);
         if (debugMode) Debug.Log("Local Linear Velocity: " + localLinearVelocity.ToString("F2"));
-        Vector3 normalizedLocalLinearVelocity = localLinearVelocity / boatPhysics.nominalMaxLinearSpeed;
+        Vector2 normalizedLocalLinearVelocity2D = localLinearVelocity2D / boatPhysics.nominalMaxLinearSpeed;
         // Clamp magnitude to in -1 to 1 range
-        // Obs Index [4,5,6]: Linear Velocity (Local space) - LV of the boat
-        sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalLinearVelocity, 1.0f));
+        // Obs Index [3,4]: Linear Velocity (Local space) - LV of the boat
+        sensor.AddObservation(Vector2.ClampMagnitude(normalizedLocalLinearVelocity2D, 1.0f));
 
         // Fetch Boat Angular Velocity
         Vector3 localAngularVelocity = transform.InverseTransformDirection(rb.angularVelocity);
-        Vector3 normalizedLocalAngularVelocity = localAngularVelocity / boatPhysics.nominalMaxAngularSpeed;
-        if (debugMode) Debug.Log("Local Angular Velocity: " + localAngularVelocity.ToString("F2"));
+        float localAngularVelocityY = localAngularVelocity.y; 
+        float normalizedLocalAngularVelocity = localAngularVelocityY / boatPhysics.nominalMaxAngularSpeed;
+        if (debugMode) Debug.Log("Local Angular Velocity: " + localAngularVelocityY.ToString("F2"));
         // Clamp magnitude to in -1 to 1 range
-        // Obs Index [7,8,9]: Angular Velocity (Local space) - AV of the boat
-        sensor.AddObservation(Vector3.ClampMagnitude(normalizedLocalAngularVelocity, 1.0f));
+        // Obs Index [5]: Angular Velocity (Local space) - AV of the boat
+        sensor.AddObservation(normalizedLocalAngularVelocity);
 
         // --- COLREG / INTRUDER VESSEL OBSERVATIONS ---
         // Necessary for calculating CPA and Velocity Obstacles in Python
@@ -271,12 +274,13 @@ public class BoatAgent : Agent
         {
             // 1. Relative Position of the first intruder vessel (Local space)
             Vector3 intruder1RelativePos = transform.InverseTransformPoint(intruderVessel1.transform.position);
-            if (debugMode) Debug.Log("Intruder 1 Relative Position: " + intruder1RelativePos.ToString("F2"));
-            // Obs Index [10,11,12]: Intruder 1 Relative Position (Local space)
-            sensor.AddObservation(intruder1RelativePos.normalized); 
+            Vector2 intruder1RelativePos2D = new Vector2(intruder1RelativePos.x, intruder1RelativePos.z);
+            if (debugMode) Debug.Log("Intruder 1 Relative Position: " + intruder1RelativePos2D.ToString("F2"));
+            // Obs Index [6,7]: Intruder 1 Relative Position (Local space)
+            sensor.AddObservation(intruder1RelativePos2D.normalized); 
         
             float intruder1Dist = intruder1RelativePos.magnitude;
-            // Obs Index [13]: Intruder 1 Distance
+            // Obs Index [8]: Intruder 1 Distance
             if (debugMode) Debug.Log("Intruder 1 Distance: " + intruder1Dist.ToString("F2"));
             sensor.AddObservation(intruder1Dist / (arenaRadius + intruder1Dist)); // Normalized Distance
 
@@ -284,18 +288,19 @@ public class BoatAgent : Agent
             // We calculate the vector difference in world space, then convert to local
             Vector3 relativeVelocityWorld1 = intruder1Velocity - rb.linearVelocity;
             Vector3 localRelativeVelocity1 = transform.InverseTransformDirection(relativeVelocityWorld1);
+            Vector2 localRelativeVelocity1_2D = new Vector2(localRelativeVelocity1.x, localRelativeVelocity1.z);
             // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
-            // Obs Index [14,15,16]: Intruder 1 Relative Velocity (Local space)
-            if (debugMode) Debug.Log("Intruder 1 Relative Velocity: " + localRelativeVelocity1.ToString("F2"));
-            sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity1 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));   
+            // Obs Index [9,10]: Intruder 1 Relative Velocity (Local space)
+            if (debugMode) Debug.Log("Intruder 1 Relative Velocity: " + localRelativeVelocity1_2D.ToString("F2"));
+            sensor.AddObservation(Vector2.ClampMagnitude(localRelativeVelocity1_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));   
         }
         else
         {
             // Padding if no intruder is active to keep observation size constant
-            // Obs Index [10-16]: Zeros for Intruder 1
-            sensor.AddObservation(Vector3.zero); // Rel Pos
+            // Obs Index [6-10]: Zeros for Intruder 1
+            sensor.AddObservation(Vector2.zero); // Rel Pos
             sensor.AddObservation(1.0f);           // Dist
-            sensor.AddObservation(Vector3.zero); // Rel Vel
+            sensor.AddObservation(Vector2.zero); // Rel Vel
         }
 
         // INTRUDER VESSEL 2
@@ -304,34 +309,36 @@ public class BoatAgent : Agent
         {
             // 1. Relative Position of the second intruder vessel (Local space)
             Vector3 intruder2RelativePos = transform.InverseTransformPoint(intruderVessel2.transform.position);
-            if (debugMode) Debug.Log("Intruder 2 Relative Position: " + intruder2RelativePos.ToString("F2"));
-            // Obs Index [17,18,19]: Intruder 2 Relative Position (Local space)
-            sensor.AddObservation(intruder2RelativePos.normalized); 
+            Vector2 intruder2RelativePos2D = new Vector2(intruder2RelativePos.x, intruder2RelativePos.z);
+            if (debugMode) Debug.Log("Intruder 2 Relative Position: " + intruder2RelativePos2D.ToString("F2"));
+            // Obs Index [11,12]: Intruder 2 Relative Position (Local space)
+            sensor.AddObservation(intruder2RelativePos2D.normalized); 
         
             float intruder2Dist = intruder2RelativePos.magnitude;
             if (debugMode) Debug.Log("Intruder 2 Distance: " + intruder2Dist.ToString("F2"));
-            // Obs Index [20]: Intruder 2 Distance
+            // Obs Index [13]: Intruder 2 Distance
             sensor.AddObservation(intruder2Dist / (arenaRadius + intruder2Dist)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // We calculate the vector difference in world space, then convert to local
             Vector3 relativeVelocityWorld2 = intruder2Velocity - rb.linearVelocity;
             Vector3 localRelativeVelocity2 = transform.InverseTransformDirection(relativeVelocityWorld2);
+            Vector2 localRelativeVelocity2_2D = new Vector2(localRelativeVelocity2.x, localRelativeVelocity2.z);
             // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
-            // Obs Index [21,22,23]: Intruder 2 Relative Velocity (Local space)
-            if (debugMode) Debug.Log("Intruder 2 Relative Velocity: " + localRelativeVelocity2.ToString("F2"));
-            sensor.AddObservation(Vector3.ClampMagnitude(localRelativeVelocity2 / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
+            // Obs Index [14,15]: Intruder 2 Relative Velocity (Local space)
+            if (debugMode) Debug.Log("Intruder 2 Relative Velocity: " + localRelativeVelocity2_2D.ToString("F2"));
+            sensor.AddObservation(Vector2.ClampMagnitude(localRelativeVelocity2_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
         }
         else
         {
             // Padding if no intruder is active to keep observation size constant
-            // Obs Index [17-23]: Zeros for Intruder 2
-            sensor.AddObservation(Vector3.zero); // Rel Pos
+            // Obs Index [11-15]: Zeros for Intruder 2
+            sensor.AddObservation(Vector2.zero); // Rel Pos
             sensor.AddObservation(1.0f);           // Dist
-            sensor.AddObservation(Vector3.zero); // Rel Vel
+            sensor.AddObservation(Vector2.zero); // Rel Vel
         }
 
-    // Total Observations: 3 (targetRelativePos) + 1 (targetDistance) + 3 (linearVelocity) + 3 (angularVelocity) + 3 (intruder1RelativePos) + 1 (intruder1Dist) + 3 (intruder1RelVel) + 3 (intruder2RelativePos) + 1 (intruder2Dist) + 3 (intruder2RelVel) = 24
+    // Total Observations: 2 (targetRelativePos) + 1 (targetDistance) + 2 (linearVelocity) + 1 (angularVelocity) + 2 (intruder1RelativePos) + 1 (intruder1Dist) + 2 (intruder1RelVel) + 2 (intruder2RelativePos) + 1 (intruder2Dist) + 2 (intruder2RelVel) = 16
     // // Adjust the Space Size in Vector Sensor in Behavior Parameters accordingly 
     }
 
@@ -428,19 +435,22 @@ public class BoatAgent : Agent
         // Horizontal axis (A/D or Left/Right) -> Steering
         float turnInput = Input.GetAxis("Horizontal");
 
+        continuousActions[0] = forwardInput; // Throttle
+        continuousActions[1] = turnInput;    // Steering
+
 
         //Mixing Commands for Jet Engines
         // By pressing W both jets push forward (+,+)
         // By pressing S both jets push backward (-,-)
         // By pressing A left jet backward, right jet forward (-,+)
         // By pressing D left jet forward, right jet backward (+,-)
-        float leftJet = forwardInput + turnInput;
-        float rightJet = forwardInput - turnInput;
+        //float leftJet = forwardInput + turnInput;
+        //float rightJet = forwardInput - turnInput;
 
 
         // Clamp (clip) the values between -1 and 1
-        continuousActions[0] = Mathf.Clamp(leftJet, -1f, 1f);
-        continuousActions[1] = Mathf.Clamp(rightJet, -1f, 1f);
+        //continuousActions[0] = Mathf.Clamp(leftJet, -1f, 1f);
+        //continuousActions[1] = Mathf.Clamp(rightJet, -1f, 1f);
     }
 
 }
