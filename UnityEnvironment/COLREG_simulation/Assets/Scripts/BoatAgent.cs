@@ -362,6 +362,8 @@ public class BoatAgent : Agent
         float steering = Mathf.Clamp(continuousActions[1], -1f, 1f);
         // L2 penalty after clamp 
         //AddReward(-0.001f * ((throttle * throttle) + (steering * steering)));
+        // penalty to encourage less steering
+        AddReward(-0.001f * Mathf.Abs(steering));
         float leftInput = throttle + steering;
         float rightInput = throttle - steering;
 

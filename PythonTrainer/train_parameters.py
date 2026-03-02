@@ -49,6 +49,7 @@ SAFE_DISTANCE = 1.0
 # Hyperparameter Grid
 LEARNING_RATES = [3e-5, 1e-4, 3e-4]
 ENTROPY_COEFS = [0.0, 0.0001, 0.001]
+BATCH_SIZES = [64, 256]
 FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
 def set_all_seeds(seed):
@@ -74,15 +75,15 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_LESSOBS_only_distance_and_target_reward" # For saving models and TensorBoard logs
+    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_distance_direction_reward" # For saving models and TensorBoard logs
 
-    hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS))
+    hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES))
     total_runs = len(hp_combinations)
     
-    for run_idx, (lr, entropy) in enumerate(hp_combinations, 1):
+    for run_idx, (lr, entropy, batch_size) in enumerate(hp_combinations, 1):
         
-        run_name = f"lr_{lr}_ent_{entropy}"
-        print(f"\n--- Starting Training Run ({run_idx}/{total_runs}) | LR: {lr}, Entropy: {entropy} ---")
+        run_name = f"lr_{lr}_ent_{entropy}_batchsize_{batch_size}"
+        print(f"\n--- Starting Training Run ({run_idx}/{total_runs}) | LR: {lr}, Entropy: {entropy}, Batch Size: {batch_size} ---")
         
         set_all_seeds(FIXED_SEED)
 
@@ -172,8 +173,8 @@ def main():
                     pbar.write(f"Safety constraints activated at step {s}.")
 
                 # TEMPORARY
-                mean_buffer = []
-                std_buffer = []
+                mean_throttle_buffer, mean_steering_buffer = [], []
+                std_throttle_buffer, std_steering_buffer = [], []
             
                 while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
@@ -190,8 +191,10 @@ def main():
                     # TEMPORARY
                     with torch.no_grad():
                         mean, _, std = agent.policy_net(obs_tensor)
-                        mean_buffer.append(mean.detach().cpu().numpy())
-                        std_buffer.append(std.detach().cpu().numpy())
+                        mean_throttle_buffer.append(mean[0, 0].detach().cpu().numpy())
+                        mean_steering_buffer.append(mean[0, 1].detach().cpu().numpy())
+                        std_throttle_buffer.append(std[0, 0].detach().cpu().numpy())
+                        std_steering_buffer.append(std[0, 1].detach().cpu().numpy())
 
                     env.set_actions(behavior_name, action_tuple)
                     env.step()
@@ -255,7 +258,7 @@ def main():
 
                 robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             
-                log_dict = agent.update_with_minibatches(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s)
+                log_dict = agent.update_with_minibatches(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s, batch_size=batch_size)
             
                 mode = log_dict['mode']
 
@@ -284,8 +287,10 @@ def main():
                 writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
                 writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
                 writer.add_text("Training/Mode_Log", mode, s)
-                writer.add_scalar("Policy/Policy_Mean", np.mean(mean_buffer), s)
-                writer.add_scalar("Policy/Policy_Std", np.mean(std_buffer), s)
+                writer.add_scalar("Policy/Throttle_Mean", np.mean(mean_throttle_buffer), s)
+                writer.add_scalar("Policy/Steering_Mean", np.mean(mean_steering_buffer), s)
+                writer.add_scalar("Policy/Throttle_Std", np.mean(std_throttle_buffer), s)
+                writer.add_scalar("Policy/Steering_Std", np.mean(std_steering_buffer), s)
                 writer.add_scalar("Policy/Entropy", log_dict['entropy'], s)
                 writer.add_scalar("Loss/Policy", log_dict['policy_loss'], s)
                 writer.add_scalar("Loss/Value", log_dict['value_loss'], s)
