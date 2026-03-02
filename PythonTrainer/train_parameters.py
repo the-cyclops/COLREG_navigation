@@ -26,7 +26,7 @@ unity_env_path = "../Builds/emptyscene.app"
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
 # BoatAgent Parameters - must match those in Unity
-OBSERVATION_SIZE = 24 # From UnityEnvironment/Scripts/BoatAgent.cs
+OBSERVATION_SIZE = 16 # From UnityEnvironment/Scripts/BoatAgent.cs
 RAYCAST_COUNT = 7 # 3 side rays + 1 front ray  From Unity RayPerceptionSensorComponent3D
 RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2
@@ -74,7 +74,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_only_distance_and_target_reward" # For saving models and TensorBoard logs
+    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_LESSOBS_only_distance_and_target_reward" # For saving models and TensorBoard logs
 
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS))
     total_runs = len(hp_combinations)
