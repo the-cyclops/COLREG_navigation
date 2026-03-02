@@ -14,8 +14,8 @@ class COLREGHandler:
         """
         Extracts and denormalizes the Ego boat linear speed (Rule R2).
         """
-        # Indices 4,5,6   are the normalized local velocity vector
-        norm_vel_vector = obs_vector[4:7]
+        # Indices 3,4   are the normalized local velocity vector
+        norm_vel_vector = obs_vector[3:5]
         norm_speed = np.linalg.norm(norm_vel_vector)
         phys_speed = norm_speed * self.max_linear_speed
         return phys_speed
@@ -25,8 +25,9 @@ class COLREGHandler:
         Extracts and denormalizes intruder data from the observation vector.
         """
         # --- Intruder 1 ---
-        dir1 = obs_vector[10:13] 
-        raw_dist1 = obs_vector[13]
+        dir1 = obs_vector[6:8] 
+        raw_dist1 = obs_vector[8]
+        lin_vel1 = obs_vector[9:11]
         
         if raw_dist1 > 0.99:
             dist1 = 100.0
@@ -35,18 +36,20 @@ class COLREGHandler:
             dist1 = (self.k_dist * raw_dist1) / (1.0 - raw_dist1 + 1e-6)
             
         pos_rel1 = dir1 * dist1
-        vel_rel1 = obs_vector[14:17] * self.k_intruder_vel_rel
+        vel_rel1 = lin_vel1 * self.k_intruder_vel_rel
 
         # --- Intruder 2 ---
-        dir2 = obs_vector[17:20]
-        raw_dist2 = obs_vector[20]
+        dir2 = obs_vector[11:13]
+        raw_dist2 = obs_vector[13]
+        lin_vel2 = obs_vector[14:16]
+
         if raw_dist2 > 0.99:
             dist2 = 100.0
         else:
             dist2 = (self.k_dist * raw_dist2) / (1.0 - raw_dist2 + 1e-6)
             
         pos_rel2 = dir2 * dist2
-        vel_rel2 = obs_vector[21:24] * self.k_intruder_vel_rel
+        vel_rel2 = lin_vel2 * self.k_intruder_vel_rel
 
         return [(pos_rel1, vel_rel1), (pos_rel2, vel_rel2)]
 
