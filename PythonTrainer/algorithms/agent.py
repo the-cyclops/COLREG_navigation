@@ -104,9 +104,9 @@ class ConstrainedPPOAgent:
             gae = delta + self.gamma * lam * masks[step] * gae
             
             # Return = Advantage + Value (Target for Value Network)
-            returns.insert(0, gae + values[step])
+            returns.append(gae + values[step])
             
-        return torch.stack(returns)
+        return torch.stack(returns[::-1])
     
     def _get_ppo_loss(self, ratio, advantage):
         """
