@@ -5,7 +5,7 @@ from algorithms.networks import Policy, Value, CostValue
 from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
-from time import sleep
+
 class ConstrainedPPOAgent:
     def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=40_960, device='cpu', 
                  entropy_coeff=0.01):
@@ -136,7 +136,6 @@ class ConstrainedPPOAgent:
                 action = dist.sample()
             
             log_prob = dist.log_prob(action).sum(dim=-1)
-            print("log_prob shape:", log_prob.shape)
         return action, log_prob
 
     def evaluate_actions(self, states, actions):
