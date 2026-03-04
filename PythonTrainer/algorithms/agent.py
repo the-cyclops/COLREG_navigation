@@ -5,6 +5,7 @@ from algorithms.networks import Policy, Value, CostValue
 from utils.cagrad import Cagrad_all
 from copy import deepcopy
 
+from time import sleep
 class ConstrainedPPOAgent:
     def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=40_960, device='cpu', 
                  entropy_coeff=0.01):
@@ -135,14 +136,14 @@ class ConstrainedPPOAgent:
                 action = dist.sample()
             
             log_prob = dist.log_prob(action).sum(dim=-1)
-            
+            print("log_prob shape:", log_prob.shape)
         return action, log_prob
 
     def evaluate_actions(self, states, actions):
         action_mean, _, action_std = self.policy_net(states)
         dist = torch.distributions.Normal(action_mean, action_std)
-        action_log_probs = dist.log_prob(actions).sum(dim=-1)
-        entropy = dist.entropy().sum(dim=-1)
+        action_log_probs = dist.log_prob(actions).sum(dim=-1).squeeze()
+        entropy = dist.entropy().sum(dim=-1).squeeze()
         return action_log_probs, entropy
 
     def compute_all_advantages(self, states, next_state, rewards, cost_r1, cost_r2, masks):
@@ -332,20 +333,19 @@ class ConstrainedPPOAgent:
             entropy_coeff = self.entropy_coeff
         
         # Calculate Advantages for reward and costs (ON FULL BUFFER to preserve temporal dependencies)
-        states = torch.stack(rollouts['states']).to(self.device).detach()
-        actions = torch.stack(rollouts['actions']).to(self.device).detach()
+        states = torch.stack(rollouts['states']).to(self.device).detach().squeeze()
+        actions = torch.stack(rollouts['actions']).to(self.device).detach().squeeze()
         rewards = torch.from_numpy(rollouts['rewards']).float().to(self.device).detach().squeeze()
         old_log_probs = torch.stack(rollouts['logprobs']).to(self.device).detach().squeeze()
         masks = torch.from_numpy(rollouts['masks']).float().to(self.device).detach()
         cost_r1 = torch.from_numpy(rollouts['cost_r1']).float().to(self.device).detach()
         cost_r2 = torch.from_numpy(rollouts['cost_r2']).float().to(self.device).detach()
-        next_state = torch.from_numpy(rollouts['next_state']).float().unsqueeze(0).to(self.device).detach()
+        next_state = torch.from_numpy(rollouts['next_state']).float().unsqueeze(0).to(self.device).detach()     
 
         advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
         adv_reward, gae_returns = advantages["reward"]
         adv_r1, r1_cumulative_cost = advantages["r1"]
         adv_r2, r2_cumulative_cost = advantages["r2"]
-        
         # Normalize advantages to stabilize training (on the whole buffer)
         #adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
 
@@ -430,8 +430,10 @@ class ConstrainedPPOAgent:
                 
                 # Policy Update Logic
                 cur_log_probs, entropy = self.evaluate_actions(b_states, b_actions)
+
+                ratio = torch.exp(cur_log_probs - b_old_log_probs)
                 # clamp to prevent nan crashes
-                ratio = torch.exp(torch.clamp(cur_log_probs - b_old_log_probs, min=-20.0, max=5.0))
+                #ratio = torch.exp(torch.clamp(cur_log_probs - b_old_log_probs, min=-20.0, max=5.0))
 
                 # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
                 entropy_loss = -entropy_coeff * entropy.mean()
