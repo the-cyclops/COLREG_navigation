@@ -32,7 +32,6 @@ RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2
 
 INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
-GAMMA = 0.99
 ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
@@ -47,8 +46,9 @@ colreg_path = "colreg_logic/colreg.yaml"
 SAFE_DISTANCE = 1.0
 
 # Hyperparameter Grid
-LEARNING_RATES = [3e-5, 1e-4, 3e-4]
-ENTROPY_COEFS = [0.0, 0.0001, 0.001]
+GAMMA = 0.99
+LEARNING_RATES = [3e-4] #[3e-5, 1e-4, 3e-4]
+ENTROPY_COEFS = [0.0, 0.0001]#[0.0, 0.0001, 0.001]
 BATCH_SIZES = [64, 256]
 FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
@@ -75,8 +75,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"Grid_Search_DifferentialNormalized_gamma_{GAMMA}_distance_direction_reward" # For saving models and TensorBoard logs
-
+    model_name = f"FIXED_Grid_Search_DifferentialNormalized_gamma_{GAMMA}_distance_direction_reward" # For saving models and TensorBoard logs
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES))
     total_runs = len(hp_combinations)
     
@@ -162,7 +161,7 @@ def main():
             returns_episodes = []
 
             # Training progress bar
-            pbar = tqdm(total=TOT_STEPS, desc=f"Run {run_idx}/{total_runs} [LR:{lr} Ent:{entropy}]", unit="steps")
+            pbar = tqdm(total=TOT_STEPS, desc=f"Run {run_idx}/{total_runs} [LR:{lr} Ent:{entropy} B:{batch_size}]", unit="steps")
 
             save_model = False
 
@@ -258,7 +257,7 @@ def main():
 
                 robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             
-                log_dict = agent.update_with_minibatches(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s, batch_size=batch_size)
+                log_dict = agent.update(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s, batch_size=batch_size)
             
                 mode = log_dict['mode']
 
