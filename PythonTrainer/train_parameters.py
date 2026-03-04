@@ -36,7 +36,7 @@ ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 1_024_000# 500 updates
+TOT_STEPS = 512_000 # 250 updates
 
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS +1 # Stay in reward-only for parameter tuning
@@ -46,10 +46,10 @@ colreg_path = "colreg_logic/colreg.yaml"
 SAFE_DISTANCE = 1.0
 
 # Hyperparameter Grid
-GAMMA = 0.99
-LEARNING_RATES = [3e-4] #[3e-5, 1e-4, 3e-4]
-ENTROPY_COEFS = [0.0, 0.0001]#[0.0, 0.0001, 0.001]
-BATCH_SIZES = [64, 256]
+GAMMAS = [0.99, 0.995]
+LEARNING_RATES = [1e-4, 3e-4]
+ENTROPY_COEFS = [0.0, 0.0001]
+BATCH_SIZES = [64, 128, 256]
 FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
 
 def set_all_seeds(seed):
@@ -75,14 +75,14 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"FIXED_Grid_Search_DifferentialNormalized_gamma_{GAMMA}_distance_direction_reward" # For saving models and TensorBoard logs
-    hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES))
+    model_name = f"Grid_Search_initial_reward" # For saving models and TensorBoard logs
+    hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES, GAMMAS))
     total_runs = len(hp_combinations)
     
-    for run_idx, (lr, entropy, batch_size) in enumerate(hp_combinations, 1):
+    for run_idx, (lr, entropy, batch_size, gamma) in enumerate(hp_combinations, 1):
         
-        run_name = f"lr_{lr}_ent_{entropy}_batchsize_{batch_size}"
-        print(f"\n--- Starting Training Run ({run_idx}/{total_runs}) | LR: {lr}, Entropy: {entropy}, Batch Size: {batch_size} ---")
+        run_name = f"GAMMA_{gamma}_lr_{lr}_ent_{entropy}_batchsize_{batch_size}"
+        print(f"\n--- Starting Training Run ({run_idx}/{total_runs}) | LR: {lr}, Entropy: {entropy}, Batch Size: {batch_size}, Gamma: {gamma} ---")
         
         set_all_seeds(FIXED_SEED)
 
@@ -117,7 +117,7 @@ def main():
         print("Environment loaded successfully.")
     
         # time_scale = 1.0 real time 20 step/s - 40.0 is 40x faster than real time 800 step/s
-        engine_config.set_configuration_parameters(width=800, height=600, time_scale=40.0)
+        engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
 
         # Debug info print behaviors available
         print("Behaviors found:", list(env.behavior_specs.keys()))
@@ -129,7 +129,7 @@ def main():
             ACTION_SIZE, 
             device=DEVICE, 
             start_safety=START_SAFETY, 
-            gamma=GAMMA,
+            gamma=gamma,
             lr=lr,
             entropy_coeff=entropy 
         )
@@ -161,7 +161,7 @@ def main():
             returns_episodes = []
 
             # Training progress bar
-            pbar = tqdm(total=TOT_STEPS, desc=f"Run {run_idx}/{total_runs} [LR:{lr} Ent:{entropy} B:{batch_size}]", unit="steps")
+            pbar = tqdm(total=TOT_STEPS, desc=f"Run {run_idx}/{total_runs} [LR:{lr} Ent:{entropy} B:{batch_size} y:{gamma}]", unit="steps")
 
             save_model = False
 

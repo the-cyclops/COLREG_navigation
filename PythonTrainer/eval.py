@@ -15,10 +15,10 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "Grid_Search_DifferentialNormalized_gamma_0.99_only_distance_and_target_reward"
+model_name = "FIXED_Grid_Search_DifferentialNormalized_gamma_0.99_distance_direction_reward"
 unity_env_path = "../Builds/emptyscene.app" #"../Builds/train_5M.app" 
 DEVICE = "cpu"
-OBSERVATION_SIZE = 24 
+OBSERVATION_SIZE = 16
 RAYCAST_COUNT = 7 
 RAYCAST_SIZE = RAYCAST_COUNT * 2 
 NUM_ROBUSTNESS_FLAG = 2 
@@ -50,7 +50,7 @@ def get_single_agent_obs(steps):
 def main():
     set_all_seeds(FIXED_SEED)
     #checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
-    checkpoint_path = f"Models/{model_name}/lr_3e-05_ent_0.0/steps_1024000.pth"
+    checkpoint_path = f"Models/{model_name}/lr_0.0003_ent_0.0_batchsize_64/steps_1024000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
     colreg_handler = COLREGHandler()

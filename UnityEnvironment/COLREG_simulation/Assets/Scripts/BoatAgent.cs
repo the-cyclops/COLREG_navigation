@@ -18,7 +18,7 @@ public class BoatAgent : Agent
 
     private int current_step = 0;
     // TO MODIFY WHEN TRAIN STARTS
-    private int startSafetyStep = 768_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
+    private int startSafetyStep = 256_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -388,13 +388,14 @@ public class BoatAgent : Agent
         // Reward to incetivize mantainig direction and speed towards the target
         Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
         float facingTarget = Vector3.Dot(transform.forward, dirToTarget);
-        //AddReward(facingTarget * 0.0005f);
-
-        // Small penalty to reduce rotation on the spot
-        //AddReward(-0.005f * Mathf.Abs(rb.angularVelocity.y));
-
+        if (facingTarget > 0.7)
+        {
+            AddReward(facingTarget * 0.005f);
+        }
+        // penalty to maintain stability
+        AddReward(-0.001f * Mathf.Abs(rb.angularVelocity.y));
         // Time penalty
-        //AddReward(-5.0f / MaxStep);  
+        AddReward(-10.0f / MaxStep);  
         current_step++;
     }
 
@@ -404,7 +405,7 @@ public class BoatAgent : Agent
             // same penalty for all collisons as professor suggested
             // max penalty of being alive for maxsteps 
             if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Wall") || collision.gameObject.CompareTag("Boat")) {
-                //AddReward(-6.0f);
+                AddReward(-10.0f);
             }
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode();
@@ -416,7 +417,7 @@ public class BoatAgent : Agent
     {
         if (other.CompareTag("Target"))
         {
-            AddReward(15.0f);
+            AddReward(10.0f);
             // 2. Coloriamo il pavimento di verde per feedback visivo (Opzionale ma bello)
             // StartCoroutine(SwapGroundMaterial(successMaterial, 0.5f));
 
