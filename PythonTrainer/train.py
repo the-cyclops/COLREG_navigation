@@ -111,7 +111,7 @@ def main():
         print("Environment loaded successfully.")
     
         # time_scale = 1.0 real time 20 step/s - 40.0 is 40x faster than real time 800 step/s
-        engine_config.set_configuration_parameters(width=800, height=600, time_scale=40.0)
+        engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
 
         # Debug info print behaviors available
         print("Behaviors found:", list(env.behavior_specs.keys()))

@@ -30,13 +30,15 @@ class COLREGHandler:
         lin_vel1 = obs_vector[9:11]
         
         if raw_dist1 > 0.99:
-            dist1 = 100.0
+            # intruder really far or absent
+            # really high dist to trigger guard in CPA calculation
+            pos_rel1 = np.array([999.0, 999.0])
+            vel_rel1 = np.array([0.0, 0.0])
         else:
             # Denormalization of rational function: dist = (k * raw) / (1 - raw)
             dist1 = (self.k_dist * raw_dist1) / (1.0 - raw_dist1 + 1e-6)
-            
-        pos_rel1 = dir1 * dist1
-        vel_rel1 = lin_vel1 * self.k_intruder_vel_rel
+            pos_rel1 = dir1 * dist1
+            vel_rel1 = lin_vel1 * self.k_intruder_vel_rel
 
         # --- Intruder 2 ---
         dir2 = obs_vector[11:13]
@@ -44,12 +46,13 @@ class COLREGHandler:
         lin_vel2 = obs_vector[14:16]
 
         if raw_dist2 > 0.99:
-            dist2 = 100.0
+            # intruder really far or absent
+            pos_rel2 = np.array([999.0, 999.0])
+            vel_rel2 = np.array([0.0, 0.0])
         else:
             dist2 = (self.k_dist * raw_dist2) / (1.0 - raw_dist2 + 1e-6)
-            
-        pos_rel2 = dir2 * dist2
-        vel_rel2 = lin_vel2 * self.k_intruder_vel_rel
+            pos_rel2 = dir2 * dist2
+            vel_rel2 = lin_vel2 * self.k_intruder_vel_rel
 
         return [(pos_rel1, vel_rel1), (pos_rel2, vel_rel2)]
 
