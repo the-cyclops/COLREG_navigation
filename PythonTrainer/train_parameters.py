@@ -75,7 +75,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"Grid_Search_initial_reward" # For saving models and TensorBoard logs
+    model_name = f"TEST" # For saving models and TensorBoard logs
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES, GAMMAS))
     total_runs = len(hp_combinations)
     

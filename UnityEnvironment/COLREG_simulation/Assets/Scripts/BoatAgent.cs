@@ -17,13 +17,12 @@ public class BoatAgent : Agent
     private float currentReductionRadius = 10f;
 
     private int current_step = 0;
-    // TO MODIFY WHEN TRAIN STARTS
-    private int startSafetyStep = 256_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
+    private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
     private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
-    private int stage1Threshold = 1000 * 5; // After 15k steps, we move to stage 1
-    private int stage2Threshold = 2000 * 5; // After 30k steps, we move to stage 2
+    private int stage1Threshold = 251_904 * 5; // Update 123
+    private int stage2Threshold = 501_760 * 5; // Update 245
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -431,19 +430,24 @@ public class BoatAgent : Agent
         // Apply forces based on jet inputs
         boatPhysics.SetJetInputs(leftInput, rightInput);
 
-        // Reward to incentivize getting closer to the target
         Vector2 boatPos2D = new Vector2(transform.localPosition.x, transform.localPosition.z);
         Vector2 targetPos2D = new Vector2(target.transform.localPosition.x, target.transform.localPosition.z);
         float currentDistanceToTarget = Vector2.Distance(boatPos2D, targetPos2D);
+        // Reward to incentivize getting closer to the target
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; 
-        AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         previousDistanceToTarget = currentDistanceToTarget;
 
-        // Reward to incetivize mantainig direction and speed towards the target
         Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
         float facingTarget = Vector3.Dot(transform.forward, dirToTarget);
+
+        if (distanceReward > 0 && facingTarget < 0)
+        {
+            distanceReward *= 0.5f; // Penalize if moving in the right direction but facing away from the target
+        }
+        AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         if (facingTarget > 0.7)
         {
+        // Reward to incetivize mantainig direction and speed towards the target
             AddReward(facingTarget * 0.005f);
         }
         // penalty to maintain stability

@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "FIXED_Grid_Search_DifferentialNormalized_gamma_0.99_distance_direction_reward"
+model_name = "Grid_Search_initial_reward/GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128"
 unity_env_path = "../Builds/emptyscene.app" #"../Builds/train_5M.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16
@@ -50,7 +50,7 @@ def get_single_agent_obs(steps):
 def main():
     set_all_seeds(FIXED_SEED)
     #checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
-    checkpoint_path = f"Models/{model_name}/lr_0.0003_ent_0.0_batchsize_64/steps_1024000.pth"
+    checkpoint_path = f"Models/{model_name}/steps_512000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
     colreg_handler = COLREGHandler()
@@ -113,7 +113,7 @@ def main():
                     action_tensor, _ = agent.get_action(obs_tensor, deterministic=True)
                 
                 action_numpy = action_tensor.cpu().numpy()
-                pbar.write(f"Step {pbar.n+1} | Action: {action_numpy.flatten()} | R1: {r1} | R2: {r2}")
+                #pbar.write(f"Step {pbar.n+1} | Action: {action_numpy.flatten()} | R1: {r1} | R2: {r2}")
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
 
@@ -139,7 +139,7 @@ def main():
             total_r2_robustness.append(rho_2)
 
             pbar.close()
-            print(f"Episode {episodes_completed+1} finished | Reward: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f}")
+            print(f"Episode {episodes_completed+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f}")
 
             memory_buffer.clear_stl_window()
             memory_buffer.clear_ppo() 
@@ -152,7 +152,7 @@ def main():
         # --- FIX 2: Check se le liste sono vuote prima di calcolare la media ---
         if total_rewards:
             print("\n--- Final Evaluation Results ---")
-            print(f"Average Reward: {np.mean(total_rewards):.2f} ± {np.std(total_rewards):.2f}")
+            print(f"Average Return: {np.mean(total_rewards):.2f} ± {np.std(total_rewards):.2f}")
             print(f"Average R1 Robustness: {np.mean(total_r1_robustness):.2f}")
             print(f"Average R2 Robustness: {np.mean(total_r2_robustness):.2f}")
         else:

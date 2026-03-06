@@ -17,11 +17,11 @@ from utils.colreg_handler import COLREGHandler
 
 from colreg_logic import rtamt_yml_parser
 
-model_name = "boat_agent_tuned_rewards_higher_gamma_v1"
+
 # None - use the Unity Editor (press Play)
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
-unity_env_path = "../Builds/train_5M.app"
+unity_env_path = "../Builds/train.app"
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -32,13 +32,16 @@ RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2
 
 INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
-GAMMA = 0.995
 ACTION_SIZE = 2 # Left Jet, Right Jet
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 5_120_000 # 2500 updates
-
+TOT_STEPS = 2_048_000 # 1000 updates
+GAMMA = 0.995
+LR = 0.0003
+BATCH_SIZE = 64
+ENTROPY_COEF = 0.0001
+# AFTER THIS TEST GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128 
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 
@@ -69,7 +72,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-
+    model_name = f"boat_agent_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -114,7 +117,15 @@ def main():
         print("Behaviors found:", list(env.behavior_specs.keys()))
         behavior_name = list(env.behavior_specs.keys())[0] 
     
-        agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=START_SAFETY, gamma=GAMMA)
+        agent = ConstrainedPPOAgent(
+            INPUT_SIZE, 
+            ACTION_SIZE, 
+            device=DEVICE, 
+            start_safety=START_SAFETY, 
+            gamma=GAMMA,
+            lr=LR,
+            entropy_coeff=ENTROPY_COEF
+        )
 
         if starting_step != 0:
             checkpoint_path = f"Models/{model_name}/seed_{seed}/steps_{starting_step}.pth"
@@ -153,10 +164,8 @@ def main():
                     safety_active = True
                     pbar.write(f"Safety constraints activated at step {s}.")
 
-                #TEMPORARY
-
-                mean_buffer = []
-                std_buffer = []
+                mean_throttle_buffer, mean_steering_buffer = [], []
+                std_throttle_buffer, std_steering_buffer = [], []
             
                 while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
@@ -170,11 +179,12 @@ def main():
                     action_tuple = ActionTuple()
                     action_tuple.add_continuous(action_numpy)
 
-                    #TEMPORARYù
                     with torch.no_grad():
-                        mean,_ ,std = agent.policy_net(obs_tensor)
-                        mean_buffer.append(mean.detach().cpu().numpy())
-                        std_buffer.append(std.detach().cpu().numpy())
+                        mean, _, std = agent.policy_net(obs_tensor)
+                        mean_throttle_buffer.append(mean[0, 0].detach().cpu().numpy())
+                        mean_steering_buffer.append(mean[0, 1].detach().cpu().numpy())
+                        std_throttle_buffer.append(std[0, 0].detach().cpu().numpy())
+                        std_steering_buffer.append(std[0, 1].detach().cpu().numpy())
 
 
                     env.set_actions(behavior_name, action_tuple)
@@ -240,7 +250,7 @@ def main():
 
                 robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             
-                log_dict = agent.update(rollouts=rollout_buffer,robustness_dict=robustness_dict,current_step=s)
+                log_dict = agent.update(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s, batch_size=BATCH_SIZE)
             
                 mode = log_dict['mode']
 
@@ -269,8 +279,10 @@ def main():
                 writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
                 writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
                 writer.add_text("Training/Mode_Log", mode, s)
-                writer.add_scalar("Policy/Policy_Mean", np.mean(mean_buffer), s)
-                writer.add_scalar("Policy/Policy_Std", np.mean(std_buffer), s)
+                writer.add_scalar("Policy/Throttle_Mean", np.mean(mean_throttle_buffer), s)
+                writer.add_scalar("Policy/Steering_Mean", np.mean(mean_steering_buffer), s)
+                writer.add_scalar("Policy/Throttle_Std", np.mean(std_throttle_buffer), s)
+                writer.add_scalar("Policy/Steering_Std", np.mean(std_steering_buffer), s)
                 writer.add_scalar("Policy/Entropy", log_dict['entropy'], s)
                 writer.add_scalar("Loss/Policy", log_dict['policy_loss'], s)
                 writer.add_scalar("Loss/Value", log_dict['value_loss'], s)
