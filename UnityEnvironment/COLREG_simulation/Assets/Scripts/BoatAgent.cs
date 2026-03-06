@@ -20,6 +20,11 @@ public class BoatAgent : Agent
     // TO MODIFY WHEN TRAIN STARTS
     private int startSafetyStep = 256_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
+    private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+
+    private int stage1Threshold = 1000 * 5; // After 15k steps, we move to stage 1
+    private int stage2Threshold = 2000 * 5; // After 30k steps, we move to stage 2
+
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
     [SerializeField] GameObject intruderVessel2;
@@ -64,13 +69,13 @@ public class BoatAgent : Agent
 
     void FixedUpdate()
     {
-        if (intruderVessel1 != null && intruderVessel1.activeInHierarchy)
+        if (intruderVessel1 != null && intruderVessel1.activeInHierarchy && curriculumStage == 2)
         {
             splineAnimator1.ElapsedTime += splineAnimator1.MaxSpeed * Time.fixedDeltaTime;
             intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
         }
 
-        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy)
+        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
         {
             splineAnimator2.ElapsedTime += splineAnimator2.MaxSpeed * Time.fixedDeltaTime;
             intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
@@ -139,9 +144,30 @@ public class BoatAgent : Agent
 
     private void MoveObstacles()
     {
+
+        float radius = 0f;
+
+        if (curriculumStage == 0)
+        {
+            obstacles.SetActive(false);
+            return;
+        }
+        else
+        {
+            obstacles.SetActive(true);
+            if (curriculumStage == 1)
+            {
+                radius = 0f; // Fixed Obstacles, no randomization
+            } else
+            {
+                radius = spawnObstacleRadius;    
+            }
+            
+        }
+
         foreach (Transform obstacle in obstacles.transform)
         {
-            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * spawnObstacleRadius;
+            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * radius;
             Vector3 newPos = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
             Transform sphereTransform = obstacle.Find("Sphere");
             if (sphereTransform != null)
@@ -154,6 +180,34 @@ public class BoatAgent : Agent
 
     private void MoveIntruders()
     {
+
+        if (curriculumStage < 2)
+        {
+            intruderVessel1.SetActive(false);
+            intruderVessel2.SetActive(false);
+            return;
+        }
+        else
+        {
+            intruderVessel1.SetActive(true);
+            intruderVessel2.SetActive(true);
+            if (curriculumStage == 1)
+            {
+                // If we are in stage 1, we want to have the intruders present but static to let the agent learn to deal with them as static obstacles before they start moving
+                splineAnimator1.MaxSpeed = 0f;
+                splineAnimator1.ElapsedTime = 0f; 
+                splineAnimator2.MaxSpeed = 0f;
+                splineAnimator2.ElapsedTime = 0f; 
+                Path1.transform.localScale = Vector3.one;
+                Path2.transform.localScale = Vector3.one;
+                intruder1Velocity = Vector3.zero;
+                intruder2Velocity = Vector3.zero;
+                splineAnimator1.Pause();
+                splineAnimator2.Pause();
+                return;
+            }
+        }
+
         // ---Path 1---
         float scaleX1 = UnityEngine.Random.Range(0.9f, 1.1f);
         float scaleZ1 = UnityEngine.Random.Range(0.9f, 1.1f);
@@ -397,6 +451,16 @@ public class BoatAgent : Agent
         // Time penalty
         AddReward(-10.0f / MaxStep);  
         current_step++;
+        if (current_step == stage1Threshold)
+        {
+            curriculumStage = 1;
+            if (debugMode) Debug.Log("Curriculum Stage 1: Fixed Obstacles");
+        }
+        else if (current_step == stage2Threshold)
+        {
+            curriculumStage = 2;
+            if (debugMode) Debug.Log("Curriculum Stage 2: Moving Obstacles");
+        }
     }
 
     private void OnCollisionEnter(Collision collision)
