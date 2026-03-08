@@ -218,11 +218,8 @@ class ConstrainedPPOAgent:
         adv_r1, r1_cumulative_cost = advantages["r1"]
         adv_r2, r2_cumulative_cost = advantages["r2"]
         # Normalize advantages to stabilize training (on the whole buffer)
+        # Switched to minibatch normalization as done in stavle-baselines3 
         #adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
-
-        # not normalizing cost advantage to preserve scale for cagrad
-        #adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
-        #adv_r2 = (adv_r2 - adv_r2.mean()) / (adv_r2.std() + 1e-8)
 
         # Determine the training mode once for the entire update
         violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
@@ -260,6 +257,16 @@ class ConstrainedPPOAgent:
 
                 # Normalize advantage on mini-batch for reward as done in stable-baseline3
                 b_adv_reward = (b_adv_reward - b_adv_reward.mean()) / (b_adv_reward.std() + 1e-8)
+
+                # Normalize cost advantages considering if cagrad is called
+                if len(violated_rules) == 1:
+                    b_adv_r1 = (b_adv_r1 - b_adv_r1.mean()) / (b_adv_r1.std() + 1e-8)
+                    b_adv_r2 = (b_adv_r2 - b_adv_r2.mean()) / (b_adv_r2.std() + 1e-8)
+                # Normalize both with same maximum to preserve relative scale for CAGrad when multiple rules are violated
+                elif len(violated_rules) > 1:
+                    shared_scale = torch.max(b_adv_r1.abs().max(), b_adv_r2.abs().max()) + 1e-8
+                    b_adv_r1 = b_adv_r1 / shared_scale
+                    b_adv_r2 = b_adv_r2 / shared_scale
 
                 # setup for update (batched version)
                 b_cost_config = {
