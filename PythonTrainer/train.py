@@ -72,7 +72,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"boat_agent_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_costnormalized_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -217,7 +217,7 @@ def main():
                 
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
-                    # TODO forse -> normalizzare/clippare i costi?
+
                     cost_1 = max(0, -rho_1) / SAFE_DISTANCE
                     cost_2 = max(0, -rho_2)
                     memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
