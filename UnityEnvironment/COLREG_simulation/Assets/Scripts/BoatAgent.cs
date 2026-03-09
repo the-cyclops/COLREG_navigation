@@ -19,7 +19,7 @@ public class BoatAgent : Agent
     private int current_step = 0;
     private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
-    private int curriculumStage = 2; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+    private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
     private int stage1Threshold = 251_904 * 5; // Update 123
     private int stage2Threshold = 501_760 * 5; // Update 245
@@ -416,7 +416,7 @@ public class BoatAgent : Agent
         // L2 penalty after clamp 
         //AddReward(-0.001f * ((throttle * throttle) + (steering * steering)));
         // penalty to encourage less steering
-        AddReward(-0.001f * Mathf.Abs(steering));
+        //AddReward(-0.001f * Mathf.Abs(steering));
         float leftInput = throttle + steering;
         float rightInput = throttle - steering;
 
@@ -440,12 +440,13 @@ public class BoatAgent : Agent
         Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
         float facingTarget = Vector3.Dot(transform.forward, dirToTarget);
 
-        if (distanceReward > 0 && facingTarget < 0)
-        {
-            distanceReward *= 0.5f; // Penalize if moving in the right direction but facing away from the target
-        }
         AddReward(distanceReward * 1f); // Scale the reward for distance improvement
-        if (facingTarget > 0.7)
+        // small encoragment to face correcyly
+        if (facingTarget > 0)
+        {
+            AddReward(facingTarget * 0.001f);
+        }
+        if (facingTarget > 0.8)
         {
         // Reward to incetivize mantainig direction and speed towards the target
             AddReward(facingTarget * 0.005f);
