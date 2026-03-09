@@ -21,8 +21,8 @@ public class BoatAgent : Agent
 
     private int curriculumStage = 2; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
-    private int stage1Threshold = 0;//251_904 * 5; // Update 123
-    private int stage2Threshold = 0;//501_760 * 5; // Update 245
+    private int stage1Threshold = 251_904 * 5; // Update 123
+    private int stage2Threshold = 501_760 * 5; // Update 245
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
