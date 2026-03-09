@@ -19,5 +19,5 @@ specifications:
     spec: R1_safe_distance = always(r1_signal >= 0.0)
     weight: 1.0
   - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
-    spec: R2_safe_speed = always(boat_speed <= V_MAX)
+    spec: R2_safe_speed = always((boat_speed <= V_MAX) and (boat_speed >= 0.0))
     weight: 1.0
