@@ -15,8 +15,8 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "Grid_Search_initial_reward/GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128"
-unity_env_path = "../Builds/emptyscene.app" #"../Builds/train_5M.app" 
+model_name = "boat_agent_costnormalized_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64/seed_1"
+unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16
 RAYCAST_COUNT = 7 
@@ -50,7 +50,7 @@ def get_single_agent_obs(steps):
 def main():
     set_all_seeds(FIXED_SEED)
     #checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
-    checkpoint_path = f"Models/{model_name}/steps_512000.pth"
+    checkpoint_path = f"Models/{model_name}/best_feasible_model.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
     colreg_handler = COLREGHandler()
@@ -113,7 +113,7 @@ def main():
                     action_tensor, _ = agent.get_action(obs_tensor, deterministic=True)
                 
                 action_numpy = action_tensor.cpu().numpy()
-                #pbar.write(f"Step {pbar.n+1} | Action: {action_numpy.flatten()} | R1: {r1} | R2: {r2}")
+                pbar.write(f"Step {pbar.n+1} | Action: {action_numpy.flatten()} | flag_R1: {r1} | flag_R2: {r2}")
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
 

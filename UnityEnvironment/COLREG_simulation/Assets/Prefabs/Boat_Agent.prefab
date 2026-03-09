@@ -134,6 +134,7 @@ MonoBehaviour:
   verticalDrag: 25
   maxSubmergenceDepth: 0.12
   centerOfMassOffset: {x: 0, y: -0.1, z: -0.1}
+  sideDrag: 5
   floaters:
   - {fileID: 7154036163603982050}
   - {fileID: 6048515543652144829}
@@ -159,7 +160,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
   m_BrainParameters:
-    VectorObservationSize: 24
+    VectorObservationSize: 16
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -195,9 +196,12 @@ MonoBehaviour:
   MaxStep: 0
   boatPhysics: {fileID: 0}
   target: {fileID: 0}
-  obstacles: []
+  obstacles: {fileID: 0}
   intruderVessel1: {fileID: 0}
   intruderVessel2: {fileID: 0}
+  Path1: {fileID: 0}
+  Path2: {fileID: 0}
+  debugMode: 0
 --- !u!114 &74932305235223278
 MonoBehaviour:
   m_ObjectHideFlags: 0
