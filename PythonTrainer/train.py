@@ -39,9 +39,10 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 2_048_000 # 1000 updates
 GAMMA = 0.995
 LR = 0.0003
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 ENTROPY_COEF = 0.0001
-# AFTER THIS TEST GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128 
+# GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64 
+# GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128 
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 
@@ -88,7 +89,8 @@ def main():
         starting_step = 0
 
         last_checkpoint_path = None
-        best_feasible_return = -float('inf')
+        best_safe_return = -float('inf')
+        best_return = -float('inf')
 
         colreg_handler = COLREGHandler()
 
@@ -323,15 +325,21 @@ def main():
                 current_r1 = robustness_dict['R1']
                 current_r2 = robustness_dict['R2']             
 
-                is_feasible = (current_r1 >= 0.0) and (current_r2 >= 0.0)
+                is_safe = (current_r1 >= 0.0) and (current_r2 >= 0.0)
                 if mean_return is not None and s>= START_SAFETY:
-                    if is_feasible and (mean_return > best_feasible_return):
-                        best_feasible_return = mean_return
-                        best_path = f"{save_dir}/best_feasible_model.pth"
+                    if is_safe and (mean_return > best_safe_return):
+                        best_safe_return = mean_return
+                        best_path = f"{save_dir}/best_safe_model.pth"
                     
                         # Salva copia specifica
                         torch.save(checkpoint, best_path)
-                        pbar.write(f"*** NEW BEST FEASIBLE MODEL! Return: {best_feasible_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+                        pbar.write(f"*** NEW BEST SAFE MODEL! Return: {best_safe_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+
+                if mean_return is not None and s >= START_SAFETY and (mean_return > best_return):
+                    best_return = mean_return
+                    best_model_path = f"{save_dir}/best_model.pth"
+                    torch.save(checkpoint, best_model_path)
+                    pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
 
         except KeyboardInterrupt:
             print("Manual interruption...")
