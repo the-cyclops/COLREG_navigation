@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from collections import deque
 
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.base_env import ActionTuple
@@ -160,6 +161,10 @@ def main():
 
             save_model = False
 
+            window_size = 50 # Calculate average over the last 50 episodes
+            recent_returns = deque(maxlen=window_size)
+            min_episodes_to_evaluate = 10
+
             while s < TOT_STEPS: 
 
                 if not safety_active and s >= START_SAFETY:
@@ -227,6 +232,7 @@ def main():
 
 
                     if end_episode:
+                        recent_returns.append(current_return)
                         returns_episodes.append(current_return)
                         current_return = 0.0
                         memory_buffer.clear_stl_window()
@@ -267,6 +273,10 @@ def main():
                     pbar.write(f"Mean Return: {mean_return:.2f}")
                     writer.add_scalar("Training/Mean_Return", mean_return, s)
                     returns_episodes.clear()
+
+                if len(recent_returns) > 0:
+                    smoothed_return = np.mean(recent_returns)
+                    writer.add_scalar("Training/Smoothed_Return", smoothed_return, s)
 
                 pbar.set_postfix({
                     'Reward': f"{rewards.mean().item():.2f}",
@@ -326,20 +336,24 @@ def main():
                 current_r2 = robustness_dict['R2']             
 
                 is_safe = (current_r1 >= 0.0) and (current_r2 >= 0.0)
-                if mean_return is not None and s>= START_SAFETY:
-                    if is_safe and (mean_return > best_safe_return):
-                        best_safe_return = mean_return
+
+                if len(recent_returns) >= min_episodes_to_evaluate and s >= START_SAFETY:
+
+                    smooth_return = np.mean(recent_returns)
+
+                    if is_safe and (smooth_return > best_safe_return):
+                        best_safe_return = smooth_return
                         best_path = f"{save_dir}/best_safe_model.pth"
                     
                         # Salva copia specifica
                         torch.save(checkpoint, best_path)
                         pbar.write(f"*** NEW BEST SAFE MODEL! Return: {best_safe_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
 
-                if mean_return is not None and s >= START_SAFETY and (mean_return > best_return):
-                    best_return = mean_return
-                    best_model_path = f"{save_dir}/best_model.pth"
-                    torch.save(checkpoint, best_model_path)
-                    pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+                    if (smooth_return > best_return):
+                        best_return = smooth_return
+                        best_model_path = f"{save_dir}/best_model.pth"
+                        torch.save(checkpoint, best_model_path)
+                        pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
 
         except KeyboardInterrupt:
             print("Manual interruption...")
