@@ -45,6 +45,12 @@ public class BoatAgent : Agent
     private Vector3 intruder1Velocity;
     private Vector3 intruder2Velocity;
 
+    // --- VARIABILI AGGIUNTE PER SANITY CHECK (XZ) ---
+    private Vector2 lastPosIntruder1_2D;
+    private Vector2 lastPosIntruder2_2D;
+    private float realSpeedIntruder1;
+    private float realSpeedIntruder2;
+
     [SerializeField] private bool debugMode = false;
 
     public override void Initialize()
@@ -72,14 +78,36 @@ public class BoatAgent : Agent
     {
         if (intruderVessel1 != null && intruderVessel1.activeInHierarchy && curriculumStage == 2)
         {
+            // Incremento manuale per evitare il doppio movimento di Unity 6
             splineAnimator1.ElapsedTime += splineAnimator1.MaxSpeed * Time.fixedDeltaTime;
-            intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
+            
+            // Calcolo velocità reale XZ
+            Vector2 currentPos1 = new Vector2(intruderVessel1.transform.position.x, intruderVessel1.transform.position.z);
+            realSpeedIntruder1 = Vector2.Distance(currentPos1, lastPosIntruder1_2D) / Time.fixedDeltaTime;
+            lastPosIntruder1_2D = currentPos1;
+
+            Vector3 fwd = intruderVessel1.transform.forward;
+            intruder1Velocity = new Vector3(fwd.x, 0, fwd.z).normalized * realSpeedIntruder1;
         }
 
         if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
         {
             splineAnimator2.ElapsedTime += splineAnimator2.MaxSpeed * Time.fixedDeltaTime;
-            intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
+            
+            // Calcolo velocità reale XZ
+            Vector2 currentPos2 = new Vector2(intruderVessel2.transform.position.x, intruderVessel2.transform.position.z);
+            realSpeedIntruder2 = Vector2.Distance(currentPos2, lastPosIntruder2_2D) / Time.fixedDeltaTime;
+            lastPosIntruder2_2D = currentPos2;
+
+            Vector3 fwd = intruderVessel2.transform.forward;
+            intruder2Velocity = new Vector3(fwd.x, 0, fwd.z).normalized * realSpeedIntruder2;
+        }
+
+        // Print di controllo (Sanity Check)
+        if (debugMode && Time.frameCount % 100 == 0)
+        {
+            float agentSpeedXZ = new Vector2(rb.linearVelocity.x, rb.linearVelocity.z).magnitude;
+            Debug.Log($"[CHECK XZ] Agente: {agentSpeedXZ:F2} | I1: {realSpeedIntruder1:F2} | I2: {realSpeedIntruder2:F2}");
         }
     }
 
@@ -183,26 +211,8 @@ public class BoatAgent : Agent
             intruderVessel2.SetActive(false);
             return;
         }
-        else
-        {
-            intruderVessel1.SetActive(true);
-            intruderVessel2.SetActive(true);
-            if (curriculumStage == 1)
-            {
-                // If we are in stage 1, we want to have the intruders present but static to let the agent learn to deal with them as static obstacles before they start moving
-                splineAnimator1.MaxSpeed = 0f;
-                splineAnimator1.ElapsedTime = 0f; 
-                splineAnimator2.MaxSpeed = 0f;
-                splineAnimator2.ElapsedTime = 0f; 
-                Path1.transform.localScale = Vector3.one;
-                Path2.transform.localScale = Vector3.one;
-                intruder1Velocity = Vector3.zero;
-                intruder2Velocity = Vector3.zero;
-                splineAnimator1.Pause();
-                splineAnimator2.Pause();
-                return;
-            }
-        }
+        intruderVessel1.SetActive(true);
+        intruderVessel2.SetActive(true);
         float minSpeed = 1.3f;
         float maxSpeed = 1.6f;
 
@@ -221,6 +231,7 @@ public class BoatAgent : Agent
         // Calcoliamo la velocità locale per far sì che la velocità mondo sia corretta
         // Usiamo MaxSpeed come contenitore per il calcolo nel FixedUpdate
         splineAnimator1.MaxSpeed = intruder1Speed / maxScale1;
+        splineAnimator1.Pause(); // Fermiamo l'update automatico di Unity
 
         // --- Path 2---
         float scaleX2 = UnityEngine.Random.Range(0.9f, 1.1f);
@@ -232,6 +243,7 @@ public class BoatAgent : Agent
 
         splineAnimator2.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator2.Duration);
         splineAnimator2.MaxSpeed = intruder2Speed / maxScale2;
+        //splineAnimator2.Pause(); // Fermiamo l'update automatico di Unity
 
         if (debugMode)
         {
@@ -260,6 +272,10 @@ public class BoatAgent : Agent
         transform.localRotation = initialRotation;
 
         Physics.SyncTransforms();
+
+        // RESET POSIZIONI PER EVITARE SPIKE DI VELOCITÀ AL PRIMO FRAME
+        lastPosIntruder1_2D = new Vector2(intruderVessel1.transform.position.x, intruderVessel1.transform.position.z);
+        lastPosIntruder2_2D = new Vector2(intruderVessel2.transform.position.x, intruderVessel2.transform.position.z);
 
         intruder1Velocity = Vector3.zero;
         intruder2Velocity = Vector3.zero;
@@ -291,7 +307,7 @@ public class BoatAgent : Agent
         sensor.AddObservation(targetRelativePos2D.normalized);
 
         // Fetch Target Distance
-        float targetDistance = targetRelativePos.magnitude;
+        float targetDistance = new Vector2(targetRelativePos.x, targetRelativePos.z).magnitude; // Calcolo XZ
         // Normalized Distance (Assuming max distance of 20 units) 
         // Rational normalization d/(d+k) with k=15. Range: [0, 1]
         // Obs Index [2]: Target Distance - How far is the target
@@ -331,19 +347,20 @@ public class BoatAgent : Agent
             // Obs Index [6,7]: Intruder 1 Relative Position (Local space)
             sensor.AddObservation(intruder1RelativePos2D.normalized); 
         
-            float intruder1Dist = intruder1RelativePos.magnitude;
+            float intruder1Dist = intruder1RelativePos2D.magnitude; // XZ
             // Obs Index [8]: Intruder 1 Distance
             if (debugMode) Debug.Log("Intruder 1 Distance: " + intruder1Dist.ToString("F2"));
             sensor.AddObservation(intruder1Dist / (arenaRadius + intruder1Dist)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
-            // We calculate the vector difference in world space, then convert to local
-            Vector3 relativeVelocityWorld1 = intruder1Velocity - rb.linearVelocity;
+            // Usiamo la velocità XZ calcolata nel FixedUpdate
+            Vector3 relativeVelocityWorld1 = intruder1Velocity - new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
             Vector3 localRelativeVelocity1 = transform.InverseTransformDirection(relativeVelocityWorld1);
             Vector2 localRelativeVelocity1_2D = new Vector2(localRelativeVelocity1.x, localRelativeVelocity1.z);
             // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
             // Obs Index [9,10]: Intruder 1 Relative Velocity (Local space)
             if (debugMode) Debug.Log("Intruder 1 Relative Velocity: " + localRelativeVelocity1_2D.ToString("F2"));
+            if (debugMode) Debug.Log("Observation intruder 1 Rel Vel (Normalized): " + Vector2.ClampMagnitude(localRelativeVelocity1_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f).ToString("F2"));
             sensor.AddObservation(Vector2.ClampMagnitude(localRelativeVelocity1_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));   
         }
         else
@@ -366,20 +383,21 @@ public class BoatAgent : Agent
             // Obs Index [11,12]: Intruder 2 Relative Position (Local space)
             sensor.AddObservation(intruder2RelativePos2D.normalized); 
         
-            float intruder2Dist = intruder2RelativePos.magnitude;
+            float intruder2Dist = intruder2RelativePos2D.magnitude; // XZ
             if (debugMode) Debug.Log("Intruder 2 Distance: " + intruder2Dist.ToString("F2"));
             // Obs Index [13]: Intruder 2 Distance
             sensor.AddObservation(intruder2Dist / (arenaRadius + intruder2Dist)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
-            // We calculate the vector difference in world space, then convert to local
-            Vector3 relativeVelocityWorld2 = intruder2Velocity - rb.linearVelocity;
+            Vector3 relativeVelocityWorld2 = intruder2Velocity - new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
             Vector3 localRelativeVelocity2 = transform.InverseTransformDirection(relativeVelocityWorld2);
             Vector2 localRelativeVelocity2_2D = new Vector2(localRelativeVelocity2.x, localRelativeVelocity2.z);
             // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
             // Obs Index [14,15]: Intruder 2 Relative Velocity (Local space)
             if (debugMode) Debug.Log("Intruder 2 Relative Velocity: " + localRelativeVelocity2_2D.ToString("F2"));
+            if (debugMode) Debug.Log("Observation intruder 2 Rel Vel (Normalized): " + Vector2.ClampMagnitude(localRelativeVelocity2_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f).ToString("F2"));
             sensor.AddObservation(Vector2.ClampMagnitude(localRelativeVelocity2_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
+
         }
         else
         {
@@ -390,37 +408,23 @@ public class BoatAgent : Agent
             sensor.AddObservation(Vector2.zero); // Rel Vel
         }
 
-    // Total Observations: 2 (targetRelativePos) + 1 (targetDistance) + 2 (linearVelocity) + 1 (angularVelocity) + 2 (intruder1RelativePos) + 1 (intruder1Dist) + 2 (intruder1RelVel) + 2 (intruder2RelativePos) + 1 (intruder2Dist) + 2 (intruder2RelVel) = 16
-    // // Adjust the Space Size in Vector Sensor in Behavior Parameters accordingly 
+    // Total Observations: 16
     }
 
     // This method is called every step during training OR by your keyboard in Heuristic mode
-    // the agent will have a maximum number of 9k step per episode
     public override void OnActionReceived(ActionBuffers actions)
     {
         var continuousActions = actions.ContinuousActions;
 
-        // L2 Energy Penalty
-        //AddReward(-0.001f * ((continuousActions[0] * continuousActions[0]) + (continuousActions[1] * continuousActions[1])));
-        // L1 Energy Penalty
-        //AddReward(-0.001f * (Mathf.Abs(continuousActions[0]) + Mathf.Abs(continuousActions[1])));
-        
-        // Differential Thrust Mapping
-        //float leftInput = Mathf.Clamp(continuousActions[0], -1f, 1f);
-        //float rightInput = Mathf.Clamp(continuousActions[1], -1f, 1f);
-
         // Differential Drive Mixer
         float throttle = Mathf.Clamp(continuousActions[0], -1f, 1f);
         float steering = Mathf.Clamp(continuousActions[1], -1f, 1f);
-        // L2 penalty after clamp 
-        //AddReward(-0.001f * ((throttle * throttle) + (steering * steering)));
-        // penalty to encourage less steering
-        //AddReward(-0.001f * Mathf.Abs(steering));
+
         float leftInput = throttle + steering;
         float rightInput = throttle - steering;
 
         float maxInput = Mathf.Max(Mathf.Abs(leftInput), Mathf.Abs(rightInput));
-        // Normalize inputs if any exceeds the range [-1, 1] to maintain the intended throttle/steering ratio
+        // Normalize inputs if any exceeds the range [-1, 1]
         if (maxInput > 1f)
         {
             leftInput /= maxInput;
@@ -436,8 +440,9 @@ public class BoatAgent : Agent
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; 
         previousDistanceToTarget = currentDistanceToTarget;
 
-        Vector3 dirToTarget = (target.transform.position - transform.position).normalized;
-        float facingTarget = Vector3.Dot(transform.forward, dirToTarget);
+        Vector3 dirToTarget = (target.transform.position - transform.position);
+        dirToTarget.y = 0; // XZ Only
+        float facingTarget = Vector3.Dot(transform.forward, dirToTarget.normalized);
 
         AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         // small encoragment to face correcyly
@@ -470,8 +475,6 @@ public class BoatAgent : Agent
     private void OnCollisionEnter(Collision collision)
     {
         if (!collision.gameObject.CompareTag("Target")) {
-            // same penalty for all collisons as professor suggested
-            // max penalty of being alive for maxsteps 
             if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Wall") || collision.gameObject.CompareTag("Boat")) {
                 AddReward(-10.0f);
             }
@@ -486,9 +489,6 @@ public class BoatAgent : Agent
         if (other.CompareTag("Target"))
         {
             AddReward(10.0f);
-            // 2. Coloriamo il pavimento di verde per feedback visivo (Opzionale ma bello)
-            // StartCoroutine(SwapGroundMaterial(successMaterial, 0.5f));
-
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode(); 
         }
@@ -497,31 +497,12 @@ public class BoatAgent : Agent
     // This maps your keyboard to the Action Buffers
     public override void Heuristic(in ActionBuffers actionsOut)
     {
-        // Get reference to the continuous actions
         var continuousActions = actionsOut.ContinuousActions;
-        
-        // Vertical axis (W/S or Up/Down) -> Throttle
         float forwardInput = Input.GetAxis("Vertical"); 
-        
-        // Horizontal axis (A/D or Left/Right) -> Steering
         float turnInput = Input.GetAxis("Horizontal");
 
         continuousActions[0] = forwardInput; // Throttle
         continuousActions[1] = turnInput;    // Steering
-
-
-        //Mixing Commands for Jet Engines
-        // By pressing W both jets push forward (+,+)
-        // By pressing S both jets push backward (-,-)
-        // By pressing A left jet backward, right jet forward (-,+)
-        // By pressing D left jet forward, right jet backward (+,-)
-        //float leftJet = forwardInput + turnInput;
-        //float rightJet = forwardInput - turnInput;
-
-
-        // Clamp (clip) the values between -1 and 1
-        //continuousActions[0] = Mathf.Clamp(leftJet, -1f, 1f);
-        //continuousActions[1] = Mathf.Clamp(rightJet, -1f, 1f);
     }
 
 }
