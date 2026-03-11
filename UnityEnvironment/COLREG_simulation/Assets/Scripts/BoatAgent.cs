@@ -16,13 +16,15 @@ public class BoatAgent : Agent
     private float spawnObstacleRadius = 1f;
     private float currentReductionRadius = 10f;
 
+    private float minSpawnDist = 3f; // Minimum distance from target
+
     private int current_step = 0;
     private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
-    private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+    private int curriculumStage = 2; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
-    private int stage1Threshold = 251_904 * 5; // Update 123
-    private int stage2Threshold = 501_760 * 5; // Update 245
+    private int stage1Threshold = 0; //251_904 * 5; // Update 123
+    private int stage2Threshold = 0; //501_760 * 5; // Update 245
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -106,17 +108,13 @@ public class BoatAgent : Agent
     {
         // Set the curriculum radius based on the training step
         // initially currentReductionRadius is 13
-        if (current_step >= startSafetyStep / 2)
+        if (curriculumStage == 2)
         {
-            if (current_step >= startSafetyStep)
-            {
-                currentReductionRadius = 1f; 
-                
-            }
-            else
-            {
-                currentReductionRadius = 5f;
-            }
+            currentReductionRadius = 1f;
+        }
+        else if (curriculumStage == 1)
+        {
+            currentReductionRadius = 5f;
         }
         else
         {
@@ -124,7 +122,6 @@ public class BoatAgent : Agent
         }
         
         float maxSpawnDist = arenaRadius - currentReductionRadius;
-        float minSpawnDist = 2f + spawnObstacleRadius; // Minimum distance from target
         // Randomly sample a point within a donut-shaped area 
         // bounded by minSpawnDist and maxSpawnDist to prevent overlapping with target at spawn
         Vector2 randomPoint;
@@ -206,6 +203,8 @@ public class BoatAgent : Agent
                 return;
             }
         }
+        float minSpeed = 1.3f;
+        float maxSpeed = 1.6f;
 
         // ---Path 1---
         float scaleX1 = UnityEngine.Random.Range(0.9f, 1.1f);
@@ -213,7 +212,7 @@ public class BoatAgent : Agent
         Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
 
         // Definiamo la velocità nel mondo (es. 2.3 m/s)
-        intruder1Speed = UnityEngine.Random.Range(2.1f, 2.5f);
+        intruder1Speed = UnityEngine.Random.Range(minSpeed, maxSpeed);
         float maxScale1 = Mathf.Max(scaleX1, scaleZ1);
 
         // Impostiamo ElapsedTime a un punto casuale senza bias
@@ -228,7 +227,7 @@ public class BoatAgent : Agent
         float scaleZ2 = UnityEngine.Random.Range(0.9f, 1.1f);
         Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
 
-        intruder2Speed = UnityEngine.Random.Range(2.1f, 2.5f);
+        intruder2Speed = UnityEngine.Random.Range(minSpeed, maxSpeed);
         float maxScale2 = Mathf.Max(scaleX2, scaleZ2);
 
         splineAnimator2.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator2.Duration);
