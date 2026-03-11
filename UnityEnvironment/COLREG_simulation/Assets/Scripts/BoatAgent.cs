@@ -123,14 +123,17 @@ public class BoatAgent : Agent
         if (curriculumStage == 2)
         {
             currentReductionRadius = 1f;
+            minSpawnDist = 6f;
         }
         else if (curriculumStage == 1)
         {
             currentReductionRadius = 5f;
+            minSpawnDist = 4f;
         }
         else
         {
             currentReductionRadius = 10f;
+            minSpawnDist = 3f;
         }
         
         float maxSpawnDist = arenaRadius - currentReductionRadius;
