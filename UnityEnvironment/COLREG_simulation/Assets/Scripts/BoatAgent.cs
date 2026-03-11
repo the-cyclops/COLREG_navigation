@@ -19,12 +19,12 @@ public class BoatAgent : Agent
     private float minSpawnDist = 3f; // Minimum distance from target
 
     private int current_step = 0;
-    private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
+    //private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
-    private int curriculumStage = 2; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+    private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
-    private int stage1Threshold = 0; //251_904 * 5; // Update 123
-    private int stage2Threshold = 0; //501_760 * 5; // Update 245
+    private int stage1Threshold = 251_904 * 5; // Update 123
+    private int stage2Threshold = 501_760 * 5; // Update 245
 
     [SerializeField] GameObject obstacles;
     [SerializeField] GameObject intruderVessel1;
@@ -77,31 +77,15 @@ public class BoatAgent : Agent
     void FixedUpdate()
     {
         if (intruderVessel1 != null && intruderVessel1.activeInHierarchy && curriculumStage == 2)
-        {
-            // Incremento manuale per evitare il doppio movimento di Unity 6
-            splineAnimator1.ElapsedTime += splineAnimator1.MaxSpeed * Time.fixedDeltaTime;
-            
-            // Calcolo velocità reale XZ
-            Vector2 currentPos1 = new Vector2(intruderVessel1.transform.position.x, intruderVessel1.transform.position.z);
-            realSpeedIntruder1 = Vector2.Distance(currentPos1, lastPosIntruder1_2D) / Time.fixedDeltaTime;
-            lastPosIntruder1_2D = currentPos1;
+    {
+        // Usiamo il valore teorico intruder1Speed per l'IA
+        intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
+    }
 
-            Vector3 fwd = intruderVessel1.transform.forward;
-            intruder1Velocity = new Vector3(fwd.x, 0, fwd.z).normalized * realSpeedIntruder1;
-        }
-
-        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
-        {
-            splineAnimator2.ElapsedTime += splineAnimator2.MaxSpeed * Time.fixedDeltaTime;
-            
-            // Calcolo velocità reale XZ
-            Vector2 currentPos2 = new Vector2(intruderVessel2.transform.position.x, intruderVessel2.transform.position.z);
-            realSpeedIntruder2 = Vector2.Distance(currentPos2, lastPosIntruder2_2D) / Time.fixedDeltaTime;
-            lastPosIntruder2_2D = currentPos2;
-
-            Vector3 fwd = intruderVessel2.transform.forward;
-            intruder2Velocity = new Vector3(fwd.x, 0, fwd.z).normalized * realSpeedIntruder2;
-        }
+    if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
+    {
+        intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
+    }
 
         // Print di controllo (Sanity Check)
         if (debugMode && Time.frameCount % 100 == 0)
@@ -202,55 +186,52 @@ public class BoatAgent : Agent
         }
     }
 
-    private void MoveIntruders()
+private void MoveIntruders()
+{
+    if (curriculumStage < 2)
     {
-
-        if (curriculumStage < 2)
-        {
-            intruderVessel1.SetActive(false);
-            intruderVessel2.SetActive(false);
-            return;
-        }
-        intruderVessel1.SetActive(true);
-        intruderVessel2.SetActive(true);
-        float minSpeed = 1.3f;
-        float maxSpeed = 1.6f;
-
-        // ---Path 1---
-        float scaleX1 = UnityEngine.Random.Range(0.9f, 1.1f);
-        float scaleZ1 = UnityEngine.Random.Range(0.9f, 1.1f);
-        Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
-
-        // Definiamo la velocità nel mondo (es. 2.3 m/s)
-        intruder1Speed = UnityEngine.Random.Range(minSpeed, maxSpeed);
-        float maxScale1 = Mathf.Max(scaleX1, scaleZ1);
-
-        // Impostiamo ElapsedTime a un punto casuale senza bias
-        splineAnimator1.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator1.Duration);
-
-        // Calcoliamo la velocità locale per far sì che la velocità mondo sia corretta
-        // Usiamo MaxSpeed come contenitore per il calcolo nel FixedUpdate
-        splineAnimator1.MaxSpeed = intruder1Speed / maxScale1;
-        splineAnimator1.Pause(); // Fermiamo l'update automatico di Unity
-
-        // --- Path 2---
-        float scaleX2 = UnityEngine.Random.Range(0.9f, 1.1f);
-        float scaleZ2 = UnityEngine.Random.Range(0.9f, 1.1f);
-        Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
-
-        intruder2Speed = UnityEngine.Random.Range(minSpeed, maxSpeed);
-        float maxScale2 = Mathf.Max(scaleX2, scaleZ2);
-
-        splineAnimator2.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator2.Duration);
-        splineAnimator2.MaxSpeed = intruder2Speed / maxScale2;
-        //splineAnimator2.Pause(); // Fermiamo l'update automatico di Unity
-
-        if (debugMode)
-        {
-            Debug.Log($"Intruder 1 World Speed: {intruder1Speed} | Local MaxSpeed: {splineAnimator1.MaxSpeed}");
-            Debug.Log($"Intruder 2 World Speed: {intruder2Speed} | Local MaxSpeed: {splineAnimator2.MaxSpeed}");
-        }
+        intruderVessel1.SetActive(false);
+        intruderVessel2.SetActive(false);
+        return;
     }
+
+    // Riattiviamo entrambi
+    intruderVessel1.SetActive(true);
+    intruderVessel2.SetActive(true);
+
+    // Range di velocità richiesto
+    float minS = 1.9f;
+    float maxS = 2.2f;
+
+    // --- Path 1 Setup ---
+    float scaleX1 = UnityEngine.Random.Range(0.9f, 1.1f);
+    float scaleZ1 = UnityEngine.Random.Range(0.9f, 1.1f);
+    Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
+
+    intruder1Speed = UnityEngine.Random.Range(minS, maxS);
+    // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
+    splineAnimator1.MaxSpeed = intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
+    
+    // Partenza casuale lungo il percorso per non avere bias di posizione
+    splineAnimator1.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator1.Duration);
+    splineAnimator1.Play(); 
+
+    // --- Path 2 Setup ---
+    float scaleX2 = UnityEngine.Random.Range(0.9f, 1.1f);
+    float scaleZ2 = UnityEngine.Random.Range(0.9f, 1.1f);
+    Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
+
+    intruder2Speed = UnityEngine.Random.Range(minS, maxS);
+    splineAnimator2.MaxSpeed = intruder2Speed / Mathf.Max(scaleX2, scaleZ2);
+    
+    splineAnimator2.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator2.Duration);
+    splineAnimator2.Play(); 
+
+    if (debugMode)
+    {
+        Debug.Log($"[SPAWN] I1 Speed: {intruder1Speed:F2} | I2 Speed: {intruder2Speed:F2}");
+    }
+}
 
     public override void OnEpisodeBegin()
     {
