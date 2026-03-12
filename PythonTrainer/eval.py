@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_newarena_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64/seed_1"
+model_name = "boat_agent_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64/seed_42"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16
@@ -49,8 +49,8 @@ def get_single_agent_obs(steps):
 
 def main():
     set_all_seeds(FIXED_SEED)
-    #checkpoint_path = f"Models/{model_name}/seed_{seed}/best_feasible_model.pth"
-    checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
+    checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
+    #checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
     colreg_handler = COLREGHandler()
@@ -113,7 +113,7 @@ def main():
                     action_tensor, _ = agent.get_action(obs_tensor, deterministic=True)
                 
                 action_numpy = action_tensor.cpu().numpy()
-                pbar.write(f"Step {pbar.n+1} | Action: {action_numpy.flatten()} | flag_R1: {r1} | flag_R2: {r2}")
+                pbar.write(f"Step {pbar.n+1} | Action: {action_numpy[0]:.3f}, {action_numpy[1]:.3f} | flag_R1: {r1} | flag_R2: {r2}")
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
 

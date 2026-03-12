@@ -21,7 +21,7 @@ public class BoatAgent : Agent
     private int current_step = 0;
     //private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
-    private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+    private int curriculumStage = 2; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
     private int stage1Threshold = 251_904 * 5; // Update 123
     private int stage2Threshold = 501_760 * 5; // Update 245
