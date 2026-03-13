@@ -225,8 +225,8 @@ def main():
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
 
-                    cost_1 = max(0, -rho_1) / SAFE_DISTANCE
-                    cost_2 = max(0, -rho_2)
+                    cost_1 = max(0, torch.tanh(-rho_1)) 
+                    cost_2 = max(0, torch.tanh(-rho_2))
                     memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
                     memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
 
