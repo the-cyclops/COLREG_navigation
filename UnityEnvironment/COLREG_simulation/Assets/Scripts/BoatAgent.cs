@@ -16,6 +16,12 @@ public class BoatAgent : Agent
     private float spawnObstacleRadius = 1f;
     private float currentReductionRadius = 10f;
 
+    private float spawnDistance;
+
+    // TEST COUNTER
+    private int currentEpisodeStep = 0;
+
+
     private float minSpawnDist = 3f; // Minimum distance from target
 
     private int current_step = 0;
@@ -151,6 +157,8 @@ public class BoatAgent : Agent
 
         Vector3 targetPosition = new Vector3(randomPoint.x, 0.0f, randomPoint.y);
         target.transform.localPosition = targetPosition;
+        spawnDistance = targetPosition.magnitude;
+         
     }
 
     private void MoveObstacles()
@@ -238,6 +246,9 @@ private void MoveIntruders()
 
     public override void OnEpisodeBegin()
     {
+
+        // TEST COUNTER
+        currentEpisodeStep = 0;
         
         // Move Obstacles
         MoveObstacles();
@@ -421,10 +432,18 @@ private void MoveIntruders()
         Vector2 targetPos2D = new Vector2(target.transform.localPosition.x, target.transform.localPosition.z);
         float currentDistanceToTarget = Vector2.Distance(boatPos2D, targetPos2D);
         // Reward to incentivize getting closer to the target
-        float distanceReward = previousDistanceToTarget - currentDistanceToTarget; 
+        float distanceReward = previousDistanceToTarget - currentDistanceToTarget; //15 -12 = +3 (good) | 15 -18 = -3 (bad)
+        distanceReward /= spawnDistance; // Normalizziamo per la distanza di spawn per mantenere coerenza del reward indipendentemente da dove appare il target
+
+        // TEST COUNTER - DA COMMENTARE PER TEST
+        //distanceReward = distanceReward * (1f - (currentEpisodeStep / MaxStep)); // Decay del reward di distanza
+
+        currentEpisodeStep++;
+
+
         previousDistanceToTarget = currentDistanceToTarget;
 
-        Vector3 dirToTarget = (target.transform.position - transform.position);
+        Vector3 dirToTarget = target.transform.position - transform.position;
         dirToTarget.y = 0; // XZ Only
         float facingTarget = Vector3.Dot(transform.forward, dirToTarget.normalized);
 
@@ -442,7 +461,8 @@ private void MoveIntruders()
         // penalty to maintain stability
         AddReward(-0.001f * Mathf.Abs(rb.angularVelocity.y));
         // Time penalty
-        AddReward(-10.0f / MaxStep);  
+        AddReward(-10.0f / MaxStep); 
+ 
         current_step++;
         if (current_step == stage1Threshold)
         {
