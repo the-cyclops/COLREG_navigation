@@ -113,7 +113,7 @@ def main():
                     action_tensor, _ = agent.get_action(obs_tensor, deterministic=True)
                 
                 action_numpy = action_tensor.cpu().numpy()
-                pbar.write(f"Step {pbar.n+1} | Action: {action_numpy[0]:.3f}, {action_numpy[1]:.3f} | flag_R1: {r1} | flag_R2: {r2}")
+                pbar.write(f"Step {pbar.n+1} | Throttle: {action_numpy[0,0]:.3f}, Steering: {action_numpy[0,1]:.3f} | flag_R1: {r1} | flag_R2: {r2}")
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
 

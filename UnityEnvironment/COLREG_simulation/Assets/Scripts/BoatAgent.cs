@@ -27,7 +27,7 @@ public class BoatAgent : Agent
     private int current_step = 0;
     //private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
-    private int curriculumStage = 2; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+    private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
     private int stage1Threshold = 251_904 * 5; // Update 123
     private int stage2Threshold = 501_760 * 5; // Update 245
@@ -451,15 +451,15 @@ private void MoveIntruders()
         // small encoragment to face correcyly
         if (facingTarget > 0)
         {
-            AddReward(facingTarget * 0.001f);
+            AddReward(facingTarget * 0.0001f);
         }
         if (facingTarget > 0.8)
         {
         // Reward to incetivize mantainig direction and speed towards the target
-            AddReward(facingTarget * 0.005f);
+            AddReward(facingTarget * 0.0005f);
         }
         // penalty to maintain stability
-        AddReward(-0.001f * Mathf.Abs(rb.angularVelocity.y));
+        AddReward(-0.0001f * Mathf.Abs(rb.angularVelocity.y));
         // Time penalty
         AddReward(-10.0f / MaxStep); 
  
