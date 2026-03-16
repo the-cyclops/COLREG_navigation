@@ -8,7 +8,7 @@ from copy import deepcopy
 
 class ConstrainedPPOAgent:
     def __init__(self, state_size, action_size, lr=3e-4, gamma=0.99, ppo_eps=0.2, start_safety=40_960, device='cpu', 
-                 entropy_coeff=0.01):
+                 entropy_coeff=0.0):
         self.gamma = gamma
         self.ppo_eps = ppo_eps
         self.start_safety = start_safety
@@ -258,15 +258,15 @@ class ConstrainedPPOAgent:
                 # Normalize advantage on mini-batch for reward as done in stable-baseline3
                 b_adv_reward = (b_adv_reward - b_adv_reward.mean()) / (b_adv_reward.std() + 1e-8)
 
-                # Normalize cost advantages considering if cagrad is called
-                if len(violated_rules) == 1:
+                # Normalize cost advantages
+                if len(violated_rules) >= 1:
                     b_adv_r1 = (b_adv_r1 - b_adv_r1.mean()) / (b_adv_r1.std() + 1e-8)
                     b_adv_r2 = (b_adv_r2 - b_adv_r2.mean()) / (b_adv_r2.std() + 1e-8)
                 # Normalize both with same maximum to preserve relative scale for CAGrad when multiple rules are violated
-                elif len(violated_rules) > 1:
-                    shared_scale = torch.max(b_adv_r1.abs().max(), b_adv_r2.abs().max()) + 1e-8
-                    b_adv_r1 = b_adv_r1 / shared_scale
-                    b_adv_r2 = b_adv_r2 / shared_scale
+                #elif len(violated_rules) > 1:
+                #    shared_scale = torch.max(b_adv_r1.abs().max(), b_adv_r2.abs().max()) + 1e-8
+                #    b_adv_r1 = b_adv_r1 / shared_scale
+                #    b_adv_r2 = b_adv_r2 / shared_scale
 
                 # setup for update (batched version)
                 b_cost_config = {

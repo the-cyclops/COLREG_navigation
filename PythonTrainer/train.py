@@ -44,7 +44,7 @@ BATCH_SIZE = 64
 #ENTROPY_COEF = 0.0001
 ENTROPY_COEF = 0.0
 # GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64 
-# GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128 
+# GAMMA_0.995_lr_0.0003_ent_0.0_batchsize_64
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 
@@ -75,7 +75,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"boat_agent_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agentv2_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -230,8 +230,11 @@ def main():
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
 
-                    cost_1 = max(0, np.tanh(-rho_1)) 
-                    cost_2 = max(0, np.tanh(-rho_2))
+                    #cost_1 = max(0, np.tanh(-rho_1)) 
+                    #cost_2 = max(0, np.tanh(-rho_2))
+                    cost_1 = np.tanh(-rho_1)
+                    cost_2 = np.tanh(-rho_2)
+
                     memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
                     memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
 
