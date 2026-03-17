@@ -370,7 +370,12 @@ def main():
                         best_model_path = f"{save_dir}/best_model.pth"
                         torch.save(checkpoint, best_model_path)
                         pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
-
+                elif s == START_SAFETY-1:
+                    # Prima dell'attivazione dei vincoli di sicurezza, salviamo un checkpoint del modello attuale come riferimento
+                    pre_safety_path = f"{save_dir}/pre_safety_checkpoint.pth"
+                    torch.save(checkpoint, pre_safety_path)
+                    pbar.write(f"Checkpoint saved before safety activation: {pre_safety_path}")
+                    
         except KeyboardInterrupt:
             print("Manual interruption...")
             break
