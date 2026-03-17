@@ -98,8 +98,6 @@ def main():
 
         RTAMT = rtamt_yml_parser.RTAMTYmlParser(colreg_path)
 
-        safety_active = False
-
         # Channel used to speed up the game time
         engine_config = EngineConfigurationChannel()
     
@@ -164,6 +162,8 @@ def main():
 
             save_model = False
 
+            save_last_checkpoint = False
+
             window_size = 50 # Calculate average over the last 50 episodes
             recent_returns = deque(maxlen=window_size)
             recent_episode_cumulative_costs_r1 = deque(maxlen=window_size)
@@ -171,10 +171,6 @@ def main():
             min_episodes_to_evaluate = 10
 
             while s < TOT_STEPS: 
-
-                if not safety_active and s >= START_SAFETY:
-                    safety_active = True
-                    pbar.write(f"Safety constraints activated at step {s}.")
 
                 mean_throttle_buffer, mean_steering_buffer = [], []
                 std_throttle_buffer, std_steering_buffer = [], []
@@ -255,6 +251,15 @@ def main():
 
                     if s % SAVE_INTERVAL == 0:
                         save_model = True
+                    
+                    if s == START_SAFETY-1:
+                        save_last_checkpoint = True
+                    
+                if save_last_checkpoint:
+                    pre_safety_path = f"{save_dir}/pre_safety_checkpoint.pth"
+                    torch.save(checkpoint, pre_safety_path)
+                    pbar.write(f"Checkpoint saved before safety activation: {pre_safety_path}")
+                    save_last_checkpoint = False
 
 
                 next_state = get_single_agent_obs(decision_steps)[0]
@@ -370,12 +375,7 @@ def main():
                         best_model_path = f"{save_dir}/best_model.pth"
                         torch.save(checkpoint, best_model_path)
                         pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
-                elif s == START_SAFETY-1:
-                    # Prima dell'attivazione dei vincoli di sicurezza, salviamo un checkpoint del modello attuale come riferimento
-                    pre_safety_path = f"{save_dir}/pre_safety_checkpoint.pth"
-                    torch.save(checkpoint, pre_safety_path)
-                    pbar.write(f"Checkpoint saved before safety activation: {pre_safety_path}")
-                    
+
         except KeyboardInterrupt:
             print("Manual interruption...")
             break
