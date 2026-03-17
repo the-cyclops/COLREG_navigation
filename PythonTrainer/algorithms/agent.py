@@ -258,15 +258,20 @@ class ConstrainedPPOAgent:
                 # Normalize advantage on mini-batch for reward as done in stable-baseline3
                 b_adv_reward = (b_adv_reward - b_adv_reward.mean()) / (b_adv_reward.std() + 1e-8)
 
-                # Normalize cost advantages
-                if len(violated_rules) >= 1:
+                # Normalize cost advantages considering if CAGRAD is used
+                if len(violated_rules) == 1:
                     b_adv_r1 = (b_adv_r1 - b_adv_r1.mean()) / (b_adv_r1.std() + 1e-8)
                     b_adv_r2 = (b_adv_r2 - b_adv_r2.mean()) / (b_adv_r2.std() + 1e-8)
-                # Normalize both with same maximum to preserve relative scale for CAGrad when multiple rules are violated
-                #elif len(violated_rules) > 1:
-                #    shared_scale = torch.max(b_adv_r1.abs().max(), b_adv_r2.abs().max()) + 1e-8
-                #    b_adv_r1 = b_adv_r1 / shared_scale
-                #    b_adv_r2 = b_adv_r2 / shared_scale
+                    
+                # Normalize both with same std to preserve relative scale for CAGrad when multiple rules are violated
+                elif len(violated_rules) > 1:
+                    # center in 0 for ppo
+                    b_adv_r1_centered = b_adv_r1 - b_adv_r1.mean()
+                    b_adv_r2_centered = b_adv_r2 - b_adv_r2.mean()
+                    # get max std to preserve relative scale between cost advantages for CAGrad
+                    shared_std = torch.max(b_adv_r1_centered.std(), b_adv_r2_centered.std()) + 1e-8
+                    b_adv_r1 = b_adv_r1_centered / shared_std
+                    b_adv_r2 = b_adv_r2_centered / shared_std
 
                 # setup for update (batched version)
                 b_cost_config = {

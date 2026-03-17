@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_GAMMA_0.995_lr_0.0003_ent_0.0_batchsize_64/seed_3"
+model_name = "boat_agentv2_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64/seed_34"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16
@@ -105,6 +105,7 @@ def main():
             
             while not done:
                 obs, vec_obs = get_single_agent_obs(decision_steps)
+
                 r1, r2 = memory_buffer.compute_markovian_flags()
                 obs_augmented = np.concatenate((obs, [r1, r2]))
                 obs_tensor = torch.from_numpy(obs_augmented).float().unsqueeze(0).to(DEVICE)

@@ -4,7 +4,7 @@ class COLREGHandler:
     def __init__(self, max_linear_speed=2.5):
         self.max_linear_speed = max_linear_speed
         # Parameters of Unity C# normalization
-        self.k_dist = 15.0 
+        self.max_dist = 43.0 
         self.k_intruder_vel_rel = 2.0 * max_linear_speed 
         
         # Constant for safety signal clipping (Avoids magic numbers)
@@ -34,8 +34,8 @@ class COLREGHandler:
             pos_rel1 = np.array([999.0, 999.0])
             vel_rel1 = np.array([0.0, 0.0])
         else:
-            # Denormalization of rational function: dist = (k * raw) / (1 - raw)
-            dist1 = (self.k_dist * raw_dist1) / (1.0 - raw_dist1 + 1e-6)
+            # Denormalization 
+            dist1 = (raw_dist1 * self.max_dist) 
             pos_rel1 = dir1 * dist1
             vel_rel1 = lin_vel1 * self.k_intruder_vel_rel
 
@@ -49,7 +49,7 @@ class COLREGHandler:
             pos_rel2 = np.array([999.0, 999.0])
             vel_rel2 = np.array([0.0, 0.0])
         else:
-            dist2 = (self.k_dist * raw_dist2) / (1.0 - raw_dist2 + 1e-6)
+            dist2 = (raw_dist2 * self.max_dist) 
             pos_rel2 = dir2 * dist2
             vel_rel2 = lin_vel2 * self.k_intruder_vel_rel
 

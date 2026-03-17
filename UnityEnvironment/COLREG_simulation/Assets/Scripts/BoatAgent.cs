@@ -12,7 +12,7 @@ public class BoatAgent : Agent
     public GameObject target;
 
     private float arenaRadius = 15f;
-
+    private float maxDistance = 43f;
     private float spawnObstacleRadius = 1f;
     private float currentReductionRadius = 10f;
 
@@ -303,11 +303,10 @@ private void MoveIntruders()
 
         // Fetch Target Distance
         float targetDistance = new Vector2(targetRelativePos.x, targetRelativePos.z).magnitude; // Calcolo XZ
-        // Normalized Distance (Assuming max distance of 20 units) 
-        // Rational normalization d/(d+k) with k=15. Range: [0, 1]
+        // Normalized Distance using maxDistance. Range: [0, 1]
         // Obs Index [2]: Target Distance - How far is the target
         if (debugMode) Debug.Log("Target Distance: " + targetDistance.ToString("F2"));
-        sensor.AddObservation(targetDistance / (arenaRadius + targetDistance));
+        sensor.AddObservation(Mathf.Clamp01(targetDistance / maxDistance));
 
         // Fetch Boat Velocity
         // InverseTransformDirection converts world space velocity to local space
@@ -345,7 +344,7 @@ private void MoveIntruders()
             float intruder1Dist = intruder1RelativePos2D.magnitude; // XZ
             // Obs Index [8]: Intruder 1 Distance
             if (debugMode) Debug.Log("Intruder 1 Distance: " + intruder1Dist.ToString("F2"));
-            sensor.AddObservation(intruder1Dist / (arenaRadius + intruder1Dist)); // Normalized Distance
+            sensor.AddObservation(Mathf.Clamp01(intruder1Dist / maxDistance)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             // Usiamo la velocità XZ calcolata nel FixedUpdate
@@ -381,7 +380,7 @@ private void MoveIntruders()
             float intruder2Dist = intruder2RelativePos2D.magnitude; // XZ
             if (debugMode) Debug.Log("Intruder 2 Distance: " + intruder2Dist.ToString("F2"));
             // Obs Index [13]: Intruder 2 Distance
-            sensor.AddObservation(intruder2Dist / (arenaRadius + intruder2Dist)); // Normalized Distance
+            sensor.AddObservation(Mathf.Clamp01(intruder2Dist / maxDistance)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
             Vector3 relativeVelocityWorld2 = intruder2Velocity - new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
