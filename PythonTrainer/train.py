@@ -41,8 +41,8 @@ TOT_STEPS = 2_048_000 # 1000 updates
 GAMMA = 0.995
 LR = 0.0003
 BATCH_SIZE = 64
-#ENTROPY_COEF = 0.0001
-ENTROPY_COEF = 0.0
+ENTROPY_COEF = 0.0001
+#ENTROPY_COEF = 0.0
 # GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64 
 # GAMMA_0.995_lr_0.0003_ent_0.0_batchsize_64
 SAVE_INTERVAL = 20_480
@@ -75,7 +75,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"boat_agentv3_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_debug_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -126,7 +126,8 @@ def main():
             start_safety=START_SAFETY, 
             gamma=GAMMA,
             lr=LR,
-            entropy_coeff=ENTROPY_COEF
+            entropy_coeff=ENTROPY_COEF,
+            writer=writer
         )
 
         if starting_step != 0:

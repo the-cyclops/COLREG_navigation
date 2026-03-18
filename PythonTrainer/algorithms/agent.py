@@ -4,6 +4,7 @@ import numpy as np
 from algorithms.networks import Policy, Value, CostValue
 from utils.cagrad import Cagrad_all
 from copy import deepcopy
+from torch.utils.tensorboard import SummaryWriter
 
 
 class ConstrainedPPOAgent:
@@ -119,6 +120,14 @@ class ConstrainedPPOAgent:
         # return negative because we want to maximize the surrogate objective, but optimizers minimize loss
         return -torch.min(surr1, surr2).mean()
         
+    def _explained_variance(self, y_pred, y_true):
+        # Assicurati che siano piatti
+        y_pred = y_pred.view(-1)
+        y_true = y_true.view(-1)
+        var_y = torch.var(y_true)
+        if var_y < 1e-8: 
+            return 0.0
+        return (1 - torch.var(y_true - y_pred) / var_y).item()
     
     # ----- Main Functions -----
 
@@ -189,7 +198,7 @@ class ConstrainedPPOAgent:
    
     # We iterate n_epochs times over the collected data to increase sample efficiency.
     # In each epoch, we shuffle the data and perform updates on small random subsets (minibatches) of dimension batch_size.
-    def update(self, rollouts, robustness_dict, current_step, entropy_coeff=None, n_epochs=10, batch_size=64):
+    def update(self, rollouts, robustness_dict, current_step, entropy_coeff=None, n_epochs=10, batch_size=64, writer=None):
         """
         Args:
             rollouts (dict): Dictionary containing raw lists from the buffer:
@@ -220,6 +229,12 @@ class ConstrainedPPOAgent:
         # Normalize advantages to stabilize training (on the whole buffer)
         # Switched to minibatch normalization as done in stavle-baselines3 
         #adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
+
+        if writer is not None:
+            writer.add_scalar("Debug_Adv/R1_Mean", adv_r1.mean().item(), current_step)
+            writer.add_scalar("Debug_Adv/R2_Mean", adv_r2.mean().item(), current_step)
+            writer.add_scalar("Debug_Adv/R1_Std", adv_r1.std().item(), current_step)
+            writer.add_scalar("Debug_Adv/R2_Std", adv_r2.std().item(), current_step)
 
         # Determine the training mode once for the entire update
         violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
@@ -365,6 +380,14 @@ class ConstrainedPPOAgent:
 
                 self.policy_opt.step()
 
+        if writer is not None:
+            with torch.no_grad():
+                preds_r1 = self.cost_net_safe_distance(states).squeeze()
+                preds_r2 = self.cost_net_safe_speed(states).squeeze()
+                ev_r1 = self._explained_variance(preds_r1.cpu(), r1_cumulative_cost.cpu())
+                ev_r2 = self._explained_variance(preds_r2.cpu(), r2_cumulative_cost.cpu())
+                writer.add_scalar("Debug_EV/Cost_R1", ev_r1, current_step)
+                writer.add_scalar("Debug_EV/Cost_R2", ev_r2, current_step)
         # Return full tensors for accurate logging in train.py
         return {
             "mode": actual_mode,

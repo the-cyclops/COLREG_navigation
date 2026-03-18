@@ -50,6 +50,7 @@ def get_single_agent_obs(steps):
 def main():
     set_all_seeds(FIXED_SEED)
     checkpoint_path = f"Models/{model_name}/best_model.pth"
+    #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
     #checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
