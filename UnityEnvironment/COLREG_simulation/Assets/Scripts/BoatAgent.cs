@@ -3,6 +3,7 @@ using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.Splines;
+using Unity.VisualScripting;
 
 
 public class BoatAgent : Agent
@@ -446,6 +447,11 @@ private void MoveIntruders()
         dirToTarget.y = 0; // XZ Only
         float facingTarget = Vector3.Dot(transform.forward, dirToTarget.normalized);
 
+        // TEST NEGATIVE REWARD FOR FACING AWAY FROM TARGET
+        if (facingTarget < 0 && distanceReward > 0)
+        {
+            distanceReward *= 0.7f; 
+        }
         AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         // small encoragment to face correcyly
         if (facingTarget > 0)
@@ -457,6 +463,7 @@ private void MoveIntruders()
         // Reward to incetivize mantainig direction and speed towards the target
             AddReward(facingTarget * 0.0005f);
         }
+
         // penalty to maintain stability
         AddReward(-0.0001f * Mathf.Abs(rb.angularVelocity.y));
         // Time penalty
