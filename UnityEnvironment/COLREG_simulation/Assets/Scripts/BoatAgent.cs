@@ -450,7 +450,7 @@ private void MoveIntruders()
         // TEST NEGATIVE REWARD FOR FACING AWAY FROM TARGET
         if (facingTarget < 0 && distanceReward > 0)
         {
-            distanceReward *= 0.7f; 
+            distanceReward *= 0.7f;
         }
         AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         // small encoragment to face correcyly
@@ -465,7 +465,7 @@ private void MoveIntruders()
         }
 
         // penalty to maintain stability
-        AddReward(-0.0001f * Mathf.Abs(rb.angularVelocity.y));
+        AddReward(-0.00005f * Mathf.Abs(rb.angularVelocity.y));
         // Time penalty
         AddReward(-10.0f / MaxStep); 
  
