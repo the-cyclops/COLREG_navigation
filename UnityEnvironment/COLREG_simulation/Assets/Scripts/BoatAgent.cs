@@ -450,14 +450,14 @@ private void MoveIntruders()
         // TEST NEGATIVE REWARD FOR FACING AWAY FROM TARGET
         if (facingTarget < 0 && distanceReward > 0)
         {
-            distanceReward *= 0.7f;
+            distanceReward *= 0.5f;
         }
         AddReward(distanceReward * 1f); // Scale the reward for distance improvement
         // small encoragment to face correcyly
-        if (facingTarget > 0)
-        {
-            AddReward(facingTarget * 0.0001f);
-        }
+        //if (facingTarget > 0)
+        //{
+        //    AddReward(facingTarget * 0.0001f);
+        //}
         if (facingTarget > 0.8)
         {
         // Reward to incetivize mantainig direction and speed towards the target
