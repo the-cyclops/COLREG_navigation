@@ -254,6 +254,25 @@ class ConstrainedPPOAgent:
         c_losses_r1, c_losses_r2 = [], []
 
         total_samples = states.size(0)
+        
+        # debug log and accumulators
+        policy_grad_norms = []
+        kl_divs = []
+        clip_fractions = []
+        if writer is not None:
+            with torch.no_grad():
+                # Predizioni con la rete "vecchia" sui dati appena raccolti
+                v_preds = self.value_net(states).squeeze()
+                r1_preds = self.cost_net_safe_distance(states).squeeze()
+                r2_preds = self.cost_net_safe_speed(states).squeeze()
+
+                ev_v = self._explained_variance(v_preds, gae_returns)
+                ev_r1 = self._explained_variance(r1_preds, r1_cumulative_cost)
+                ev_r2 = self._explained_variance(r2_preds, r2_cumulative_cost)
+
+                writer.add_scalar("Debug_EV/Value_Reward", ev_v, current_step)
+                writer.add_scalar("Debug_EV/Cost_R1", ev_r1, current_step)
+                writer.add_scalar("Debug_EV/Cost_R2", ev_r2, current_step)
 
         # PPO Multi-Epoch & Minibatch Training Loop
         for epoch in range(n_epochs):
@@ -333,6 +352,13 @@ class ConstrainedPPOAgent:
                 # clamp to prevent nan crashes
                 #ratio = torch.exp(torch.clamp(cur_log_probs - b_old_log_probs, min=-20.0, max=5.0))
 
+                # Debug logs for policy update
+                with torch.no_grad():
+                    approx_kl = ((ratio - 1) - torch.log(ratio)).mean().item()
+                    kl_divs.append(approx_kl)
+                    is_clipped = ((ratio < (1 - self.ppo_eps)) | (ratio > (1 + self.ppo_eps))).float().mean().item()
+                    clip_fractions.append(is_clipped)
+                    
                 # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
                 entropy_loss = -entropy_coeff * entropy.mean()
                 ent_vals.append(entropy.mean().item())
@@ -376,18 +402,15 @@ class ConstrainedPPOAgent:
                         pg_losses.append(np.mean(batch_pg_losses))
                 
                 # clip gradient to prevent exploding gradients (optional, can be tuned or removed)
-                torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
+                policy_grad_norms.append(grad_norm.item())
 
                 self.policy_opt.step()
 
         if writer is not None:
-            with torch.no_grad():
-                preds_r1 = self.cost_net_safe_distance(states).squeeze()
-                preds_r2 = self.cost_net_safe_speed(states).squeeze()
-                ev_r1 = self._explained_variance(preds_r1.cpu(), r1_cumulative_cost.cpu())
-                ev_r2 = self._explained_variance(preds_r2.cpu(), r2_cumulative_cost.cpu())
-                writer.add_scalar("Debug_EV/Cost_R1", ev_r1, current_step)
-                writer.add_scalar("Debug_EV/Cost_R2", ev_r2, current_step)
+            writer.add_scalar("Debug_Policy/Avg_Grad_Norm", np.mean(policy_grad_norms), current_step)
+            writer.add_scalar("Debug_Policy/Approx_KL", np.mean(kl_divs), current_step)
+            writer.add_scalar("Debug_Policy/Clip_Fraction", np.mean(clip_fractions), current_step)
         # Return full tensors for accurate logging in train.py
         return {
             "mode": actual_mode,

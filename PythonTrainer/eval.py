@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agentv2_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64/seed_34"
+model_name = "boat_agent_debug_unboundcosts_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64/seed_34"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16

@@ -75,7 +75,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"boat_agent_debug_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_debug_2_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -126,8 +126,7 @@ def main():
             start_safety=START_SAFETY, 
             gamma=GAMMA,
             lr=LR,
-            entropy_coeff=ENTROPY_COEF,
-            writer=writer
+            entropy_coeff=ENTROPY_COEF
         )
 
         if starting_step != 0:
@@ -278,7 +277,11 @@ def main():
 
                 robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
             
-                log_dict = agent.update(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s, batch_size=BATCH_SIZE)
+                log_dict = agent.update(rollouts=rollout_buffer, 
+                                        robustness_dict=robustness_dict, 
+                                        current_step=s, 
+                                        batch_size=BATCH_SIZE,
+                                         writer=writer)
             
                 mode = log_dict['mode']
 

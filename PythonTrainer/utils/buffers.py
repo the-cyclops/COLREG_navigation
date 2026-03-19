@@ -79,7 +79,7 @@ class Memory:
             else:
                 r1_rho = 0.0
 
-            #  R2 (speed): G[boat_speed <= v_max]
+            #  R2 (speed): G[-1.0<= boat_speed <= v_max]
             if -1.0 <= sample[0] <= R2_v_max:
                 r2_rho = min(r2_rho + 1.0 / (float(tau + 1)), 1.0)
             else:
