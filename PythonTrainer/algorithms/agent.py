@@ -198,7 +198,7 @@ class ConstrainedPPOAgent:
    
     # We iterate n_epochs times over the collected data to increase sample efficiency.
     # In each epoch, we shuffle the data and perform updates on small random subsets (minibatches) of dimension batch_size.
-    def update(self, rollouts, robustness_dict, current_step, entropy_coeff=None, n_epochs=10, batch_size=64, writer=None):
+    def update(self, rollouts, robustness_dict, current_step, entropy_coeff=None, n_epochs=10, batch_size=64, target_kl=0.03, writer=None):
         """
         Args:
             rollouts (dict): Dictionary containing raw lists from the buffer:
@@ -208,6 +208,7 @@ class ConstrainedPPOAgent:
             entropy_coeff (float): Coefficient for entropy regularization
             n_epochs (int): Number of times to iterate over the entire buffer
             batch_size (int): Size of the mini-batches
+            target_kl (float): Target KL divergence for early stopping 
         """
         if entropy_coeff is None:
             entropy_coeff = self.entropy_coeff
@@ -275,6 +276,7 @@ class ConstrainedPPOAgent:
                 writer.add_scalar("Debug_EV/Cost_R2", ev_r2, current_step)
 
         # PPO Multi-Epoch & Minibatch Training Loop
+        continue_training = True
         for epoch in range(n_epochs):
             for batch_indices in self._generate_batches(total_samples, batch_size):
                 
@@ -358,7 +360,14 @@ class ConstrainedPPOAgent:
                     kl_divs.append(approx_kl)
                     is_clipped = ((ratio < (1 - self.ppo_eps)) | (ratio > (1 + self.ppo_eps))).float().mean().item()
                     clip_fractions.append(is_clipped)
-                    
+                
+                # Early stopping
+                if target_kl is not None and approx_kl > 1.5 * target_kl:
+                    if writer is not None:
+                        writer.add_scalar("Debug_Policy/Early_Stopping_KL", approx_kl, current_step)
+                        writer.add_scalar("Debug_Policy/Early_Stop_Epoch", epoch, current_step)
+                    continue_training = False
+                    break
                 # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
                 entropy_loss = -entropy_coeff * entropy.mean()
                 ent_vals.append(entropy.mean().item())
@@ -401,11 +410,14 @@ class ConstrainedPPOAgent:
                         self._set_flat_grad(merged_grad, self.policy_net)
                         pg_losses.append(np.mean(batch_pg_losses))
                 
-                # clip gradient to prevent exploding gradients (optional, can be tuned or removed)
+                # clip gradient to prevent exploding gradients (from stable baselines3, can be tuned or removed)
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
                 policy_grad_norms.append(grad_norm.item())
 
                 self.policy_opt.step()
+            
+            if not continue_training:
+                break
 
         if writer is not None:
             writer.add_scalar("Debug_Policy/Avg_Grad_Norm", np.mean(policy_grad_norms), current_step)
