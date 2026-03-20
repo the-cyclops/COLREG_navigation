@@ -127,20 +127,20 @@ public class BoatAgent : Agent
     {
         // Set the curriculum radius based on the training step
         // initially currentReductionRadius is 13
-        if (curriculumStage == 2)
+        if (curriculumStage == 2) // 10 to 14
         {
             currentReductionRadius = 1f;
-            minSpawnDist = 6f;
+            minSpawnDist = 10f;
         }
-        else if (curriculumStage == 1)
+        else if (curriculumStage == 1) // 8 to 12
+        {
+            currentReductionRadius = 3f;
+            minSpawnDist = 8f;
+        }
+        else // 6 to 10
         {
             currentReductionRadius = 5f;
-            minSpawnDist = 4f;
-        }
-        else
-        {
-            currentReductionRadius = 10f;
-            minSpawnDist = 3f;
+            minSpawnDist = 6f;
         }
         
         float maxSpawnDist = arenaRadius - currentReductionRadius;
