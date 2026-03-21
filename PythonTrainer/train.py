@@ -40,7 +40,8 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 2_048_000 # 1000 updates
 GAMMA = 0.995
 LR = 0.0003
-BATCH_SIZE = 64
+#BATCH_SIZE = 64
+BATCH_SIZE = 128
 ENTROPY_COEF = 0.0001
 #ENTROPY_COEF = 0.0
 # GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64 
@@ -75,7 +76,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"boat_agent_debug_2_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_weekenddebug_unboundcost_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -156,6 +157,8 @@ def main():
             returns_episodes = []
             current_ep_cost_r1 = 0.0
             current_ep_cost_r2 = 0.0
+            current_ep_pos_cost_r1 = 0.0
+            current_ep_pos_cost_r2 = 0.0
 
             # Progress bar per il training
             pbar = tqdm(total=TOT_STEPS, desc=f"Training {seed_iteration}/5", unit="steps")
@@ -168,6 +171,8 @@ def main():
             recent_returns = deque(maxlen=window_size)
             recent_episode_cumulative_costs_r1 = deque(maxlen=window_size)
             recent_episode_cumulative_costs_r2 = deque(maxlen=window_size)
+            recent_episode_pos_cumulative_costs_r1 = deque(maxlen=window_size)
+            recent_episode_pos_cumulative_costs_r2 = deque(maxlen=window_size)
             min_episodes_to_evaluate = 10
 
             while s < TOT_STEPS: 
@@ -226,25 +231,33 @@ def main():
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
 
-                    cost_1 = max(0, np.tanh(-rho_1)) 
-                    cost_2 = max(0, np.tanh(-rho_2))
-                    #cost_1 = np.tanh(-rho_1)
-                    #cost_2 = np.tanh(-rho_2)
+                    #cost_1 = max(0, np.tanh(-rho_1)) 
+                    #cost_2 = max(0, np.tanh(-rho_2))
+                    cost_1 = np.tanh(-rho_1)
+                    cost_2 = np.tanh(-rho_2)
+                    pos_cost_1 = max(0, cost_1)
+                    pos_cost_2 = max(0, cost_2)
 
                     memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
                     memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
 
                     current_ep_cost_r1 += cost_1
                     current_ep_cost_r2 += cost_2
+                    current_ep_pos_cost_r1 += pos_cost_1
+                    current_ep_pos_cost_r2 += pos_cost_2
 
                     if end_episode:
                         recent_returns.append(current_return)
                         returns_episodes.append(current_return)
                         recent_episode_cumulative_costs_r1.append(current_ep_cost_r1)
                         recent_episode_cumulative_costs_r2.append(current_ep_cost_r2)
+                        recent_episode_pos_cumulative_costs_r1.append(current_ep_pos_cost_r1)
+                        recent_episode_pos_cumulative_costs_r2.append(current_ep_pos_cost_r2)
                         current_return = 0.0
                         current_ep_cost_r1 = 0.0
                         current_ep_cost_r2 = 0.0
+                        current_ep_pos_cost_r1 = 0.0
+                        current_ep_pos_cost_r2 = 0.0
                         memory_buffer.clear_stl_window()
                         env.reset()
                         decision_steps, terminal_steps = env.get_steps(behavior_name)
@@ -302,6 +315,8 @@ def main():
                     writer.add_scalar("Training/Smoothed_Return", smoothed_return, s)
                     writer.add_scalar("Training/Smoothed_Ep_Cost_R1", np.mean(recent_episode_cumulative_costs_r1), s)
                     writer.add_scalar("Training/Smoothed_Ep_Cost_R2", np.mean(recent_episode_cumulative_costs_r2), s)
+                    writer.add_scalar("Training/Smoothed_Ep_Pos_Cost_R1", np.mean(recent_episode_pos_cumulative_costs_r1), s)
+                    writer.add_scalar("Training/Smoothed_Ep_Pos_Cost_R2", np.mean(recent_episode_pos_cumulative_costs_r2), s)
 
                 pbar.set_postfix({
                     'Reward': f"{rewards.mean().item():.2f}",
