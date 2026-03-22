@@ -74,9 +74,28 @@ def get_single_agent_obs(steps):
     
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
+# WEEKEND DEBUG TESTS:
+# 1) uboundcost (baseline):
+#    - Signed costs: cost_1 = tanh(-rho_1), cost_2 = tanh(-rho_2)
+#    - BATCH_SIZE = 128
+#    - Grad clipping ON (max_norm=0.5 in agent.py)
+#
+# 2) PosCost:
+#    - Positive-only costs: cost_i = max(0, tanh(-rho_i))
+#    - BATCH_SIZE = 128
+#    - Grad clipping ON
+#
+# 3) Batch64:
+#    - Same as baseline, but BATCH_SIZE = 64
+#
+# 4) Batch256:
+#    - Same as baseline, but BATCH_SIZE = 256
+#
+# 5) NoGradClip:
+#    - Same as baseline, but disable policy grad clipping in agent.py
 
 def main():
-    model_name = f"boat_agent_weekenddebug_unboundcost_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_weekenddebug_poscost_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -231,10 +250,10 @@ def main():
                     rho_1 = single_rho.get('R1_safe_distance', 0.0)
                     rho_2 = single_rho.get('R2_safe_speed', 0.0)
 
-                    #cost_1 = max(0, np.tanh(-rho_1)) 
-                    #cost_2 = max(0, np.tanh(-rho_2))
-                    cost_1 = np.tanh(-rho_1)
-                    cost_2 = np.tanh(-rho_2)
+                    cost_1 = max(0, np.tanh(-rho_1)) 
+                    cost_2 = max(0, np.tanh(-rho_2))
+                    #cost_1 = np.tanh(-rho_1)
+                    #cost_2 = np.tanh(-rho_2)
                     pos_cost_1 = max(0, cost_1)
                     pos_cost_2 = max(0, cost_2)
 
