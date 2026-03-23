@@ -411,9 +411,9 @@ class ConstrainedPPOAgent:
                         pg_losses.append(np.mean(batch_pg_losses))
                 
                 # clip gradient to prevent exploding gradients (from stable baselines3, can be tuned or removed)
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
+                #grad_norm = torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=1e9)
                 policy_grad_norms.append(grad_norm.item())
-
                 self.policy_opt.step()
             
             if not continue_training:
