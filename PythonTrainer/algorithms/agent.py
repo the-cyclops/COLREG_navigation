@@ -33,6 +33,9 @@ class ConstrainedPPOAgent:
         ]
         # CAGrad helper
         self.cagrad_helper = Cagrad_all(c=0.5)
+
+        # Debug counter
+        self.total_early_stops = 0
     
     # ----- Helper Functions for Cagrad and GAE computation -----
 
@@ -358,16 +361,19 @@ class ConstrainedPPOAgent:
                 with torch.no_grad():
                     approx_kl = ((ratio - 1) - torch.log(ratio)).mean().item()
                     kl_divs.append(approx_kl)
+                    
                     is_clipped = ((ratio < (1 - self.ppo_eps)) | (ratio > (1 + self.ppo_eps))).float().mean().item()
                     clip_fractions.append(is_clipped)
                 
                 # Early stopping
                 if target_kl is not None and approx_kl > 1.5 * target_kl:
+                    self.total_early_stops += 1
                     if writer is not None:
-                        writer.add_scalar("Debug_Policy/Early_Stopping_KL", approx_kl, current_step)
-                        writer.add_scalar("Debug_Policy/Early_Stop_Epoch", epoch, current_step)
+                        msg = f"Epoca: {epoch} | KL: {approx_kl:.4f}"
+                        writer.add_text("Debug_Policy/Early_Stop_Events", msg, current_step)
                     continue_training = False
                     break
+                
                 # Entropy regularization to encourage exploration, scaled by coefficient, negaive beacuse we want to maximize entropy and optimizers minimize loss
                 entropy_loss = -entropy_coeff * entropy.mean()
                 ent_vals.append(entropy.mean().item())
@@ -423,6 +429,7 @@ class ConstrainedPPOAgent:
             writer.add_scalar("Debug_Policy/Avg_Grad_Norm", np.mean(policy_grad_norms), current_step)
             writer.add_scalar("Debug_Policy/Approx_KL", np.mean(kl_divs), current_step)
             writer.add_scalar("Debug_Policy/Clip_Fraction", np.mean(clip_fractions), current_step)
+            writer.add_scalar("Debug_Policy/Total_Early_Stops", self.total_early_stops, current_step)
         # Return full tensors for accurate logging in train.py
         return {
             "mode": actual_mode,
