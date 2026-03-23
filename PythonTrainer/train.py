@@ -40,8 +40,8 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 2_048_000 # 1000 updates
 GAMMA = 0.995
 LR = 0.0003
-BATCH_SIZE = 256
-#BATCH_SIZE = 128
+#BATCH_SIZE = 256
+BATCH_SIZE = 128
 ENTROPY_COEF = 0.0001
 #ENTROPY_COEF = 0.0
 # GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64 
@@ -90,11 +90,11 @@ def get_single_agent_obs(steps):
 #
 # 4) NoGradClip:
 #    - Same as baseline, but disable policy grad clipping in agent.py
-# bonus) Batch256:
+# 5) Batch256:
 #    - Same as baseline, but BATCH_SIZE = 256
-
+# 6) baeline + log_std initialized at 0 in policy net
 def main():
-    model_name = f"boat_agent_weekenddebug_unboundcost_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_weekenddebug_unboundcost_logstd=0.0_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
