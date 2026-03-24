@@ -40,12 +40,10 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 2_048_000 # 1000 updates
 GAMMA = 0.995
 LR = 0.0003
-#BATCH_SIZE = 256
-BATCH_SIZE = 128
+BATCH_SIZE = 256
+#BATCH_SIZE = 128
 ENTROPY_COEF = 0.0001
-#ENTROPY_COEF = 0.0
-# GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_64 
-# GAMMA_0.995_lr_0.0003_ent_0.0_batchsize_64
+#ENTROPY_COEF = 0.001
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 
@@ -74,27 +72,11 @@ def get_single_agent_obs(steps):
     
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
-# WEEKEND DEBUG TESTS:
-# 1) uboundcost (baseline):
-#    - Signed costs: cost_1 = tanh(-rho_1), cost_2 = tanh(-rho_2)
-#    - BATCH_SIZE = 128
-#    - Grad clipping ON (max_norm=0.5 in agent.py)
-#
-# 2) PosCost:
-#    - Positive-only costs: cost_i = max(0, tanh(-rho_i))
-#    - BATCH_SIZE = 128
-#    - Grad clipping ON
-#
-# 3) Batch64:
-#    - Same as baseline, but BATCH_SIZE = 64
-#
-# 4) NoGradClip:
-#    - Same as baseline, but disable policy grad clipping in agent.py
-# 5) Batch256:
-#    - Same as baseline, but BATCH_SIZE = 256
-# 6) baeline + log_std initialized at 0 in policy net
+
+# final setup: 
+# gamma 0.995, lr 0.0003, ent 0.0001 / 0.001, batchsize 256, logstd=0.0, gradclip 0.5, unbound costs
 def main():
-    model_name = f"boat_agent_weekenddebug_unboundcost_logstd=0.0_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_final_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:

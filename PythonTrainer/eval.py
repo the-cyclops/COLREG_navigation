@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_weekenddebug_unboundcost_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128/seed_7"
+model_name = "boat_agent_weekenddebug_unboundcost_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_256/seed_3"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16
@@ -49,8 +49,8 @@ def get_single_agent_obs(steps):
 
 def main():
     set_all_seeds(FIXED_SEED)
-    #checkpoint_path = f"Models/{model_name}/best_model.pth"
-    checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
+    #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
+    checkpoint_path = f"Models/{model_name}/best_model.pth"
     #checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
@@ -126,7 +126,7 @@ def main():
                 decision_steps, terminal_steps = env.get_steps(BEHAVIOR_NAME)
                 done = len(terminal_steps) > 0
                 step_reward = float(terminal_steps.reward[0]) if done else float(decision_steps.reward[0])
-                pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.4f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
+                pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.5f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
                 episode_reward += step_reward
 
                 r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
