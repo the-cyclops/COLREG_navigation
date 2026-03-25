@@ -76,9 +76,9 @@ def get_single_agent_obs(steps):
 # final2 baseline setup: 
 # gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs
 # version to try: global adv normalization, cost scaling, combined approach
-COST_SCALE =1 #0.1
+COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_final2_globalnormalization_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_name = f"boat_agent_final2_costscaling_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:

@@ -256,17 +256,17 @@ class ConstrainedPPOAgent:
             actual_mode = f"MULTIPLE VIOLATIONS {violated_rules}"
 
         # ROLLOUT NORMALIZATION FOR COST ADVANTAGES
-        if len(violated_rules) == 1:
-            adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
-            adv_r2 = (adv_r2 - adv_r2.mean()) / (adv_r2.std() + 1e-8)
-        elif len(violated_rules) > 1:
-            # center in 0 for ppo
-            adv_r1_centered = adv_r1 - adv_r1.mean()
-            adv_r2_centered = adv_r2 - adv_r2.mean()
-            # get max std to preserve relative scale between cost advantages for CAGrad
-            shared_std = torch.max(adv_r1_centered.std(), adv_r2_centered.std()) + 1e-8
-            adv_r1 = adv_r1_centered / shared_std
-            adv_r2 = adv_r2_centered / shared_std
+        #if len(violated_rules) == 1:
+        #    adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
+        #    adv_r2 = (adv_r2 - adv_r2.mean()) / (adv_r2.std() + 1e-8)
+        #elif len(violated_rules) > 1:
+        #    # center in 0 for ppo
+        #    adv_r1_centered = adv_r1 - adv_r1.mean()
+        #    adv_r2_centered = adv_r2 - adv_r2.mean()
+        #    # get max std to preserve relative scale between cost advantages for CAGrad
+        #    shared_std = torch.max(adv_r1_centered.std(), adv_r2_centered.std()) + 1e-8
+        #    adv_r1 = adv_r1_centered / shared_std
+        #    adv_r2 = adv_r2_centered / shared_std
 
         pg_losses, v_losses, ent_vals = [], [], []
         c_losses_r1, c_losses_r2 = [], []
@@ -316,20 +316,20 @@ class ConstrainedPPOAgent:
 
                 # Normalize cost advantages considering if CAGRAD is used
                 # MINIBATCH NORMALIZATION VERSION
-                #if len(violated_rules) == 1:
-                    #b_adv_r1 = (b_adv_r1 - b_adv_r1.mean()) / (b_adv_r1.std() + 1e-8)
-                    #b_adv_r2 = (b_adv_r2 - b_adv_r2.mean()) / (b_adv_r2.std() + 1e-8)
+                if len(violated_rules) == 1:
+                    b_adv_r1 = (b_adv_r1 - b_adv_r1.mean()) / (b_adv_r1.std() + 1e-8)
+                    b_adv_r2 = (b_adv_r2 - b_adv_r2.mean()) / (b_adv_r2.std() + 1e-8)
                     
                 # Normalize both with same std to preserve relative scale for CAGrad when multiple rules are violated
                 # MINIBATCH NORMALIZATION VERSION
-                #elif len(violated_rules) > 1:
+                elif len(violated_rules) > 1:
                     # center in 0 for ppo
-                    #b_adv_r1_centered = b_adv_r1 - b_adv_r1.mean()
-                    #b_adv_r2_centered = b_adv_r2 - b_adv_r2.mean()
+                    b_adv_r1_centered = b_adv_r1 - b_adv_r1.mean()
+                    b_adv_r2_centered = b_adv_r2 - b_adv_r2.mean()
                     # get max std to preserve relative scale between cost advantages for CAGrad
-                    #shared_std = torch.max(b_adv_r1_centered.std(), b_adv_r2_centered.std()) + 1e-8
-                    #b_adv_r1 = b_adv_r1_centered / shared_std
-                    #b_adv_r2 = b_adv_r2_centered / shared_std
+                    shared_std = torch.max(b_adv_r1_centered.std(), b_adv_r2_centered.std()) + 1e-8
+                    b_adv_r1 = b_adv_r1_centered / shared_std
+                    b_adv_r2 = b_adv_r2_centered / shared_std
 
                 # setup for update (batched version)
                 b_cost_config = {
