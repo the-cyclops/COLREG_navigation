@@ -4,7 +4,7 @@ import time
 import numpy as np
 import torch
 from tqdm import tqdm
-
+from time import sleep
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.base_env import ActionTuple
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_weekenddebug_unboundcost_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_256/seed_3"
+model_name = "boat_agent_final_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256/seed_3"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16
@@ -49,14 +49,24 @@ def get_single_agent_obs(steps):
 
 def main():
     set_all_seeds(FIXED_SEED)
+    checkpoint_path = "models/weekenddebug/boat_agent_weekenddebug_unboundcost_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128/seed_3/best_model.pth"
     #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
-    checkpoint_path = f"Models/{model_name}/best_model.pth"
+    #checkpoint_path = f"Models/{model_name}/best_model.pth"
+    #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
     #checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
     colreg_handler = COLREGHandler()
     RTAMT = rtamt_yml_parser.RTAMTYmlParser(colreg_path)
     memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
+
+    if not os.path.exists(checkpoint_path):
+        #env.close() # Chiudi l'env se il modello manca
+        raise FileNotFoundError(f"Model not found at path: {checkpoint_path}")
+    
+    checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
+    print(f"Loaded checkpoint from {checkpoint_path} from step {checkpoint['step']}")
+    sleep(3)
 
     engine_config = EngineConfigurationChannel()
     env = UnityEnvironment(
@@ -75,11 +85,6 @@ def main():
 
     agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=0)
     
-    if not os.path.exists(checkpoint_path):
-        env.close() # Chiudi l'env se il modello manca
-        raise FileNotFoundError(f"Model not found at path: {checkpoint_path}")
-    
-    checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
     agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
     agent.value_net.load_state_dict(checkpoint['value_state_dict'])
     agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
@@ -155,6 +160,7 @@ def main():
         # --- FIX 2: Check se le liste sono vuote prima di calcolare la media ---
         if total_rewards:
             print("\n--- Final Evaluation Results ---")
+            print(f"Loaded checkpoint from {checkpoint_path} from step {checkpoint['step']}")
             print(f"Average Return: {np.mean(total_rewards):.2f} ± {np.std(total_rewards):.2f}")
             print(f"Average R1 Robustness: {np.mean(total_r1_robustness):.2f}")
             print(f"Average R2 Robustness: {np.mean(total_r2_robustness):.2f}")
