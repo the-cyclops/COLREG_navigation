@@ -231,8 +231,9 @@ class ConstrainedPPOAgent:
         adv_r1, r1_cumulative_cost = advantages["r1"]
         adv_r2, r2_cumulative_cost = advantages["r2"]
         # Normalize advantages to stabilize training (on the whole buffer)
-        # Switched to minibatch normalization as done in stavle-baselines3 
+        # Switched to minibatch normalization as done in stavle-baselines3 for reward
         #adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
+        
 
         if writer is not None:
             writer.add_scalar("Debug_Adv/R1_Mean", adv_r1.mean().item(), current_step)
@@ -254,6 +255,19 @@ class ConstrainedPPOAgent:
         else:
             actual_mode = f"MULTIPLE VIOLATIONS {violated_rules}"
 
+        # ROLLOUT NORMALIZATION FOR COST ADVANTAGES
+        if len(violated_rules) == 1:
+            adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
+            adv_r2 = (adv_r2 - adv_r2.mean()) / (adv_r2.std() + 1e-8)
+        elif len(violated_rules) > 1:
+            # center in 0 for ppo
+            adv_r1_centered = adv_r1 - adv_r1.mean()
+            adv_r2_centered = adv_r2 - adv_r2.mean()
+            # get max std to preserve relative scale between cost advantages for CAGrad
+            shared_std = torch.max(adv_r1_centered.std(), adv_r2_centered.std()) + 1e-8
+            adv_r1 = adv_r1_centered / shared_std
+            adv_r2 = adv_r2_centered / shared_std
+
         pg_losses, v_losses, ent_vals = [], [], []
         c_losses_r1, c_losses_r2 = [], []
 
@@ -261,6 +275,9 @@ class ConstrainedPPOAgent:
         
         # debug log and accumulators
         policy_grad_norms = []
+        value_grad_norms = []
+        r1_grad_norms = []
+        r2_grad_norms = []
         kl_divs = []
         clip_fractions = []
         if writer is not None:
@@ -298,19 +315,21 @@ class ConstrainedPPOAgent:
                 b_adv_reward = (b_adv_reward - b_adv_reward.mean()) / (b_adv_reward.std() + 1e-8)
 
                 # Normalize cost advantages considering if CAGRAD is used
-                if len(violated_rules) == 1:
-                    b_adv_r1 = (b_adv_r1 - b_adv_r1.mean()) / (b_adv_r1.std() + 1e-8)
-                    b_adv_r2 = (b_adv_r2 - b_adv_r2.mean()) / (b_adv_r2.std() + 1e-8)
+                # MINIBATCH NORMALIZATION VERSION
+                #if len(violated_rules) == 1:
+                    #b_adv_r1 = (b_adv_r1 - b_adv_r1.mean()) / (b_adv_r1.std() + 1e-8)
+                    #b_adv_r2 = (b_adv_r2 - b_adv_r2.mean()) / (b_adv_r2.std() + 1e-8)
                     
                 # Normalize both with same std to preserve relative scale for CAGrad when multiple rules are violated
-                elif len(violated_rules) > 1:
+                # MINIBATCH NORMALIZATION VERSION
+                #elif len(violated_rules) > 1:
                     # center in 0 for ppo
-                    b_adv_r1_centered = b_adv_r1 - b_adv_r1.mean()
-                    b_adv_r2_centered = b_adv_r2 - b_adv_r2.mean()
+                    #b_adv_r1_centered = b_adv_r1 - b_adv_r1.mean()
+                    #b_adv_r2_centered = b_adv_r2 - b_adv_r2.mean()
                     # get max std to preserve relative scale between cost advantages for CAGrad
-                    shared_std = torch.max(b_adv_r1_centered.std(), b_adv_r2_centered.std()) + 1e-8
-                    b_adv_r1 = b_adv_r1_centered / shared_std
-                    b_adv_r2 = b_adv_r2_centered / shared_std
+                    #shared_std = torch.max(b_adv_r1_centered.std(), b_adv_r2_centered.std()) + 1e-8
+                    #b_adv_r1 = b_adv_r1_centered / shared_std
+                    #b_adv_r2 = b_adv_r2_centered / shared_std
 
                 # setup for update (batched version)
                 b_cost_config = {
@@ -333,6 +352,8 @@ class ConstrainedPPOAgent:
                 value_preds = self.value_net(b_states).squeeze()
                 value_loss = torch.nn.MSELoss()(value_preds, b_gae_returns)
                 value_loss.backward()
+                value_grad_norm = torch.nn.utils.clip_grad_norm_(self.value_net.parameters(), max_norm=0.5)
+                value_grad_norms.append(value_grad_norm.item())
                 self.value_opt.step()
                 v_losses.append(value_loss.item())
 
@@ -346,9 +367,14 @@ class ConstrainedPPOAgent:
                     cost_preds = net(b_states).squeeze()
                     cost_loss = torch.nn.MSELoss()(cost_preds, cumulative_cost)
                     cost_loss.backward()
+                    grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=0.5)
                     opt.step()
-                    if rule == "R1": c_losses_r1.append(cost_loss.item())
-                    if rule == "R2": c_losses_r2.append(cost_loss.item())
+                    if rule == "R1": 
+                        c_losses_r1.append(cost_loss.item())
+                        r1_grad_norms.append(grad_norm.item())
+                    if rule == "R2": 
+                        c_losses_r2.append(cost_loss.item())
+                        r2_grad_norms.append(grad_norm.item())
                 
                 # Policy Update Logic
                 cur_log_probs, entropy = self.evaluate_actions(b_states, b_actions)
@@ -430,6 +456,9 @@ class ConstrainedPPOAgent:
             writer.add_scalar("Debug_Policy/Approx_KL", np.mean(kl_divs), current_step)
             writer.add_scalar("Debug_Policy/Clip_Fraction", np.mean(clip_fractions), current_step)
             writer.add_scalar("Debug_Policy/Total_Early_Stops", self.total_early_stops, current_step)
+            writer.add_scalar("Debug_Grad_Norm/Value_Network", np.mean(value_grad_norms), current_step)
+            writer.add_scalar("Debug_Grad_Norm/Cost_Network_R1", np.mean(r1_grad_norms), current_step)
+            writer.add_scalar("Debug_Grad_Norm/Cost_Network_R2", np.mean(r2_grad_norms), current_step)
         # Return full tensors for accurate logging in train.py
         return {
             "mode": actual_mode,
