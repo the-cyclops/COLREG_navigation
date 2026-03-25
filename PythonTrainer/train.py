@@ -42,8 +42,8 @@ GAMMA = 0.995
 LR = 0.0003
 BATCH_SIZE = 256
 #BATCH_SIZE = 128
-ENTROPY_COEF = 0.0001
-#ENTROPY_COEF = 0.001
+#ENTROPY_COEF = 0.0001
+ENTROPY_COEF = 0.001
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 
@@ -73,10 +73,12 @@ def get_single_agent_obs(steps):
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
-# final setup: 
-# gamma 0.995, lr 0.0003, ent 0.0001 / 0.001, batchsize 256, logstd=0.0, gradclip 0.5, unbound costs
+# final2 baseline setup: 
+# gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs
+# version to try: global adv normalization, cost scaling, combined approach
+COST_SCALE =1 #0.1
 def main():
-    model_name = f"boat_agent_final_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}"
+    model_name = f"boat_agent_final2_globalnormalization_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -233,8 +235,8 @@ def main():
 
                     #cost_1 = max(0, np.tanh(-rho_1)) 
                     #cost_2 = max(0, np.tanh(-rho_2))
-                    cost_1 = np.tanh(-rho_1)
-                    cost_2 = np.tanh(-rho_2)
+                    cost_1 = np.tanh(-rho_1) * COST_SCALE
+                    cost_2 = np.tanh(-rho_2) * COST_SCALE
                     pos_cost_1 = max(0, cost_1)
                     pos_cost_2 = max(0, cost_2)
 
