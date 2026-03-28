@@ -78,7 +78,7 @@ def get_single_agent_obs(steps):
 # smaller reward for facing target 1/5, then try with penalty on reverse 
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_final3_smallerreward_facingtarget_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_name = f"boat_agent_final3_smallerreward_facingtarget_penalty_negativevelocity_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
