@@ -18,6 +18,7 @@ public class BoatAgent : Agent
     private float currentReductionRadius = 10f;
 
     private float spawnDistance;
+    private float invSpawnDistance;
 
     // TEST COUNTER
     private int currentEpisodeStep = 0;
@@ -259,6 +260,7 @@ private void MoveIntruders()
 
         // Move Target 
         MoveTarget();
+        invSpawnDistance = 1f / Mathf.Max(spawnDistance, 1e-4f);
 
         //Reset Boat Velocities
         boatPhysics.ResetVelocities();
@@ -410,6 +412,7 @@ private void MoveIntruders()
     public override void OnActionReceived(ActionBuffers actions)
     {
         var continuousActions = actions.ContinuousActions;
+        float stepReward = 0f;
 
         // Differential Drive Mixer
         float throttle = Mathf.Clamp(continuousActions[0], -1f, 1f);
@@ -433,7 +436,7 @@ private void MoveIntruders()
         float currentDistanceToTarget = Vector2.Distance(boatPos2D, targetPos2D);
         // Reward to incentivize getting closer to the target
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; //15 -12 = +3 (good) | 15 -18 = -3 (bad)
-        distanceReward /= spawnDistance; // Normalizziamo per la distanza di spawn per mantenere coerenza del reward indipendentemente da dove appare il target
+        distanceReward *= invSpawnDistance; // Normalizziamo per la distanza di spawn per mantenere coerenza del reward indipendentemente da dove appare il target
 
         // TEST COUNTER - DA COMMENTARE PER TEST
         //distanceReward = distanceReward * (1f - (currentEpisodeStep / MaxStep)); // Decay del reward di distanza
@@ -452,7 +455,7 @@ private void MoveIntruders()
         {
             distanceReward *= 0.5f;
         }
-        AddReward(distanceReward * 1f); // Scale the reward for distance improvement
+        stepReward += distanceReward * 1f; // Scale the reward for distance improvement
         // small encoragment to face correcyly
         //if (facingTarget > 0)
         //{
@@ -461,13 +464,25 @@ private void MoveIntruders()
         if (facingTarget > 0.8)
         {
         // Reward to incetivize mantainig direction and speed towards the target
-            AddReward(facingTarget * 0.0005f);
+            stepReward += facingTarget * 0.0001f;
         }
-
+        // possible penalty for reverse
+        //Vector3 flatForward = transform.forward;
+        //flatForward.y = 0;
+        //flatForward.Normalize();
+        //Vector3 flatVelocity = rb.velocity;
+        //flatVelocity.y = 0;
+        //float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
+        //if (forwardSpeed < -0.0f)
+        //{
+        //    stepReward += forwardSpeed * 0.0001f;
+        //}
         // penalty to maintain stability
-        AddReward(-0.00005f * Mathf.Abs(rb.angularVelocity.y));
+        stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
         // Time penalty
-        AddReward(-10.0f / MaxStep); 
+        stepReward += -10.0f / MaxStep;
+
+        AddReward(stepReward); 
  
         current_step++;
         if (current_step == stage1Threshold)

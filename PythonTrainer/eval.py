@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_final_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256/seed_3"
+model_name = "boat_agent_final2_globalnormalization_costscaling_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1/seed_1"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 16
@@ -49,9 +49,8 @@ def get_single_agent_obs(steps):
 
 def main():
     set_all_seeds(FIXED_SEED)
-    checkpoint_path = "models/weekenddebug/boat_agent_weekenddebug_unboundcost_GAMMA_0.995_lr_0.0003_ent_0.0001_batchsize_128/seed_3/best_model.pth"
     #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
-    #checkpoint_path = f"Models/{model_name}/best_model.pth"
+    checkpoint_path = f"Models/{model_name}/best_model.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
     #checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
