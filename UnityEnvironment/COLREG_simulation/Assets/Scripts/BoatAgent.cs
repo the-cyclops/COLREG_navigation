@@ -285,15 +285,15 @@ private void MoveIntruders()
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        //TODO CHECK THE ORDER OF OBSERVATIONS - IT MATTERS?
-
         // Observation Structure:
         // 0-1: Target Relative Position (2) - X and Z in local space (direction to the target)
         // 2:   Target Distance (1)
         // 3-4: Linear Velocity (2) - X and Z in local space
         // 5: Angular Velocity (1) - Yaw (Y) in local space
         // 6-10: Intruder Vessel 1 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
-        // 11-15: Intruder Vessel 2 - Position, Distance, Relative Velocity (5) = (3 + 1 + 3)
+        // 11-12: Intruder Vessel 1 - Heading (2) - Direction in local space
+        // 13-17: Intruder Vessel 2 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
+        // 18-19: Intruder Vessel 2 - Heading (2) - Direction in local space
 
         // --- SELF & TARGET OBSERVATIONS ---
 
@@ -358,15 +358,23 @@ private void MoveIntruders()
             // Obs Index [9,10]: Intruder 1 Relative Velocity (Local space)
             if (debugMode) Debug.Log("Intruder 1 Relative Velocity: " + localRelativeVelocity1_2D.ToString("F2"));
             if (debugMode) Debug.Log("Observation intruder 1 Rel Vel (Normalized): " + Vector2.ClampMagnitude(localRelativeVelocity1_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f).ToString("F2"));
-            sensor.AddObservation(Vector2.ClampMagnitude(localRelativeVelocity1_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));   
+            sensor.AddObservation(Vector2.ClampMagnitude(localRelativeVelocity1_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
+            
+            // 3. Heading of the intruder vessel (Direction in local space)
+            Vector3 intruder1HeadingLocal = transform.InverseTransformDirection(intruderVessel1.transform.forward);
+            Vector2 intruder1Heading2D = new Vector2(intruder1HeadingLocal.x, intruder1HeadingLocal.z).normalized;
+            // Obs Index [11,12]: Intruder 1 Heading (Local space)
+            if (debugMode) Debug.Log("Intruder 1 Heading: " + intruder1Heading2D.ToString("F2"));
+            sensor.AddObservation(intruder1Heading2D);
         }
         else
         {
             // Padding if no intruder is active to keep observation size constant
-            // Obs Index [6-10]: Zeros for Intruder 1
+            // Obs Index [6-12]: Zeros for Intruder 1
             sensor.AddObservation(Vector2.zero); // Rel Pos
             sensor.AddObservation(1.0f);           // Dist
             sensor.AddObservation(Vector2.zero); // Rel Vel
+            sensor.AddObservation(Vector2.zero); // Heading
         }
 
         // INTRUDER VESSEL 2
@@ -377,12 +385,12 @@ private void MoveIntruders()
             Vector3 intruder2RelativePos = transform.InverseTransformPoint(intruderVessel2.transform.position);
             Vector2 intruder2RelativePos2D = new Vector2(intruder2RelativePos.x, intruder2RelativePos.z);
             if (debugMode) Debug.Log("Intruder 2 Relative Position: " + intruder2RelativePos2D.ToString("F2"));
-            // Obs Index [11,12]: Intruder 2 Relative Position (Local space)
+            // Obs Index [13,14]: Intruder 2 Relative Position (Local space)
             sensor.AddObservation(intruder2RelativePos2D.normalized); 
         
             float intruder2Dist = intruder2RelativePos2D.magnitude; // XZ
             if (debugMode) Debug.Log("Intruder 2 Distance: " + intruder2Dist.ToString("F2"));
-            // Obs Index [13]: Intruder 2 Distance
+            // Obs Index [15]: Intruder 2 Distance
             sensor.AddObservation(Mathf.Clamp01(intruder2Dist / maxDistance)); // Normalized Distance
 
             // 2. Relative Velocity (Crucial for CPA/Collision Risk)
@@ -390,22 +398,27 @@ private void MoveIntruders()
             Vector3 localRelativeVelocity2 = transform.InverseTransformDirection(relativeVelocityWorld2);
             Vector2 localRelativeVelocity2_2D = new Vector2(localRelativeVelocity2.x, localRelativeVelocity2.z);
             // Normalize by 2 * max speed in order to distinguish between one vessell full speed or both at full speed
-            // Obs Index [14,15]: Intruder 2 Relative Velocity (Local space)
+            // Obs Index [16,17]: Intruder 2 Relative Velocity (Local space)
             if (debugMode) Debug.Log("Intruder 2 Relative Velocity: " + localRelativeVelocity2_2D.ToString("F2"));
             if (debugMode) Debug.Log("Observation intruder 2 Rel Vel (Normalized): " + Vector2.ClampMagnitude(localRelativeVelocity2_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f).ToString("F2"));
             sensor.AddObservation(Vector2.ClampMagnitude(localRelativeVelocity2_2D / (boatPhysics.nominalMaxLinearSpeed * 2f), 1.0f));
-
+            
+            // 3. Heading of the intruder vessel (Direction in local space)
+            Vector3 intruder2HeadingLocal = transform.InverseTransformDirection(intruderVessel2.transform.forward);
+            Vector2 intruder2Heading2D = new Vector2(intruder2HeadingLocal.x, intruder2HeadingLocal.z).normalized;
+            // Obs Index [18,19]: Intruder 2 Heading (Local space)
+            if (debugMode) Debug.Log("Intruder 2 Heading: " + intruder2Heading2D.ToString("F2"));
+            sensor.AddObservation(intruder2Heading2D);
         }
         else
         {
             // Padding if no intruder is active to keep observation size constant
-            // Obs Index [11-15]: Zeros for Intruder 2
+            // Obs Index [13-19]: Zeros for Intruder 2
             sensor.AddObservation(Vector2.zero); // Rel Pos
             sensor.AddObservation(1.0f);           // Dist
             sensor.AddObservation(Vector2.zero); // Rel Vel
+            sensor.AddObservation(Vector2.zero); // Heading
         }
-
-    // Total Observations: 16
     }
 
     // This method is called every step during training OR by your keyboard in Heuristic mode

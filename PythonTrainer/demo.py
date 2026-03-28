@@ -13,7 +13,7 @@ UNITY_ENV_PATH = None
 BEST_SEED = 34 
 MODEL_PATH = f"Models/boat_agent_model_initial/seed_{BEST_SEED}/best_feasible_model.pth"
 
-OBSERVATION_SIZE = 24 # From UnityEnvironment/Scripts/BoatAgent.cs
+OBSERVATION_SIZE = 20 # From UnityEnvironment/Scripts/BoatAgent.cs
 RAYCAST_COUNT = 7 # 3 side rays + 1 front ray # From Unity RayPerceptionSensorComponent3D
 RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2

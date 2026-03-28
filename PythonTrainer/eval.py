@@ -18,7 +18,7 @@ from colreg_logic import rtamt_yml_parser
 model_name = "boat_agent_final2_globalnormalization_costscaling_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1/seed_1"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
-OBSERVATION_SIZE = 16
+OBSERVATION_SIZE = 20
 RAYCAST_COUNT = 7 
 RAYCAST_SIZE = RAYCAST_COUNT * 2 
 NUM_ROBUSTNESS_FLAG = 2 

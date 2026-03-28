@@ -40,9 +40,9 @@ class COLREGHandler:
             vel_rel1 = lin_vel1 * self.k_intruder_vel_rel
 
         # --- Intruder 2 ---
-        dir2 = obs_vector[11:13]
-        raw_dist2 = obs_vector[13]
-        lin_vel2 = obs_vector[14:16]
+        dir2 = obs_vector[13:15]
+        raw_dist2 = obs_vector[15]
+        lin_vel2 = obs_vector[16:18]
 
         if raw_dist2 > 0.99:
             # intruder really far or absent

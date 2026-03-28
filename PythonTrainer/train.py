@@ -27,7 +27,7 @@ unity_env_path = "../Builds/train.app"
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
 # BoatAgent Parameters - must match those in Unity
-OBSERVATION_SIZE = 16 # From UnityEnvironment/Scripts/BoatAgent.cs
+OBSERVATION_SIZE = 20 # From UnityEnvironment/Scripts/BoatAgent.cs
 RAYCAST_COUNT = 7 # 3 side rays + 1 front ray # From Unity RayPerceptionSensorComponent3D
 RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
 NUM_ROBUSTNESS_FLAG = 2 # R1, R2
