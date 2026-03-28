@@ -73,12 +73,12 @@ def get_single_agent_obs(steps):
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
-# final2 baseline setup: 
+# final3 baseline setup: 
 # gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs
-# version to try: global adv normalization, cost scaling, combined approach
+# smaller reward for facing target 1/5, then try with penalty on reverse 
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_final2_globalnormalization_costscaling_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_name = f"boat_agent_final3_smallerreward_facingtarget_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
@@ -185,8 +185,8 @@ def main():
                 while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
                     obs, vec_obs = get_single_agent_obs(decision_steps)
-                    r1, r2 = memory_buffer.compute_markovian_flags()
-                    obs_augmented = np.concatenate((obs, [r1, r2]))
+                    r1_flag, r2_flag = memory_buffer.compute_markovian_flags()
+                    obs_augmented = np.concatenate((obs, [r1_flag, r2_flag]))
                     obs_tensor = torch.from_numpy(obs_augmented).float().unsqueeze(0).to(DEVICE)
 
                     action_tensor, log_probabs = agent.get_action(obs_tensor)
