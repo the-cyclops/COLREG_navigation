@@ -64,26 +64,33 @@ class Memory:
             self.stl_window.append([0.0, 1.0]) 
 
     
-    def compute_markovian_flags(self, R2_v_max=2.1):
-        # R2_v_max is the same as V_max in the COLREG rules
-        r1_rho = 0.0
-        r2_rho = 0.0
+    def compute_markovian_flags(self):
+
+        if not self.robustness_1 or not self.robustness_2:
+            return 0.5, 0.5
+
         tau = self.stl_window.maxlen
+        
+        recent_r1 = self.robustness_1[-tau:] 
+        recent_r2 = self.robustness_2[-tau:]
 
-        for sample in self.stl_window:
-            # sample[0] = boat_speed, sample[1] = r1_signal
+        missing_samples = tau - len(recent_r1)      
+        step_increment = 1.0 / float(tau + 1)
 
-            #  R1 (distance): G[r1_signal >= 0]
-            if sample[1] >= 0.0:
-                r1_rho = min(r1_rho + 1.0 / (float(tau + 1)), 1.0)
+        r1_flag = min(missing_samples * step_increment, 1)
+        r2_flag = min(missing_samples * step_increment, 1)
+
+        for rho in recent_r1:
+            if rho >=0:
+                r1_flag = min(r1_flag + step_increment, 1)
             else:
-                r1_rho = 0.0
+                r1_flag = 0.0
 
-            #  R2 (speed): G[-1.0<= boat_speed <= v_max]
-            if -1.0 <= sample[0] <= R2_v_max:
-                r2_rho = min(r2_rho + 1.0 / (float(tau + 1)), 1.0)
+        for rho in recent_r2:
+            if rho >=0:
+                r2_flag = min(r2_flag + step_increment, 1)
             else:
-                r2_rho = 0.0
+                r2_flag = 0.0
 
         # Scale flags in [-0.5, 0.5]
-        return r1_rho - 0.5, r2_rho - 0.5
+        return r1_flag - 0.5, r2_flag - 0.5
