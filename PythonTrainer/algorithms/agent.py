@@ -236,6 +236,8 @@ class ConstrainedPPOAgent:
         
 
         if writer is not None:
+            writer.add_scalar("Debug_Adv/Reward_Mean", adv_reward.mean().item(), current_step)
+            writer.add_scalar("Debug_Adv/Reward_Std", adv_reward.std().item(), current_step)
             writer.add_scalar("Debug_Adv/R1_Mean", adv_r1.mean().item(), current_step)
             writer.add_scalar("Debug_Adv/R2_Mean", adv_r2.mean().item(), current_step)
             writer.add_scalar("Debug_Adv/R1_Std", adv_r1.std().item(), current_step)
