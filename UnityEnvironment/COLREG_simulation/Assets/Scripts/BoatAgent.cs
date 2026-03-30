@@ -480,16 +480,16 @@ private void MoveIntruders()
             stepReward += facingTarget * 0.0001f;
         }
         // possible penalty for reverse
-        Vector3 flatForward = transform.forward;
-        flatForward.y = 0;
-        flatForward.Normalize();
-        Vector3 flatVelocity = rb.linearVelocity;
-        flatVelocity.y = 0;
-        float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
-        if (forwardSpeed < -0.1f)
-        {
-            stepReward += forwardSpeed * 0.0001f;
-        }
+        //Vector3 flatForward = transform.forward;
+        //flatForward.y = 0;
+        //flatForward.Normalize();
+        //Vector3 flatVelocity = rb.linearVelocity;
+        //flatVelocity.y = 0;
+        //float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
+        //if (forwardSpeed < -0.1f)
+        //{
+        //    stepReward += forwardSpeed * 0.0001f;
+        //}
         // penalty to maintain stability
         stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
         // Time penalty
