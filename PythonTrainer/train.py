@@ -49,7 +49,7 @@ START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, t
 
 colreg_path = "colreg_logic/colreg.yaml"
 
-SAFE_DISTANCE = 1.0
+SAFE_DISTANCE = 2.0
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -150,7 +150,7 @@ def main():
             print(f"Start training on: {behavior_name}")
 
         memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
-
+        print(f"horizon length from RTAMT: {RTAMT.horizon_length}")
         try:
             s = starting_step
             decision_steps, terminal_steps = env.get_steps(behavior_name)

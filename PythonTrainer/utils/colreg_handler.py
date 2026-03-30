@@ -55,7 +55,7 @@ class COLREGHandler:
 
         return [(pos_rel1, vel_rel1), (pos_rel2, vel_rel2)]
 
-    def compute_cpa_R1(self, pos_rel, vel_rel, safe_dist=1.0, t_horizon=3.0):
+    def compute_cpa_R1(self, pos_rel, vel_rel, safe_dist=2.0, t_horizon=5.0):
         """
         Calculates safety signal based on CPA (Closest Point of Approach) over t_horizon seconds.
         Returns: R1 Signal (Predicted Min Distance - Safety Distance)
@@ -96,7 +96,7 @@ class COLREGHandler:
         # Positive values (safe) are capped to stabilize Value Network training.
         return min(raw_margin, self.MAX_SAFETY_MARGIN_CAP)
 
-    def get_R1_safety_signal(self, obs, safe_dist=1.0):
+    def get_R1_safety_signal(self, obs, safe_dist=2.0):
         """
         Main function to call in the training loop for Rule R1.
         Returns the worst (minimum) signal value, which will be used by rtamt for robustness calculation.

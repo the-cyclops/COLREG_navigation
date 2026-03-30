@@ -15,7 +15,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_final2_globalnormalization_costscaling_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1/seed_1"
+model_name = "boat_agent_final3_smallerreward_facingtarget_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1/seed_34"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 20
@@ -26,7 +26,7 @@ INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
 ACTION_SIZE = 2 
 
 colreg_path = "colreg_logic/colreg.yaml"
-SAFE_DISTANCE = 1.0
+SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10 
 FIXED_SEED = 402
 
@@ -50,8 +50,8 @@ def get_single_agent_obs(steps):
 def main():
     set_all_seeds(FIXED_SEED)
     #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
-    checkpoint_path = f"Models/{model_name}/best_model.pth"
-    #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
+    #checkpoint_path = f"Models/{model_name}/best_model.pth"
+    checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
     #checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
@@ -96,14 +96,17 @@ def main():
 
     episodes_completed = 0
     total_rewards = []
-    total_r1_robustness = []
-    total_r2_robustness = []
+    total_r1_robustness_mean = []
+    total_r2_robustness_mean = []
+    total_r1_robustness_min = []
+    total_r2_robustness_min = []
 
     try:
         while episodes_completed < NUM_EVAL_EPISODES:
             env.reset() # Reset a inizio ciclo per pulizia
             decision_steps, terminal_steps = env.get_steps(BEHAVIOR_NAME)
             episode_reward = 0.0
+            rho_1, rho_2 = 0.0, 0.0
             done = False
             
             pbar = tqdm(desc=f"Episode {episodes_completed+1}/{NUM_EVAL_EPISODES}", unit="steps")
@@ -137,16 +140,28 @@ def main():
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
                 memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_signal=float(r1_signal))
 
-            _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
-            rho_1 = single_rho.get('R1_safe_distance', 0.0)
-            rho_2 = single_rho.get('R2_safe_speed', 0.0)
+                _, single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
+                rho_1 = float(single_rho.get('R1_safe_distance', 0.0))
+                rho_2 = float(single_rho.get('R2_safe_speed', 0.0))
+                memory_buffer.add_robustness(r1=rho_1, r2=rho_2)
+
+            episode_r1_mean = float(np.mean(memory_buffer.robustness_1))
+            episode_r2_mean = float(np.mean(memory_buffer.robustness_2))
+            episode_r1_min = float(np.min(memory_buffer.robustness_1))
+            episode_r2_min = float(np.min(memory_buffer.robustness_2))
 
             total_rewards.append(episode_reward)
-            total_r1_robustness.append(rho_1)
-            total_r2_robustness.append(rho_2)
+            total_r1_robustness_mean.append(episode_r1_mean)
+            total_r2_robustness_mean.append(episode_r2_mean)
+            total_r1_robustness_min.append(episode_r1_min)
+            total_r2_robustness_min.append(episode_r2_min)
 
             pbar.close()
-            print(f"Episode {episodes_completed+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f}")
+            print(
+                f"Episode {episodes_completed+1} finished | Return: {episode_reward:.2f} "
+                f"| R1 Robustness Mean: {episode_r1_mean:.4f} | R2 Robustness Mean: {episode_r2_mean:.4f} "
+                f"| R1 Robustness Min: {episode_r1_min:.4f} | R2 Robustness Min: {episode_r2_min:.4f}"
+            )
 
             memory_buffer.clear_stl_window()
             memory_buffer.clear_ppo() 
@@ -161,8 +176,10 @@ def main():
             print("\n--- Final Evaluation Results ---")
             print(f"Loaded checkpoint from {checkpoint_path} from step {checkpoint['step']}")
             print(f"Average Return: {np.mean(total_rewards):.2f} ± {np.std(total_rewards):.2f}")
-            print(f"Average R1 Robustness: {np.mean(total_r1_robustness):.2f}")
-            print(f"Average R2 Robustness: {np.mean(total_r2_robustness):.2f}")
+            print(f"Average R1 Robustness Mean: {np.mean(total_r1_robustness_mean):.2f}")
+            print(f"Average R1 Robustness Min: {np.mean(total_r1_robustness_min):.2f}")
+            print(f"Average R2 Robustness Mean: {np.mean(total_r2_robustness_mean):.2f}")
+            print(f"Average R2 Robustness Min: {np.mean(total_r2_robustness_min):.2f}")
         else:
             print("\nNo episodes completed.")
 
