@@ -73,12 +73,12 @@ def get_single_agent_obs(steps):
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
-# final3 baseline setup: 
-# gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs
-# smaller reward for facing target 1/5, then try with penalty on reverse 
+# final4 baseline setup: 
+# gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
+# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_horizon=5.0 and RTAMT_horizon=80 (4s)
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_final3_smallerreward_facingtarget_penalty_negativevelocity_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_name = f"boat_agent_final4_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:

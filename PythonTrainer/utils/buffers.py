@@ -1,7 +1,7 @@
 from collections import deque
 
 class Memory:
-    def __init__(self, stl_horizon=40):
+    def __init__(self, stl_horizon=80):
         # PPO buffers for on-policy training
         self.states = []
         self.actions = []
