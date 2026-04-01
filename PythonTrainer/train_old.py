@@ -51,7 +51,7 @@ colreg_path = "colreg_logic/colreg.yaml"
 
 SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10
-EVAL_INTERVAL = 5 # Evaluate every 5 episodes during evaluation phase (after safety activation)
+EVAL_INTERVAL = 1 # Evaluate every 1 episode during evaluation phase (after safety activation)
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -461,6 +461,11 @@ def main():
                         'robustness_r2': robustness_dict['R2']
                     }
                 
+                if n_updates % EVAL_INTERVAL == 0: #and s >= START_SAFETY: 
+                    total_rewards, total_r1_robustness, total_r2_robustness =evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT)
+                    
+                    
+
                 if save_model:
                     current_path = f"{save_dir}/steps_{s}.pth"
                     torch.save(checkpoint, current_path)
@@ -479,14 +484,11 @@ def main():
                 current_r1 = robustness_dict['R1']
                 current_r2 = robustness_dict['R2']             
 
-                if n_updates % EVAL_INTERVAL == 0 and s >= START_SAFETY:
+                is_safe = (current_r1 >= 0.0) and (current_r2 >= 0.0)
 
-                    total_rewards, total_r1_robustness, total_r2_robustness = evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT)
+                if len(recent_returns) >= min_episodes_to_evaluate and s >= START_SAFETY:
 
-                    smooth_return = np.mean(total_rewards)
-
-                    #is_safe = all(r1 >= 0 for r1 in total_r1_robustness) and all(r2 >= 0 for r2 in total_r2_robustness)
-                    is_safe = np.mean(total_r1_robustness) >= 0 and np.mean(total_r2_robustness) >= 0
+                    smooth_return = np.mean(recent_returns)
 
                     if is_safe and (smooth_return > best_safe_return):
                         best_safe_return = smooth_return
