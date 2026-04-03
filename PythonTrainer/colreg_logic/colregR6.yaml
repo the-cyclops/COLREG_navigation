@@ -32,3 +32,4 @@ specifications:
   - name: R6_stand_on # # R6: Stand-on vessel must keep its course until the situation is resolved
     spec: R6_stand_on = always((keep_signal <= 0.0) or (no_turning_signal >= 0.0 until keep_signal <= 0.0))
     weight: 1.0
+  # NEED TO CREATE SUBFORMULAS FOR UNITL

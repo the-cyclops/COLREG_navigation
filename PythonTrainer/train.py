@@ -494,9 +494,9 @@ def main():
                     
                     safe_pct_r1 = sum(1 for r1 in total_r1_robustness if r1 >= 0.0) / len(total_r1_robustness)
                     safe_pct_r2 = sum(1 for r2 in total_r2_robustness if r2 >= 0.0) / len(total_r2_robustness)
-                    safety_treshold_percentage = 0.8
-                    is_safe_pct = (safe_pct_r1 >= safety_treshold_percentage and 
-                                   safe_pct_r2 >= safety_treshold_percentage)
+                    safety_threshold_percentage = 0.8
+                    is_safe_pct = (safe_pct_r1 >= safety_threshold_percentage and 
+                                   safe_pct_r2 >= safety_threshold_percentage)
 
                     # Save best model (no safety constraint)
                     if smooth_return > best_return:
@@ -524,7 +524,7 @@ def main():
                         best_safe_return_pct = smooth_return
                         best_safe_pct_path = f"{save_dir}/best_safe_model_PCT.pth"
                         torch.save(checkpoint, best_safe_pct_path)
-                        pbar.write(f"*** NEW BEST SAFE MODEL (PCT={safety_treshold_percentage:.0%})! Return: {best_safe_return_pct:.2f} ***")
+                        pbar.write(f"*** NEW BEST SAFE MODEL (PCT={safety_threshold_percentage:.0%})! Return: {best_safe_return_pct:.2f} ***")
 
                     # Log all three metrics
                     writer.add_scalar("Eval/Safe_Min_R1", min(total_r1_robustness), s)
