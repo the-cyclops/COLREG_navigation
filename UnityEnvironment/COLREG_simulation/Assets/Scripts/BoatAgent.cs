@@ -271,6 +271,12 @@ private void MoveIntruders()
 
     public override void OnEpisodeBegin()
     {
+        float evalEpisodeSeed = Academy.Instance.EnvironmentParameters.GetWithDefault("eval_episode_seed", -1f);
+        if (evalEpisodeSeed != -1f)
+        {
+            random = new System.Random((int)evalEpisodeSeed);
+        }
+
         //float evalMode = Academy.Instance.EnvironmentParameters.GetWithDefault("eval_mode", 0);
         //random = evalMode > 0 ? evalRandom : trainRandom;
 

@@ -76,25 +76,11 @@ def get_single_agent_obs(steps):
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
-def evaluate_model(eval_seed, agent, colreg_handler, RTAMT):
-    # Create a separate environment for evaluation
-    engine_config = EngineConfigurationChannel()
-    env_params = EnvironmentParametersChannel()
-    env_params.set_float_parameter("seed", float(eval_seed))
-    eval_env = UnityEnvironment(
-        file_name=unity_env_path, 
-        side_channels=[engine_config, env_params],
-        seed=eval_seed,
-        worker_id=eval_seed,
-        no_graphics=False 
-    )
+def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_params):
     eval_env.reset()
 
     BEHAVIOR_NAME = list(eval_env.behavior_specs.keys())[0] 
 
-    engine_config.set_configuration_parameters(width=800, height=600, time_scale=1.0)
-
-    episodes_completed = 0
     total_rewards = []
     total_r1_robustness = []
     total_r2_robustness = []
@@ -103,13 +89,14 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT):
     print(f"--- Starting Evaluation with seed {eval_seed} ---")
 
     try:
-        while episodes_completed < NUM_EVAL_EPISODES:
+        for ep in range(NUM_EVAL_EPISODES):
+            eval_env_params.set_float_parameter("eval_episode_seed", float(eval_seed + ep))
             eval_env.reset() # Reset a inizio ciclo per pulizia
             decision_steps, terminal_steps = eval_env.get_steps(BEHAVIOR_NAME)
             episode_reward = 0.0
             done = False
             
-            pbar = tqdm(desc=f"Episode {episodes_completed+1}/{NUM_EVAL_EPISODES}", unit="steps")
+            pbar = tqdm(desc=f"Episode {ep+1}/{NUM_EVAL_EPISODES}", unit="steps")
             
             while not done:
                 obs, vec_obs = get_single_agent_obs(decision_steps)
@@ -149,16 +136,15 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT):
             total_r2_robustness.append(rho_2)
 
             pbar.close()
-            print(f"Episode {episodes_completed+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f}")
+            print(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f}")
 
             memory_buffer.clear_stl_window()
             memory_buffer.clear_ppo() 
-            episodes_completed += 1
 
     except KeyboardInterrupt:
         print("Evaluation manually interrupted.")
     finally:
-        eval_env.close()
+        eval_env_params.set_float_parameter("eval_episode_seed", -1.0)
     
     return total_rewards, total_r1_robustness, total_r2_robustness
 
@@ -211,6 +197,20 @@ def main():
 
         env.reset()
         print("Environment loaded successfully.")
+
+        eval_engine_config = EngineConfigurationChannel()
+        eval_env_params = EnvironmentParametersChannel()
+        eval_env_params.set_float_parameter("seed", float(eval_seed))
+        eval_env_params.set_float_parameter("eval_episode_seed", -1.0)
+        eval_env = UnityEnvironment(
+            file_name=unity_env_path,
+            side_channels=[eval_engine_config, eval_env_params],
+            worker_id=eval_seed + seed + 100,
+            seed=eval_seed,
+            no_graphics=False
+        )
+        eval_env.reset()
+        eval_engine_config.set_configuration_parameters(width=800, height=600, time_scale=1.0)
     
         # time_scale = 1.0 real time 20 step/s - 40.0 is 40x faster than real time 800 step/s
         engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
@@ -479,7 +479,7 @@ def main():
 
                 if n_updates % EVAL_INTERVAL == 0 and s >= START_SAFETY:
 
-                    total_rewards, total_r1_robustness, total_r2_robustness = evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT)
+                    total_rewards, total_r1_robustness, total_r2_robustness = evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT, eval_env=eval_env, eval_env_params=eval_env_params)
 
                     smooth_return = np.mean(total_rewards)
 
@@ -536,6 +536,7 @@ def main():
         finally:
             pbar.close()
             env.close()
+            eval_env.close()
             writer.close()
             print(f"Environment with seed {seed} closed.")
             time.sleep(5) 
