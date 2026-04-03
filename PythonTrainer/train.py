@@ -163,12 +163,13 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT):
     
     return total_rewards, total_r1_robustness, total_r2_robustness
 
-# final3 baseline setup: 
-# gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs
-# smaller reward for facing target 1/5, then try with penalty on reverse 
+# final4 baseline setup: 
+# gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
+# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_horizon=5.0 and RTAMT_horizon=80 (4s)
+# testing also with new evaluating method
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_final4_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_name = f"boat_agent_final4_NEWEVAL_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     eval_seed = 31
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
@@ -186,7 +187,9 @@ def main():
         n_updates = 0
 
         last_checkpoint_path = None
-        best_safe_return = -float('inf')
+        best_safe_return_min = -float('inf')
+        best_safe_return_mean = -float('inf')
+        best_safe_return_pct = -float('inf')
         best_return = -float('inf')
 
         colreg_handler = COLREGHandler()
@@ -485,22 +488,51 @@ def main():
 
                     smooth_return = np.mean(total_rewards)
 
-                    #is_safe = all(r1 >= 0 for r1 in total_r1_robustness) and all(r2 >= 0 for r2 in total_r2_robustness)
-                    is_safe = np.mean(total_r1_robustness) >= 0 and np.mean(total_r2_robustness) >= 0
-
-                    if is_safe and (smooth_return > best_safe_return):
-                        best_safe_return = smooth_return
-                        best_path = f"{save_dir}/best_safe_model.pth"
+                    # Three different safety criteria
+                    is_safe_min = min(total_r1_robustness) >= 0.0 and min(total_r2_robustness) >= 0.0
+                    is_safe_mean = np.mean(total_r1_robustness) >= 0.0 and np.mean(total_r2_robustness) >= 0.0
                     
-                        # Salva copia specifica
-                        torch.save(checkpoint, best_path)
-                        pbar.write(f"*** NEW BEST SAFE MODEL! Return: {best_safe_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+                    safe_pct_r1 = sum(1 for r1 in total_r1_robustness if r1 >= 0.0) / len(total_r1_robustness)
+                    safe_pct_r2 = sum(1 for r2 in total_r2_robustness if r2 >= 0.0) / len(total_r2_robustness)
+                    safety_treshold_percentage = 0.8
+                    is_safe_pct = (safe_pct_r1 >= safety_treshold_percentage and 
+                                   safe_pct_r2 >= safety_treshold_percentage)
 
-                    if (smooth_return > best_return):
+                    # Save best model (no safety constraint)
+                    if smooth_return > best_return:
                         best_return = smooth_return
                         best_model_path = f"{save_dir}/best_model.pth"
                         torch.save(checkpoint, best_model_path)
                         pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+
+                    # Save best safe model (minimum criterion)
+                    if is_safe_min and smooth_return > best_safe_return_min:
+                        best_safe_return_min = smooth_return
+                        best_safe_min_path = f"{save_dir}/best_safe_model_MIN.pth"
+                        torch.save(checkpoint, best_safe_min_path)
+                        pbar.write(f"*** NEW BEST SAFE MODEL (MIN)! Return: {best_safe_return_min:.2f} ***")
+
+                    # Save best safe model (mean criterion)
+                    if is_safe_mean and smooth_return > best_safe_return_mean:
+                        best_safe_return_mean = smooth_return
+                        best_safe_mean_path = f"{save_dir}/best_safe_model_MEAN.pth"
+                        torch.save(checkpoint, best_safe_mean_path)
+                        pbar.write(f"*** NEW BEST SAFE MODEL (MEAN)! Return: {best_safe_return_mean:.2f} ***")
+
+                    # Save best safe model (percentage criterion)
+                    if is_safe_pct and smooth_return > best_safe_return_pct:
+                        best_safe_return_pct = smooth_return
+                        best_safe_pct_path = f"{save_dir}/best_safe_model_PCT.pth"
+                        torch.save(checkpoint, best_safe_pct_path)
+                        pbar.write(f"*** NEW BEST SAFE MODEL (PCT={safety_treshold_percentage:.0%})! Return: {best_safe_return_pct:.2f} ***")
+
+                    # Log all three metrics
+                    writer.add_scalar("Eval/Safe_Min_R1", min(total_r1_robustness), s)
+                    writer.add_scalar("Eval/Safe_Min_R2", min(total_r2_robustness), s)
+                    writer.add_scalar("Eval/Safe_Mean_R1", np.mean(total_r1_robustness), s)
+                    writer.add_scalar("Eval/Safe_Mean_R2", np.mean(total_r2_robustness), s)
+                    writer.add_scalar("Eval/Safe_Pct_R1", safe_pct_r1, s)
+                    writer.add_scalar("Eval/Safe_Pct_R2", safe_pct_r2, s)
 
         except KeyboardInterrupt:
             print("Manual interruption...")

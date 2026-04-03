@@ -1,0 +1,34 @@
+timestep: 0.05 
+dense: True
+horizon: 80 # 1 / (Unity_100Hz / Decision_Period_5) * 80 steps = 4.0s
+constants:
+  - name: V_MAX
+    type: float
+    value: 2.1 # Maximum safe speed (m/s) reasonable for our boats
+variables:
+  - name: boat_speed
+    type: float
+    location: obs
+    identifier: 0 # Index in stl_window vector (Physical Ego Speed)
+  - name: r1_signal
+    type: float
+    location: obs
+    identifier: 1 # Index in stl_window vector (Pre-calculated Safety Signal: MinPredictedDist - SafeDist)
+  - name: keep_signal
+    type: float
+    location: obs
+    identifier: 2 # Index in stl_window vector (Signal > 0 if ego is stand-on vessel and collision risk exists)
+  - name: no_turning_signal
+    type: float
+    location: obs
+    identifier: 3 # Index in stl_window vector (Signal >= 0 if ego keeps its course)
+specifications:
+  - name: R1_safe_distance # R1: Maintain a safety margin (Signal >= 0 means no collision risk in a t_horizon)
+    spec: R1_safe_distance = always(r1_signal >= 0.0)
+    weight: 1.0
+  - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
+    spec: R2_safe_speed = always((boat_speed <= V_MAX) and (boat_speed >= -1.0))
+    weight: 1.0
+  - name: R6_stand_on # # R6: Stand-on vessel must keep its course until the situation is resolved
+    spec: R6_stand_on = always((keep_signal <= 0.0) or (no_turning_signal >= 0.0 until keep_signal <= 0.0))
+    weight: 1.0
