@@ -10,6 +10,7 @@ from collections import deque
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.base_env import ActionTuple
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
+from mlagents_envs.side_channel.environment_parameters_channel import EnvironmentParametersChannel
 
 from algorithms.agent import ConstrainedPPOAgent
 
@@ -78,17 +79,15 @@ def get_single_agent_obs(steps):
 def evaluate_model(eval_seed, agent, colreg_handler, RTAMT):
     # Create a separate environment for evaluation
     engine_config = EngineConfigurationChannel()
+    env_params = EnvironmentParametersChannel()
+    env_params.set_float_parameter("seed", float(eval_seed))
     eval_env = UnityEnvironment(
         file_name=unity_env_path, 
-        side_channels=[engine_config],
+        side_channels=[engine_config, env_params],
         seed=eval_seed,
         worker_id=eval_seed,
         no_graphics=False 
     )
-    academy_parameters = {
-        "seed": eval_seed,
-    }
-    eval_env._send_academy_parameters(academy_parameters)
     eval_env.reset()
 
     BEHAVIOR_NAME = list(eval_env.behavior_specs.keys())[0] 
@@ -198,21 +197,17 @@ def main():
 
         # Channel used to speed up the game time
         engine_config = EngineConfigurationChannel()
+        env_params = EnvironmentParametersChannel()
+        env_params.set_float_parameter("seed", float(seed))
     
         print("Loading environment...")
         env = UnityEnvironment(
             file_name=unity_env_path, 
-            side_channels=[engine_config],
+            side_channels=[engine_config, env_params],
             worker_id=seed,
             seed=seed,
             no_graphics=False
         )
-
-        env_academy_parameters = {
-            "seed": seed,
-        }
-
-        env._send_academy_parameters(env_academy_parameters)
 
         env.reset()
         print("Environment loaded successfully.")
