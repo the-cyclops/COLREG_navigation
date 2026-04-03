@@ -6,7 +6,7 @@ using UnityEngine.Splines;
 using Unity.VisualScripting;
 
 
-public class BoatAgent : Agent
+public class BoatAgentOLD : Agent
 {
     public HDRPBoatPhysics boatPhysics;
     private Rigidbody rb;
@@ -61,32 +61,9 @@ public class BoatAgent : Agent
 
     [SerializeField] private bool debugMode = false;
 
-    private System.Random random;
-    private System.Random trainRandom;
-    private System.Random evalRandom;
-
-    private float getRandomFloat(float min, float max)
-    {
-        return (float)(random.NextDouble() * (max - min) + min);
-    }
-
-    private Vector2 getRandomUniformInCircle(float radius)
-    {
-        double angle = random.NextDouble() * 2 * Mathf.PI;
-        double r = radius * Mathf.Sqrt((float)random.NextDouble());
-        return new Vector2((float)(r * Mathf.Cos((float)angle)), (float)(r * Mathf.Sin((float)angle)));
-    }
-
     public override void Initialize()
     {
         this.MaxStep = 5000; // timer limit for episode, max 5000/100 = 50 s
-
-        //int trainSeed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("train_seed", 0);
-        //int evalSeed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("eval_seed", 0);
-        //trainRandom = new System.Random(trainSeed);
-        //evalRandom = new System.Random(evalSeed);
-        int seed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("seed", 0);
-        random = new System.Random(seed);
 
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
@@ -174,8 +151,8 @@ public class BoatAgent : Agent
         do
         {
             //randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentReductionRadius);
-            Vector2 randomDir = getRandomUniformInCircle(1f).normalized; // Random direction
-            float randomDist = getRandomFloat(minSpawnDist, maxSpawnDist);
+            Vector2 randomDir = UnityEngine.Random.insideUnitCircle.normalized;
+            float randomDist = UnityEngine.Random.Range(minSpawnDist, maxSpawnDist);
             randomPoint = randomDir * randomDist;
         }
         while (!CheckTargetPosition(randomPoint));
@@ -211,7 +188,7 @@ public class BoatAgent : Agent
 
         foreach (Transform obstacle in obstacles.transform)
         {
-            Vector2 randomCircle = getRandomUniformInCircle(radius);
+            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * radius;
             Vector3 newPos = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
             Transform sphereTransform = obstacle.Find("Sphere");
             if (sphereTransform != null)
@@ -240,27 +217,27 @@ private void MoveIntruders()
     float maxS = 2.2f;
 
     // --- Path 1 Setup ---
-    float scaleX1 = getRandomFloat(0.9f, 1.1f);
-    float scaleZ1 = getRandomFloat(0.9f, 1.1f);
+    float scaleX1 = UnityEngine.Random.Range(0.9f, 1.1f);
+    float scaleZ1 = UnityEngine.Random.Range(0.9f, 1.1f);
     Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
 
-    intruder1Speed = getRandomFloat(minS, maxS);
+    intruder1Speed = UnityEngine.Random.Range(minS, maxS);
     // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
     splineAnimator1.MaxSpeed = intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
     
     // Partenza casuale lungo il percorso per non avere bias di posizione
-    splineAnimator1.ElapsedTime = getRandomFloat(0f, splineAnimator1.Duration);
+    splineAnimator1.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator1.Duration);
     splineAnimator1.Play(); 
 
     // --- Path 2 Setup ---
-    float scaleX2 = getRandomFloat(0.9f, 1.1f);
-    float scaleZ2 = getRandomFloat(0.9f, 1.1f);
+    float scaleX2 = UnityEngine.Random.Range(0.9f, 1.1f);
+    float scaleZ2 = UnityEngine.Random.Range(0.9f, 1.1f);
     Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
 
-    intruder2Speed = getRandomFloat(minS, maxS);
+    intruder2Speed = UnityEngine.Random.Range(minS, maxS);
     splineAnimator2.MaxSpeed = intruder2Speed / Mathf.Max(scaleX2, scaleZ2);
     
-    splineAnimator2.ElapsedTime = getRandomFloat(0f, splineAnimator2.Duration);
+    splineAnimator2.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator2.Duration);
     splineAnimator2.Play(); 
 
     if (debugMode)
@@ -271,8 +248,6 @@ private void MoveIntruders()
 
     public override void OnEpisodeBegin()
     {
-        //float evalMode = Academy.Instance.EnvironmentParameters.GetWithDefault("eval_mode", 0);
-        //random = evalMode > 0 ? evalRandom : trainRandom;
 
         // TEST COUNTER
         currentEpisodeStep = 0;
@@ -505,16 +480,16 @@ private void MoveIntruders()
             stepReward += facingTarget * 0.0001f;
         }
         // possible penalty for reverse
-        Vector3 flatForward = transform.forward;
-        flatForward.y = 0;
-        flatForward.Normalize();
-        Vector3 flatVelocity = rb.linearVelocity;
-        flatVelocity.y = 0;
-        float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
-        if (forwardSpeed < -0.1f)
-        {
-            stepReward += forwardSpeed * 0.0001f;
-        }
+        //Vector3 flatForward = transform.forward;
+        //flatForward.y = 0;
+        //flatForward.Normalize();
+        //Vector3 flatVelocity = rb.linearVelocity;
+        //flatVelocity.y = 0;
+        //float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
+        //if (forwardSpeed < -0.1f)
+        //{
+        //    stepReward += forwardSpeed * 0.0001f;
+        //}
         // penalty to maintain stability
         stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
         // Time penalty
