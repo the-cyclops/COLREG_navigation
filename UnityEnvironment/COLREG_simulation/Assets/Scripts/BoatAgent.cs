@@ -275,6 +275,7 @@ private void MoveIntruders()
         if (evalEpisodeSeed != -1f)
         {
             random = new System.Random((int)evalEpisodeSeed);
+            curriculumStage = 2; 
         }
 
         //float evalMode = Academy.Instance.EnvironmentParameters.GetWithDefault("eval_mode", 0);
