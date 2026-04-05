@@ -37,6 +37,20 @@ class ConstrainedPPOAgent:
         # Debug counter
         self.total_early_stops = 0
     
+    # ----- Helper Functions to set train and eval modes-----
+
+    def set_train_mode(self):
+        self.policy_net.train()
+        self.value_net.train()
+        self.cost_net_safe_distance.train()
+        self.cost_net_safe_speed.train()
+
+    def set_eval_mode(self):
+        self.policy_net.eval()
+        self.value_net.eval()
+        self.cost_net_safe_distance.eval()
+        self.cost_net_safe_speed.eval()
+
     # ----- Helper Functions for Cagrad and GAE computation -----
 
     def _generate_batches(self, total_size, batch_size):
