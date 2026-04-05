@@ -8,6 +8,7 @@ from time import sleep
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.base_env import ActionTuple
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
+from mlagents_envs.side_channel.environment_parameters_channel import EnvironmentParametersChannel
 
 from algorithms.agent import ConstrainedPPOAgent
 from utils.buffers import Memory
@@ -15,7 +16,7 @@ from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-model_name = "boat_agent_final3_smallerreward_facingtarget_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1/seed_34"
+model_name = "boat_agent_final4_NEWEVAL_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1/seed_34"
 unity_env_path = None #"../Builds/emptyscene.app" 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 20
@@ -49,10 +50,14 @@ def get_single_agent_obs(steps):
 
 def main():
     set_all_seeds(FIXED_SEED)
+    
     #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
     #checkpoint_path = f"Models/{model_name}/best_model.pth"
-    checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
+    #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
+    checkpoint_path = f"Models/{model_name}/best_safe_model_MEAN.pth"
+    #checkpoint_path = f"Models/{model_name}/best_safe_model_PCT.pth"
     #checkpoint_path = f"Models/{model_name}/steps_2048000.pth"
+    
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
     colreg_handler = COLREGHandler()
@@ -60,7 +65,6 @@ def main():
     memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
 
     if not os.path.exists(checkpoint_path):
-        #env.close() # Chiudi l'env se il modello manca
         raise FileNotFoundError(f"Model not found at path: {checkpoint_path}")
     
     checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
@@ -68,19 +72,21 @@ def main():
     sleep(3)
 
     engine_config = EngineConfigurationChannel()
+    env_params = EnvironmentParametersChannel()
+    env_params.set_float_parameter("eval_episode_seed", -1.0)
+    
     env = UnityEnvironment(
         file_name=unity_env_path, 
-        side_channels=[engine_config],
+        side_channels=[engine_config, env_params],
         seed=FIXED_SEED,
         no_graphics=False 
     )
     env.reset()
     
-    # --- FIX 1: Identificazione dinamica del Behavior Name ---
     BEHAVIOR_NAME = list(env.behavior_specs.keys())[0]
     print(f"Connected to behavior: {BEHAVIOR_NAME}")
 
-    engine_config.set_configuration_parameters(width=800, height=600, time_scale=1.0)
+    engine_config.set_configuration_parameters(width=800, height=600, time_scale=5.0)
 
     agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=0)
     
@@ -94,35 +100,32 @@ def main():
     agent.cost_net_safe_distance.eval()
     agent.cost_net_safe_speed.eval()
 
-    episodes_completed = 0
     total_rewards = []
-    total_r1_robustness_mean = []
-    total_r2_robustness_mean = []
-    total_r1_robustness_min = []
-    total_r2_robustness_min = []
+    total_r1_robustness = []
+    total_r2_robustness = []
 
     try:
-        while episodes_completed < NUM_EVAL_EPISODES:
-            env.reset() # Reset a inizio ciclo per pulizia
+        for ep in range(NUM_EVAL_EPISODES):
+            current_seed = FIXED_SEED + ep
+            env_params.set_float_parameter("eval_episode_seed", float(current_seed))
+            env.reset() 
             decision_steps, terminal_steps = env.get_steps(BEHAVIOR_NAME)
             episode_reward = 0.0
-            rho_1, rho_2 = 0.0, 0.0
             done = False
             
-            pbar = tqdm(desc=f"Episode {episodes_completed+1}/{NUM_EVAL_EPISODES}", unit="steps")
+            pbar = tqdm(desc=f"Episode {ep+1}/{NUM_EVAL_EPISODES}", unit="steps")
             
             while not done:
                 obs, vec_obs = get_single_agent_obs(decision_steps)
 
-                r1, r2 = memory_buffer.compute_markovian_flags()
-                obs_augmented = np.concatenate((obs, [r1, r2]))
+                r1_flag, r2_flag = memory_buffer.compute_markovian_flags()
+                obs_augmented = np.concatenate((obs, [r1_flag, r2_flag]))
                 obs_tensor = torch.from_numpy(obs_augmented).float().unsqueeze(0).to(DEVICE)
 
                 with torch.no_grad():
                     action_tensor, _ = agent.get_action(obs_tensor, deterministic=True)
                 
                 action_numpy = action_tensor.cpu().numpy()
-                #pbar.write(f"Step {pbar.n+1} | Throttle: {action_numpy[0,0]:.3f}, Steering: {action_numpy[0,1]:.3f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
 
@@ -133,53 +136,49 @@ def main():
                 decision_steps, terminal_steps = env.get_steps(BEHAVIOR_NAME)
                 done = len(terminal_steps) > 0
                 step_reward = float(terminal_steps.reward[0]) if done else float(decision_steps.reward[0])
-                pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.5f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
                 episode_reward += step_reward
 
                 r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
                 memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_signal=float(r1_signal))
 
-                _, single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
-                rho_1 = float(single_rho.get('R1_safe_distance', 0.0))
-                rho_2 = float(single_rho.get('R2_safe_speed', 0.0))
-                memory_buffer.add_robustness(r1=rho_1, r2=rho_2)
+                # Calcolo RTAMT per lo step corrente
+                _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
+                step_r1 = single_rho.get('R1_safe_distance', 0.0)
+                step_r2 = single_rho.get('R2_safe_speed', 0.0)
 
-            episode_r1_mean = float(np.mean(memory_buffer.robustness_1))
-            episode_r2_mean = float(np.mean(memory_buffer.robustness_2))
-            episode_r1_min = float(np.min(memory_buffer.robustness_1))
-            episode_r2_min = float(np.min(memory_buffer.robustness_2))
+                # SALVATAGGIO: Conserva lo storico dell'episodio nel buffer
+                memory_buffer.add_robustness(r1=step_r1, r2=step_r2)
+
+                # STAMPA: Mostriamo le flag Markoviane che l'agente ha effettivamente visto in questo step
+                pbar.write(f"Step Reward: {step_reward:.2f} | Flag R1: {r1_flag:.4f} | Flag R2: {r2_flag:.4f}")
+
+            # ESTRAZIONE VERO MINIMO: Cerca il valore peggiore registrato in tutto l'episodio
+            rho_1 = min(memory_buffer.robustness_1) if memory_buffer.robustness_1 else 0.0
+            rho_2 = min(memory_buffer.robustness_2) if memory_buffer.robustness_2 else 0.0
 
             total_rewards.append(episode_reward)
-            total_r1_robustness_mean.append(episode_r1_mean)
-            total_r2_robustness_mean.append(episode_r2_mean)
-            total_r1_robustness_min.append(episode_r1_min)
-            total_r2_robustness_min.append(episode_r2_min)
+            total_r1_robustness.append(rho_1)
+            total_r2_robustness.append(rho_2)
 
             pbar.close()
-            print(
-                f"Episode {episodes_completed+1} finished | Return: {episode_reward:.2f} "
-                f"| R1 Robustness Mean: {episode_r1_mean:.4f} | R2 Robustness Mean: {episode_r2_mean:.4f} "
-                f"| R1 Robustness Min: {episode_r1_min:.4f} | R2 Robustness Min: {episode_r2_min:.4f}"
-            )
+            print(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | Min R1: {rho_1:.4f} | Min R2: {rho_2:.4f}")
 
             memory_buffer.clear_stl_window()
             memory_buffer.clear_ppo() 
-            episodes_completed += 1
 
     except KeyboardInterrupt:
         print("Evaluation manually interrupted.")
     finally:
+        env_params.set_float_parameter("eval_episode_seed", -1.0)
         env.close()
-        # --- FIX 2: Check se le liste sono vuote prima di calcolare la media ---
         if total_rewards:
             print("\n--- Final Evaluation Results ---")
-            print(f"Loaded checkpoint from {checkpoint_path} from step {checkpoint['step']}")
             print(f"Average Return: {np.mean(total_rewards):.2f} ± {np.std(total_rewards):.2f}")
-            print(f"Average R1 Robustness Mean: {np.mean(total_r1_robustness_mean):.2f}")
-            print(f"Average R1 Robustness Min: {np.mean(total_r1_robustness_min):.2f}")
-            print(f"Average R2 Robustness Mean: {np.mean(total_r2_robustness_mean):.2f}")
-            print(f"Average R2 Robustness Min: {np.mean(total_r2_robustness_min):.2f}")
+            print(f"Min R1 Robustness: {np.min(total_r1_robustness):.2f}")
+            print(f"Min R2 Robustness: {np.min(total_r2_robustness):.2f}")
+            print(f"Mean R1 Robustness: {np.mean(total_r1_robustness):.2f}")
+            print(f"Mean R2 Robustness: {np.mean(total_r2_robustness):.2f}")
         else:
             print("\nNo episodes completed.")
 
