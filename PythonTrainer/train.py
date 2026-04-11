@@ -121,7 +121,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
                 decision_steps, terminal_steps = eval_env.get_steps(BEHAVIOR_NAME)
                 done = len(terminal_steps) > 0
                 step_reward = float(terminal_steps.reward[0]) if done else float(decision_steps.reward[0])
-                pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.5f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
+                #pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.5f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
                 episode_reward += step_reward
 
                 r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)

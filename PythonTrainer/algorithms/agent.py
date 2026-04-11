@@ -53,8 +53,10 @@ class ConstrainedPPOAgent:
 
     # ----- Helper Functions for Cagrad and GAE computation -----
 
-    def _generate_batches(self, total_size, batch_size):
-        indices = torch.randperm(total_size)
+    def _generate_batches(self, total_size, batch_size, seed):
+        generator = torch.Generator(device='cpu')
+        generator.manual_seed(seed)
+        indices = torch.randperm(total_size, generator=generator)
         for start_idx in range(0, total_size, batch_size):
             yield indices[start_idx:start_idx + batch_size]
 
@@ -314,7 +316,8 @@ class ConstrainedPPOAgent:
         # PPO Multi-Epoch & Minibatch Training Loop
         continue_training = True
         for epoch in range(n_epochs):
-            for batch_indices in self._generate_batches(total_samples, batch_size):
+            batch_seed = current_step + epoch
+            for batch_indices in self._generate_batches(total_samples, batch_size, seed=batch_seed):
                 
                 # Extract mini-batch tensors
                 b_states = states[batch_indices]
