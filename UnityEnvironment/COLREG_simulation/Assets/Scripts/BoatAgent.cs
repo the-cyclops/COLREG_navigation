@@ -29,7 +29,7 @@ public class BoatAgent : Agent
     private int current_step = 0;
     //private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
-    private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+    private int curriculumStage = 2; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
 
     private int stage1Threshold = 251_904 * 5; // Update 123
     private int stage2Threshold = 501_760 * 5; // Update 245
@@ -79,6 +79,7 @@ public class BoatAgent : Agent
 
     public override void Initialize()
     {
+
         this.MaxStep = 5000; // timer limit for episode, max 5000/100 = 50 s
 
         //int trainSeed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("train_seed", 0);
@@ -91,7 +92,8 @@ public class BoatAgent : Agent
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
 
-        initialPosition = Vector3.zero;
+        //initialPosition = Vector3.zero;
+        initialPosition = new Vector3(0, 0, -12f);
         initialRotation = Quaternion.identity;
 
         splineAnimator1 = intruderVessel1.GetComponent<SplineAnimate>();
@@ -108,15 +110,15 @@ public class BoatAgent : Agent
     void FixedUpdate()
     {
         if (intruderVessel1 != null && intruderVessel1.activeInHierarchy && curriculumStage == 2)
-    {
-        // Usiamo il valore teorico intruder1Speed per l'IA
-        intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
-    }
+        {
+            // Usiamo il valore teorico intruder1Speed per l'IA
+            intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
+        }
 
-    if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
-    {
-        intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
-    }
+        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
+        {
+            intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
+        }
 
         // Print di controllo (Sanity Check)
         if (debugMode && Time.frameCount % 100 == 0)
@@ -151,23 +153,24 @@ public class BoatAgent : Agent
     {
         // Set the curriculum radius based on the training step
         // initially currentReductionRadius is 13
-        if (curriculumStage == 2) // 10 to 14
-        {
-            currentReductionRadius = 1f;
-            minSpawnDist = 10f;
-        }
-        else if (curriculumStage == 1) // 8 to 12
-        {
-            currentReductionRadius = 3f;
-            minSpawnDist = 8f;
-        }
-        else // 6 to 10
-        {
-            currentReductionRadius = 5f;
-            minSpawnDist = 6f;
-        }
+        //if (curriculumStage == 2) // 10 to 14
+        //{
+        //    currentReductionRadius = 1f;
+        //    minSpawnDist = 10f;
+        //}
+        //else if (curriculumStage == 1) // 8 to 12
+        //{
+        //    currentReductionRadius = 3f;
+        //    minSpawnDist = 8f;
+        //}
+        //else // 6 to 10
+        //{
+        //    currentReductionRadius = 5f;
+        //    minSpawnDist = 6f;
+        //}
         
-        float maxSpawnDist = arenaRadius - currentReductionRadius;
+        float minSpawnDist = 0f;
+        float maxSpawnDist = arenaRadius -1; //arenaRadius - currentReductionRadius;
         // Randomly sample a point within a donut-shaped area 
         // bounded by minSpawnDist and maxSpawnDist to prevent overlapping with target at spawn
         Vector2 randomPoint;
@@ -222,52 +225,52 @@ public class BoatAgent : Agent
         }
     }
 
-private void MoveIntruders()
-{
-    if (curriculumStage < 2)
+    private void MoveIntruders()
     {
-        intruderVessel1.SetActive(false);
-        intruderVessel2.SetActive(false);
-        return;
+        if (curriculumStage < 2)
+        {
+            intruderVessel1.SetActive(false);
+            intruderVessel2.SetActive(false);
+            return;
+        }
+
+        // Riattiviamo entrambi
+        intruderVessel1.SetActive(true);
+        intruderVessel2.SetActive(true);
+
+        // Range di velocità richiesto
+        float minS = 1.9f;
+        float maxS = 2.2f;
+
+        // --- Path 1 Setup ---
+        //float scaleX1 = getRandomFloat(0.9f, 1.1f);
+        //float scaleZ1 = getRandomFloat(0.9f, 1.1f);
+        //Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
+
+        // intruder1Speed = getRandomFloat(minS, maxS);
+        // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
+        splineAnimator1.MaxSpeed = maxS; //intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
+        
+        // Partenza casuale lungo il percorso per non avere bias di posizione
+        splineAnimator1.ElapsedTime = 0f; //getRandomFloat(0f, splineAnimator1.Duration);
+        splineAnimator1.Play(); 
+
+        // --- Path 2 Setup ---
+        float scaleX2 = getRandomFloat(0.9f, 1.1f);
+        float scaleZ2 = getRandomFloat(0.9f, 1.1f);
+        Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
+
+        intruder2Speed = getRandomFloat(minS, maxS);
+        splineAnimator2.MaxSpeed = intruder2Speed / Mathf.Max(scaleX2, scaleZ2);
+        
+        splineAnimator2.ElapsedTime = getRandomFloat(0f, splineAnimator2.Duration);
+        splineAnimator2.Play(); 
+
+        if (debugMode)
+        {
+            Debug.Log($"[SPAWN] I1 Speed: {intruder1Speed:F2} | I2 Speed: {intruder2Speed:F2}");
+        }
     }
-
-    // Riattiviamo entrambi
-    intruderVessel1.SetActive(true);
-    intruderVessel2.SetActive(true);
-
-    // Range di velocità richiesto
-    float minS = 1.9f;
-    float maxS = 2.2f;
-
-    // --- Path 1 Setup ---
-    float scaleX1 = getRandomFloat(0.9f, 1.1f);
-    float scaleZ1 = getRandomFloat(0.9f, 1.1f);
-    Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
-
-    intruder1Speed = getRandomFloat(minS, maxS);
-    // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
-    splineAnimator1.MaxSpeed = intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
-    
-    // Partenza casuale lungo il percorso per non avere bias di posizione
-    splineAnimator1.ElapsedTime = getRandomFloat(0f, splineAnimator1.Duration);
-    splineAnimator1.Play(); 
-
-    // --- Path 2 Setup ---
-    float scaleX2 = getRandomFloat(0.9f, 1.1f);
-    float scaleZ2 = getRandomFloat(0.9f, 1.1f);
-    Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
-
-    intruder2Speed = getRandomFloat(minS, maxS);
-    splineAnimator2.MaxSpeed = intruder2Speed / Mathf.Max(scaleX2, scaleZ2);
-    
-    splineAnimator2.ElapsedTime = getRandomFloat(0f, splineAnimator2.Duration);
-    splineAnimator2.Play(); 
-
-    if (debugMode)
-    {
-        Debug.Log($"[SPAWN] I1 Speed: {intruder1Speed:F2} | I2 Speed: {intruder2Speed:F2}");
-    }
-}
 
     public override void OnEpisodeBegin()
     {
@@ -301,6 +304,11 @@ private void MoveIntruders()
         transform.localPosition = initialPosition;
         transform.localRotation = initialRotation;
 
+        float initialSpeed = 2.1f; // Safe Speed from COLREG
+
+        rb.linearVelocity = transform.forward * initialSpeed;
+        rb.angularVelocity = Vector3.zero;
+
         Physics.SyncTransforms();
 
         // RESET POSIZIONI PER EVITARE SPIKE DI VELOCITÀ AL PRIMO FRAME
@@ -318,14 +326,14 @@ private void MoveIntruders()
     public override void CollectObservations(VectorSensor sensor)
     {
         // Observation Structure:
-        // 0-1: Target Relative Position (2) - X and Z in local space (direction to the target)
-        // 2:   Target Distance (1)
-        // 3-4: Linear Velocity (2) - X and Z in local space
-        // 5: Angular Velocity (1) - Yaw (Y) in local space
-        // 6-10: Intruder Vessel 1 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
-        // 11-12: Intruder Vessel 1 - Heading (2) - Direction in local space
-        // 13-17: Intruder Vessel 2 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
-        // 18-19: Intruder Vessel 2 - Heading (2) - Direction in local space
+        // 0-1:     Target Relative Position (2) - X and Z in local space (direction to the target)
+        // 2:       Target Distance (1)
+        // 3-4:     Linear Velocity (2) - X and Z in local space
+        // 5:       Angular Velocity (1) - Yaw (Y) in local space
+        // 6-10:    Intruder Vessel 1 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
+        // 11-12:   Intruder Vessel 1 - Heading (2) - Direction in local space
+        // 13-17:   Intruder Vessel 2 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
+        // 18-19:   Intruder Vessel 2 - Heading (2) - Direction in local space
 
         // --- SELF & TARGET OBSERVATIONS ---
 
@@ -447,7 +455,7 @@ private void MoveIntruders()
             // Padding if no intruder is active to keep observation size constant
             // Obs Index [13-19]: Zeros for Intruder 2
             sensor.AddObservation(Vector2.zero); // Rel Pos
-            sensor.AddObservation(1.0f);           // Dist
+            sensor.AddObservation(1.0f);         // Dist
             sensor.AddObservation(Vector2.zero); // Rel Vel
             sensor.AddObservation(Vector2.zero); // Heading
         }
