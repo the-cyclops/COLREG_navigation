@@ -111,3 +111,54 @@ class COLREGHandler:
             
         # Return the critical safety signal (the lowest one)
         return min(signals)
+
+    def get_keep_signal(self, obs, safe_dist=2.0, t_horizon=5.0, delta_head_on=5.0, max_left_angle=112.5): # 112.5 is the 180-degreeequivalent of 247.5 degrees in 360-degree system
+        """
+        Calculates the 'keep' signal (Stand-on vessel status) using STL robustness semantics.
+        Logic: Collision Risk AND Intruder in Left Sector (between delta_head_on and max_left_angle)
+        Returns > 0 if the rule is active (i.e., you must keep your course).
+        """
+        intruders_data = self.denormalize_intruder_observation(obs)
+
+        pos, vel = intruders_data[0]  # Only consider the first intruder for the keep signal
+
+        # Skip padded/dummy intruders
+        if np.linalg.norm(pos) > 500.0:
+            return -1.0  # No intruder, rule not active
+
+        # 1. COLLISION RISK SIGNAL (In meters)
+        # Collision risk is positive if the intruder is predicted to violate the safe distance within the time horizon (cpa_margin < 0).
+        cpa_margin = self.compute_cpa_R1(pos, vel, safe_dist, t_horizon)
+        collision_risk_signal = -cpa_margin 
+
+        # 2. EXACT LEFT SECTOR SIGNAL (Angular)
+        # pos[0] is X (Right), pos[1] is Z (Forward).
+        # By using -pos[0], np.arctan2 maps the left side to positive degrees [0, 180]
+        # and the right side to negative degrees [0, -180].
+        angle_left_deg = np.degrees(np.arctan2(-pos[0], pos[1]))
+
+        # STL Robustness for being within [delta_head_on, max_left_angle]
+        # This is positive ONLY if angle_left_deg is strictly inside the sector boundaries.
+        raw_angular_robustness = min(angle_left_deg - delta_head_on, max_left_angle - angle_left_deg)
+            
+        # Scale the angular signal so it matches the magnitude of the CPA distance signal.
+        # An angle margin of 50 degrees becomes a robustness of 5.0 (similar to 5.0 meters).
+        scaling_factor = 10.0  # degrees to meters scaling #TODO controllare che sia fintunato
+        left_sector_signal = raw_angular_robustness / scaling_factor
+
+        # 3. LOGICAL AND (min)
+        # The rule is active ONLY IF there is a risk AND it's strictly in the left sector.
+        intruder_keep = min(collision_risk_signal, left_sector_signal)
+        return intruder_keep
+
+
+    def get_no_turning_signal(self, steering_action, steering_threshold=0.1):
+        """
+        Returns > 0 if the ego vessel is maintaining its course.
+        Evaluates the agent's steering action directly instead of physical inertia.
+        """
+        # steering_action is in the [-1.0, 1.0] range.
+        # The signal is positive if the absolute steering command is below the threshold.
+        no_turning_robustness = steering_threshold - abs(steering_action)
+        
+        return float(no_turning_robustness)
