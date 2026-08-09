@@ -158,7 +158,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 # testing also with new evaluating pct from .8 to .85, 2 times same setup to look at consistency
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_final5_NEWEVAL1_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_name = f"boat_agent_final5_NEWEVAL2_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     eval_seed = 31
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
