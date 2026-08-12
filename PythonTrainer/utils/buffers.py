@@ -13,10 +13,12 @@ class Memory:
         # COLREG cost buffers populated via RTAMT robustness
         self.cost_r1 = []
         self.cost_r2 = []
+        self.cost_r6 = [] 
 
         # Additional buffers to decide what to optiminze for in the PPO loss function
         self.robustness_1 = []
         self.robustness_2 = []
+        self.robustness_6 = []
 
         # This window is now obslete, was used for call to rtamt during every step and not just at the end of the episode
         # Sliding window for temporal logic evaluation (physical data)
@@ -26,10 +28,8 @@ class Memory:
         # Buffers to store episode data to be used for post-episode RTAMT evaluation
         self.episode_r1_signal = []
         self.episode_phys_speed = []
-
-        # Aggiungi qui anche i segnali per R6 quando ti serviranno
-        # self.episode_keep_signal = []
-        # self.episode_no_turning_signal = []
+        self.episode_keep_signal = []
+        self.episode_no_turning_signal = []
 
     def add_ppo_transition(self, state, action, logprob, reward, is_terminal):
         """Store transition data for PPO update."""
@@ -44,15 +44,17 @@ class Memory:
         self.episode_phys_speed.append(phys_speed)
         self.episode_r1_signal.append(r1_signal)
 
-    def add_costs(self, c_r1, c_r2):
+    def add_costs(self, c_r1, c_r2, c_r6):
         """Store costs derived from RTAMT robustness values."""
         self.cost_r1.append(c_r1)
         self.cost_r2.append(c_r2)
+        self.cost_r6.append(c_r6)
 
-    def add_robustness(self, r1, r2):
+    def add_robustness(self, r1, r2, r6):
         """Store robustness values for later analysis."""
         self.robustness_1.append(r1)
         self.robustness_2.append(r2)
+        self.robustness_6.append(r6)
 
     def clear_ppo(self):
         """Clear on-policy buffers after policy update."""
@@ -63,16 +65,18 @@ class Memory:
         del self.logprobs[:]
         del self.cost_r1[:]
         del self.cost_r2[:]
+        del self.cost_r6[:]
         del self.robustness_1[:]
         del self.robustness_2[:]
+        del self.robustness_6[:]
         self.clear_episode_data()
     
     def clear_episode_data(self):
         """Clear temporal lists at the end of each episode."""
         del self.episode_phys_speed[:]
         del self.episode_r1_signal[:]
-        # del self.episode_keep_signal[:]
-        # del self.episode_no_turning_signal[:]
+        del self.episode_keep_signal[:]
+        del self.episode_no_turning_signal[:]
     
     def compute_markovian_flags(self, v_max=2.1):
 
