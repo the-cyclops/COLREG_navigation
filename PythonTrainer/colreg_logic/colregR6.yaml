@@ -29,10 +29,10 @@ specifications:
   - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
     spec: R2_safe_speed = always((boat_speed <= V_MAX) and (boat_speed >= -1.0))
     weight: 1.0
-  - name: is_resolved
-    spec: is_resolved = keep_signal <= 0.0
+  - name: no_keep
+    spec: no_keep = keep_signal <= 0.0
   - name: maintain_until_resolved
-    spec: maintain_until_resolved = (no_turning_signal >= 0.0) until is_resolved
+    spec: maintain_until_resolved = (no_turning_signal >= 0.0) until no_keep
   - name: R6_stand_on # R6: Stand-on vessel must keep its course until the situation is resolved
-    spec: R6_stand_on = always(is_resolved or maintain_until_resolved)
+    spec: R6_stand_on = always(no_keep or maintain_until_resolved)
     weight: 1.0
