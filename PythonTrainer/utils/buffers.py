@@ -65,6 +65,7 @@ class Memory:
         del self.cost_r2[:]
         del self.robustness_1[:]
         del self.robustness_2[:]
+        self.clear_episode_data()
     
     def clear_episode_data(self):
         """Clear temporal lists at the end of each episode."""
