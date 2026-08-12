@@ -9,30 +9,28 @@ variables:
   - name: boat_speed
     type: float
     location: obs
-    identifier: 0 # Index in stl_window vector (Physical Ego Speed)
+    identifier: id_boat_speed
   - name: r1_signal
     type: float
     location: obs
-    identifier: 1 # Index in stl_window vector (Pre-calculated Safety Signal: MinPredictedDist - SafeDist)
+    identifier: id_r1_signal
   - name: keep_signal
     type: float
     location: obs
-    identifier: 2 # Index in stl_window vector (Signal > 0 if ego is stand-on vessel and collision risk exists)
-  - name: no_turning_signal
+    identifier: id_keep_signal
+  - name: no_turning_signal # (Signal >= 0 if ego keeps its course)
     type: float
     location: obs
-    identifier: 3 # Index in stl_window vector (Signal >= 0 if ego keeps its course)
+    identifier: id_no_turning_signal 
 specifications:
   - name: R1_safe_distance # R1: Maintain a safety margin (Signal >= 0 means no collision risk in a t_horizon)
-    spec: R1_safe_distance = always(r1_signal >= 0.0)
+    spec: R1_safe_distance = always[0, 80](r1_signal >= 0.0)
     weight: 1.0
+
   - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
-    spec: R2_safe_speed = always((boat_speed <= V_MAX) and (boat_speed >= -1.0))
+    spec: R2_safe_speed = always[0, 80]((boat_speed <= V_MAX) and (boat_speed >= -1.0))
     weight: 1.0
-  - name: no_keep
-    spec: no_keep = keep_signal <= 0.0
-  - name: maintain_until_resolved
-    spec: maintain_until_resolved = (no_turning_signal >= 0.0) until no_keep
+
   - name: R6_stand_on # R6: Stand-on vessel must keep its course until the situation is resolved
-    spec: R6_stand_on = always(no_keep or maintain_until_resolved)
+    spec: R6_stand_on = always[0, 80]((keep_signal <= 0.0) or ((no_turning_signal >= 0.0) until (keep_signal <= 0.0)))
     weight: 1.0
