@@ -48,12 +48,13 @@ class Memory:
         """Store costs derived from RTAMT robustness values."""
         self.cost_r1.extend(c_r1)
         self.cost_r2.extend(c_r2)
+        self.cost_r6.extend(c_r6)
 
     def add_robustness(self, r1, r2, r6):
         """Store robustness values for later analysis."""
-        self.robustness_1.append(r1)
-        self.robustness_2.append(r2)
-        self.robustness_6.append(r6)
+        self.robustness_1.extend(r1)
+        self.robustness_2.extend(r2)
+        self.robustness_6.extend(r6)
 
     def clear_ppo(self):
         """Clear on-policy buffers after policy update."""

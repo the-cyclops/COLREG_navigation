@@ -96,7 +96,7 @@ class COLREGHandler:
         # Positive values (safe) are capped to stabilize Value Network training.
         return min(raw_margin, self.MAX_SAFETY_MARGIN_CAP)
 
-    def get_R1_safety_signal(self, obs, safe_dist=2.0):
+    def get_R1_safety_signal(self, obs, safe_dist=2.0, t_coll=5.0):
         """
         Main function to call in the training loop for Rule R1.
         Returns the worst (minimum) signal value, which will be used by rtamt for robustness calculation.
@@ -106,13 +106,13 @@ class COLREGHandler:
         
         for pos, vel in intruders_data:
             # Calculate individual safety signal per intruder
-            signal = self.compute_cpa_R1(pos, vel, safe_dist=safe_dist)
+            signal = self.compute_cpa_R1(pos, vel, safe_dist=safe_dist, t_horizon=t_coll)
             signals.append(signal)
             
         # Return the critical safety signal (the lowest one)
         return min(signals)
 
-    def get_keep_signal(self, obs, safe_dist=2.0, t_horizon=5.0, delta_head_on=5.0, max_left_angle=112.5): # 112.5 is the 180-degreeequivalent of 247.5 degrees in 360-degree system
+    def get_keep_signal(self, obs, safe_dist=2.0, t_check=10.0, delta_head_on=5.0, max_left_angle=112.5): # 112.5 is the 180-degreeequivalent of 247.5 degrees in 360-degree system
         """
         Calculates the 'keep' signal (Stand-on vessel status) using STL robustness semantics.
         Logic: Collision Risk AND Intruder in Left Sector (between delta_head_on and max_left_angle)
@@ -128,7 +128,7 @@ class COLREGHandler:
 
         # 1. COLLISION RISK SIGNAL (In meters)
         # Collision risk is positive if the intruder is predicted to violate the safe distance within the time horizon (cpa_margin < 0).
-        cpa_margin = self.compute_cpa_R1(pos, vel, safe_dist, t_horizon)
+        cpa_margin = self.compute_cpa_R1(pos, vel, safe_dist, t_check)
         collision_risk_signal = -cpa_margin 
 
         # 2. EXACT LEFT SECTOR SIGNAL (Angular)
