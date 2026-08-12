@@ -1,0 +1,16 @@
+
+dense: True
+timestep: 1.0
+variables:
+  - name: x
+    type: float
+    location: obs
+    identifier: id_x
+  - name: y
+    type: float
+    location: obs
+    identifier: id_y
+specifications:
+  - name: R6_stand_on
+    spec: R6_stand_on = always[0,2]((y <= 0.0) or ((x >= 0.0) until (y <= 0.0)))
+    weight: 1.0

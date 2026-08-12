@@ -1,0 +1,22 @@
+
+dense: True
+timestep: 1.0
+variables:
+  - name: x
+    type: float
+    location: obs
+    identifier: id_x
+  - name: y
+    type: float
+    location: obs
+    identifier: id_y
+specifications:
+  - name: no_keep
+    spec: no_keep = y <= 0.0
+    weight: 1.0
+  - name: maintain_until_resolved
+    spec: maintain_until_resolved = (x >= 0.0) until no_keep
+    weight: 1.0
+  - name: R6_stand_on
+    spec: R6_stand_on = always[0,2](no_keep or maintain_until_resolved)
+    weight: 1.0
