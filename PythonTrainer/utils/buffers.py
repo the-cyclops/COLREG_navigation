@@ -1,7 +1,7 @@
 class Memory:
-    def __init__(self, stl_horizon=80):
+    def __init__(self, tau=80):
 
-        self.stl_horizon = stl_horizon
+        self.tau = tau
 
         # PPO buffers for on-policy training
         self.states = []
@@ -79,7 +79,7 @@ class Memory:
         if not self.episode_r1_signal or not self.episode_phys_speed:
             return 0.5, 0.5
         
-        tau = self.stl_horizon
+        tau = self.tau
         
         # take last tau samples
         recent_r1s = self.episode_r1_signal[-tau:] if self.episode_r1_signal else []
