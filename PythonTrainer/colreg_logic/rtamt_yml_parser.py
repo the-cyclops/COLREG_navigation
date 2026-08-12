@@ -66,7 +66,7 @@ class RTAMTYmlParser:
                 # Store in dictionary
                 self.monitors[rule_name] = monitor
                 
-            except rtamt.StlParseException as err:
+            except Exception as err:
                 print(f'STL Parse Exception for rule {rule_name}: {err}')
                 sys.exit()
 
@@ -122,7 +122,7 @@ class RTAMTYmlParser:
                 data[i['name']] = [float(obs[i['identifier']]) for obs in tau_state]
         
         single_rho = {}
-        total_rho = 0.0
+        total_rho = [0.0] * steps
         
         if self.dense:
             # Iterate over pre-compiled monitors
@@ -137,19 +137,23 @@ class RTAMTYmlParser:
                     # Evaluate directly (Fast C++ execution)
                     res = monitor.evaluate(data)
                     
-                    # --- EXTRACT VALUE AT t=0 ---
-                    val = 0.0
+                    # --- EXTRACT FULL ARRAY---
                     if isinstance(res, list) and len(res) > 0:
-                        # Case: [[t0, v0], [t1, v1]...] -> take v0
-                        val = float(res[0][1])
+                        # Case: [[t0, v0], [t1, v1]...] -> take values
+                        val_list = [float(item[1]) for item in res]
                     elif isinstance(res, (float, int)):
                         # Case: scalar
-                        val = float(res)
+                        val_list = [float(res)] * steps
+                    else:
+                        val_list = [0.0] * steps
                     
                     # Store results
-                    single_rho[name] = val 
-                    total_rho += weight * val
-                    
+                    single_rho[name] = val_list
+
+                    # Sum element wise into total_rho with weight
+                    for k in range(min(len(val_list), steps)):
+                        total_rho[k] += weight * val_list[k]
+
                 except Exception as e:
                     # Fallback only if runtime error occurs
                     # print(f"RTAMT Runtime Error rule '{name}': {e}")
