@@ -24,6 +24,7 @@ from colreg_logic import rtamt_yml_parser
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
 unity_env_path = "../Builds/train.app"
+unity_env_path = None
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -316,41 +317,50 @@ def main():
                     current_return += reward
 
                     memory_buffer.add_ppo_transition(
-                    state=obs_tensor, 
-                    action=action_tensor, 
-                    logprob=log_probabs,
-                    reward=reward, 
-                    is_terminal=float(end_episode)
+                        state=obs_tensor, 
+                        action=action_tensor, 
+                        logprob=log_probabs,
+                        reward=reward, 
+                        is_terminal=float(end_episode)
                     )
                 
                     r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
 
                     physical_speed = colreg_handler.get_ego_speed(vec_obs)
 
-                    memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_signal=float(r1_signal))
+                    keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
+
+                    get_no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
+
+                    print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {get_no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
                 
-
-                    _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
-                
-                    rho_1 = single_rho.get('R1_safe_distance', 0.0)
-                    rho_2 = single_rho.get('R2_safe_speed', 0.0)
-
-                    #cost_1 = max(0, np.tanh(-rho_1)) 
-                    #cost_2 = max(0, np.tanh(-rho_2))
-                    cost_1 = np.tanh(-rho_1) * COST_SCALE
-                    cost_2 = np.tanh(-rho_2) * COST_SCALE
-                    pos_cost_1 = max(0, cost_1)
-                    pos_cost_2 = max(0, cost_2)
-
-                    memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
-                    memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
-
-                    current_ep_cost_r1 += cost_1
-                    current_ep_cost_r2 += cost_2
-                    current_ep_pos_cost_r1 += pos_cost_1
-                    current_ep_pos_cost_r2 += pos_cost_2
+                    memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_signal=r1_signal)
 
                     if end_episode:
+
+                        #TO FIX
+
+                        # Calculate Robustness and Cost using also future information
+                        _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
+                    
+                        rho_1 = single_rho.get('R1_safe_distance', 0.0)
+                        rho_2 = single_rho.get('R2_safe_speed', 0.0)
+
+                        #cost_1 = max(0, np.tanh(-rho_1)) 
+                        #cost_2 = max(0, np.tanh(-rho_2))
+                        cost_1 = np.tanh(-rho_1) * COST_SCALE
+                        cost_2 = np.tanh(-rho_2) * COST_SCALE
+                        pos_cost_1 = max(0, cost_1)
+                        pos_cost_2 = max(0, cost_2)
+    
+                        memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
+                        memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
+
+                        current_ep_cost_r1 += cost_1
+                        current_ep_cost_r2 += cost_2
+                        current_ep_pos_cost_r1 += pos_cost_1
+                        current_ep_pos_cost_r2 += pos_cost_2
+
                         recent_returns.append(current_return)
                         returns_episodes.append(current_return)
                         recent_episode_cumulative_costs_r1.append(current_ep_cost_r1)
@@ -362,7 +372,7 @@ def main():
                         current_ep_cost_r2 = 0.0
                         current_ep_pos_cost_r1 = 0.0
                         current_ep_pos_cost_r2 = 0.0
-                        memory_buffer.clear_stl_window()
+                        memory_buffer.clear_episode_data()
                         env.reset()
                         decision_steps, terminal_steps = env.get_steps(behavior_name)
 
