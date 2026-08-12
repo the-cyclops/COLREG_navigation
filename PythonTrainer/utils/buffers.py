@@ -46,8 +46,8 @@ class Memory:
 
     def add_costs(self, c_r1, c_r2):
         """Store costs derived from RTAMT robustness values."""
-        self.cost_r1.append(c_r1)
-        self.cost_r2.append(c_r2)
+        self.cost_r1.extend(c_r1)
+        self.cost_r2.extend(c_r2)
 
     def add_robustness(self, r1, r2):
         """Store robustness values for later analysis."""
