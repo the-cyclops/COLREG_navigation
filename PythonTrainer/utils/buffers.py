@@ -69,9 +69,8 @@ class Memory:
         del self.robustness_1[:]
         del self.robustness_2[:]
         del self.robustness_6[:]
-        self.clear_episode_data()
     
-    def clear_episode_data(self):
+    def clear_episode_signal(self):
         """Clear temporal lists at the end of each episode."""
         del self.episode_phys_speed[:]
         del self.episode_r1_signal[:]
