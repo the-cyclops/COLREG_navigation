@@ -280,6 +280,32 @@ def main():
 
                 mean_throttle_buffer, mean_steering_buffer = [], []
                 std_throttle_buffer, std_steering_buffer = [], []
+
+
+                def RTAMT_evaluation():
+                    tau_state_episode = []
+
+                    for r1, speed in zip(memory_buffer.episode_r1_signal, memory_buffer.episode_phys_speed):
+                        step_data = {
+                            'id_r1_signal': r1,        
+                            'id_boat_speed': speed,    
+                            #'id_keep_signal': keep, 
+                            #'id_no_turning_signal': no_turn
+                        }
+                        tau_state_episode.append(step_data)
+
+                    _, single_rho_partial = RTAMT.compute_robustness_dense(tau_state_episode)
+
+                    array_rho_1 = np.array(single_rho_partial.get('R1_safe_distance', [0.0]))
+                    array_rho_2 = np.array(single_rho_partial.get('R2_safe_speed', [0.0]))
+                
+                    costs_1 = np.tanh(-array_rho_1) * COST_SCALE
+                    costs_2 = np.tanh(-array_rho_2) * COST_SCALE
+
+                    memory_buffer.add_costs(c_r1=costs_1, c_r2=costs_2)
+                    memory_buffer.add_robustness(r1=array_rho_1, r2=array_rho_2)
+
+                    return costs_1, costs_2
             
                 while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
@@ -333,40 +359,8 @@ def main():
                     memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_signal=r1_signal)
 
                     if end_episode:
-
-                        #TO FIX
-                        tau_state_episode = []
-
-                        for r1, speed, keep, no_turn in zip(
-                            memory_buffer.episode_r1_signal, 
-                            memory_buffer.episode_phys_speed,
-                            #memory_buffer.episode_keep_signal,     
-                            #memory_buffer.episode_no_turning_signal
-                        ):
-
-                            step_data = {
-                                'id_r1_signal': r1,        
-                                'id_boat_speed': speed,    
-                                #'id_keep_signal': keep, 
-                                #'id_no_turning_signal': no_turn
-                            }
-                        
-                            tau_state_episode.append(step_data)
-
-
-                        # Calculate Robustness and Cost using also future information
-                        _, single_rho = RTAMT.compute_robustness_dense(tau_state_episode)
-
-                        array_rho_1 = single_rho.get('R1_safe_distance', 0.0)
-                        array_rho_2 = single_rho.get('R2_safe_speed', 0.0)
-                    
-                        costs_1 = np.tanh(-array_rho_1) * COST_SCALE
-                        costs_2 = np.tanh(-array_rho_2) * COST_SCALE
-
-                        memory_buffer.add_costs(c_r1=costs_1, c_r2=costs_2)
-    
-                        memory_buffer.add_robustness(r1=array_rho_1,r2=array_rho_2)
-                        memory_buffer.clear_episode_data()
+                        costs_1, costs_2 = RTAMT_evaluation()
+                        memory_buffer.clear_episode_signal()
 
                         ep_cost_r1 = np.sum(costs_1)
                         ep_cost_r2 = np.sum(costs_2)
@@ -389,7 +383,14 @@ def main():
                     
                     if s == START_SAFETY-1:
                         save_last_checkpoint = True
-                    
+
+
+                if len(memory_buffer.episode_phys_speed) > 0:
+                    # Force RTAMT evaluation at the end of the rollout to ensure we have the latest robustness values
+                    RTAMT_evaluation()
+
+
+
                 if save_last_checkpoint:
                     pre_safety_path = f"{save_dir}/pre_safety_checkpoint.pth"
                     torch.save(checkpoint, pre_safety_path)
