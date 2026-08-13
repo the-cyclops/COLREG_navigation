@@ -80,38 +80,51 @@ class Memory:
     
     def compute_markovian_flags(self, v_max=2.1):
 
-        if not self.episode_r1_signal or not self.episode_phys_speed:
-            return 0.5, 0.5
+        if not self.episode_r1_signal or not self.episode_phys_speed or not self.episode_keep_signal or not self.episode_no_turning_signal:
+            return 0.5, 0.5, 0.5
         
         tau = self.tau
         
         # take last tau samples
+        # > 0.0 if there is no immediate collision risk (within t_coll)
         recent_r1s = self.episode_r1_signal[-tau:] if self.episode_r1_signal else []
+        # Physical linear speed of the ego vessel (m/s)
         recent_speeds = self.episode_phys_speed[-tau:] if self.episode_phys_speed else []
+        # > 0.0 if ego is the Stand-on vessel (intruder in left sector and risk within t_check)
+        recent_keeps = self.episode_keep_signal[-tau:] if self.episode_keep_signal else []
+        # >= 0.0 if the ego vessel is strictly maintaining its heading
+        recent_no_turns = self.episode_no_turning_signal[-tau:] if self.episode_no_turning_signal else []
 
         missing_samples = tau - len(recent_r1s)      
         step_increment = 1.0 / float(tau + 1)
 
         r1_flag = min(missing_samples * step_increment, 1.0)
         r2_flag = min(missing_samples * step_increment, 1.0)
+        r6_flag = min(missing_samples * step_increment, 1.0)
 
         # Iterate over the recent samples and update flags based on conditions
-        for r1, speed in zip(recent_r1s, recent_speeds):
+        for r1, speed, keep, no_turn in zip(recent_r1s, recent_speeds, recent_keeps, recent_no_turns):
             
-            # R1 is safe if the signal is non-negative
+            # R1 is safe if the signal is non-negative (globally)
             if r1 >= 0.0:
                 r1_flag = min(r1_flag + step_increment, 1.0)
             else:
                 r1_flag = 0.0
 
-            # R2 is safe if the speed is within the limits
+            # R2 is safe if the speed is within the limits (globally)
             if -1.0 <= speed <= v_max:
                 r2_flag = min(r2_flag + step_increment, 1.0)
             else:
                 r2_flag = 0.0
 
+            # R6: Satisfied if the ego vessel is either not required to stand-on, or is correctly maintaining its course
+            if keep <= 0.0 or no_turn >= 0.0:
+                r6_flag = min(r6_flag + step_increment, 1.0)
+            else:
+                r6_flag = 0.0
+
         # Scale flags in [-0.5, 0.5]
-        return r1_flag - 0.5, r2_flag - 0.5
+        return r1_flag - 0.5, r2_flag - 0.5, r6_flag - 0.5
 
     # old function that was used to compute flags based on robustness values
     # not usable anymore since we now compute robustness at the end of the episode and not at every step
