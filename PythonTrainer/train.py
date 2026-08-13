@@ -261,10 +261,6 @@ def main():
 
             current_return = 0.0
             returns_episodes = []
-            current_ep_cost_r1 = 0.0
-            current_ep_cost_r2 = 0.0
-            current_ep_pos_cost_r1 = 0.0
-            current_ep_pos_cost_r2 = 0.0
 
             # Progress bar per il training
             pbar = tqdm(total=TOT_STEPS, desc=f"Training {seed_iteration}/5", unit="steps")
@@ -339,40 +335,52 @@ def main():
                     if end_episode:
 
                         #TO FIX
+                        tau_state_episode = []
+
+                        for r1, speed, keep, no_turn in zip(
+                            memory_buffer.episode_r1_signal, 
+                            memory_buffer.episode_phys_speed,
+                            #memory_buffer.episode_keep_signal,     
+                            #memory_buffer.episode_no_turning_signal
+                        ):
+
+                            step_data = {
+                                'id_r1_signal': r1,        
+                                'id_boat_speed': speed,    
+                                #'id_keep_signal': keep, 
+                                #'id_no_turning_signal': no_turn
+                            }
+                        
+                            tau_state_episode.append(step_data)
+
 
                         # Calculate Robustness and Cost using also future information
-                        _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
+                        _, single_rho = RTAMT.compute_robustness_dense(tau_state_episode)
+
+                        array_rho_1 = single_rho.get('R1_safe_distance', 0.0)
+                        array_rho_2 = single_rho.get('R2_safe_speed', 0.0)
                     
-                        rho_1 = single_rho.get('R1_safe_distance', 0.0)
-                        rho_2 = single_rho.get('R2_safe_speed', 0.0)
+                        costs_1 = np.tanh(-array_rho_1) * COST_SCALE
+                        costs_2 = np.tanh(-array_rho_2) * COST_SCALE
 
-                        #cost_1 = max(0, np.tanh(-rho_1)) 
-                        #cost_2 = max(0, np.tanh(-rho_2))
-                        cost_1 = np.tanh(-rho_1) * COST_SCALE
-                        cost_2 = np.tanh(-rho_2) * COST_SCALE
-                        pos_cost_1 = max(0, cost_1)
-                        pos_cost_2 = max(0, cost_2)
+                        memory_buffer.add_costs(c_r1=costs_1, c_r2=costs_2)
     
-                        memory_buffer.add_robustness(r1=rho_1,r2=rho_2)
-                        memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
+                        memory_buffer.add_robustness(r1=array_rho_1,r2=array_rho_2)
+                        memory_buffer.clear_episode_data()
 
-                        current_ep_cost_r1 += cost_1
-                        current_ep_cost_r2 += cost_2
-                        current_ep_pos_cost_r1 += pos_cost_1
-                        current_ep_pos_cost_r2 += pos_cost_2
+                        ep_cost_r1 = np.sum(costs_1)
+                        ep_cost_r2 = np.sum(costs_2)
+                        ep_pos_cost_r1 = np.sum(np.maximum(0, costs_1)) # np.maximum gestisce gli array senza crashare
+                        ep_pos_cost_r2 = np.sum(np.maximum(0, costs_2))
 
                         recent_returns.append(current_return)
                         returns_episodes.append(current_return)
-                        recent_episode_cumulative_costs_r1.append(current_ep_cost_r1)
-                        recent_episode_cumulative_costs_r2.append(current_ep_cost_r2)
-                        recent_episode_pos_cumulative_costs_r1.append(current_ep_pos_cost_r1)
-                        recent_episode_pos_cumulative_costs_r2.append(current_ep_pos_cost_r2)
+                        recent_episode_cumulative_costs_r1.append(ep_cost_r1)
+                        recent_episode_cumulative_costs_r2.append(ep_cost_r2)
+                        recent_episode_pos_cumulative_costs_r1.append(ep_pos_cost_r1)
+                        recent_episode_pos_cumulative_costs_r2.append(ep_pos_cost_r2)
                         current_return = 0.0
-                        current_ep_cost_r1 = 0.0
-                        current_ep_cost_r2 = 0.0
-                        current_ep_pos_cost_r1 = 0.0
-                        current_ep_pos_cost_r2 = 0.0
-                        memory_buffer.clear_episode_data()
+
                         env.reset()
                         decision_steps, terminal_steps = env.get_steps(behavior_name)
 
