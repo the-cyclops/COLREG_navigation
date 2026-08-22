@@ -23,13 +23,17 @@ class ConstrainedPPOAgent:
 
         # Rule R2: A vessel shall always maintain a safe speed 
         self.cost_net_safe_speed = CostValue(state_size).to(self.device)   
+
+        # Rule R6
+        self.cost_net_R6 = CostValue(state_size).to(self.device)
         
         # Optimizers
         self.policy_opt = optim.Adam(self.policy_net.parameters(), lr=lr)
         self.value_opt = optim.Adam(self.value_net.parameters(), lr=lr)
         self.cost_opts = [
             optim.Adam(self.cost_net_safe_distance.parameters(), lr=lr),
-            optim.Adam(self.cost_net_safe_speed.parameters(), lr=lr)
+            optim.Adam(self.cost_net_safe_speed.parameters(), lr=lr),
+            optim.Adam(self.cost_net_R6.parameters(), lr=lr)
         ]
         # CAGrad helper
         self.cagrad_helper = Cagrad_all(c=0.5)
@@ -44,12 +48,13 @@ class ConstrainedPPOAgent:
         self.value_net.train()
         self.cost_net_safe_distance.train()
         self.cost_net_safe_speed.train()
-
+        self.cost_net_R6.train()
     def set_eval_mode(self):
         self.policy_net.eval()
         self.value_net.eval()
         self.cost_net_safe_distance.eval()
         self.cost_net_safe_speed.eval()
+        self.cost_net_R6.eval()
 
     # ----- Helper Functions for Cagrad and GAE computation -----
 
@@ -173,12 +178,12 @@ class ConstrainedPPOAgent:
         entropy = dist.entropy().sum(dim=-1).squeeze()
         return action_log_probs, entropy
 
-    def compute_all_advantages(self, states, next_state, rewards, cost_r1, cost_r2, masks):
+    def compute_all_advantages(self, states, next_state, rewards, cost_r1, cost_r2, cost_r6, masks):
         """
         Computes Advantages and Targets for Reward, Cost R1, and Cost R2.
         masks: 0 if terminal state, 1 otherwise
 
-        returns: Dict with keys "reward", "r1", "r2", each containing a tuple of (advantages, returns/cumulative_costs)
+        returns: Dict with keys "reward", "r1", "r2", "r6", each containing a tuple of (advantages, returns/cumulative_costs)
         """
         
         # Get predictions (Estimates) for the whole batch
@@ -190,11 +195,12 @@ class ConstrainedPPOAgent:
             # Represents: Expected Discounted Cumulative Cost
             r1_cost_preds = self.cost_net_safe_distance(states).squeeze()
             r2_cost_preds = self.cost_net_safe_speed(states).squeeze()
-
+            r6_cost_preds = self.cost_net_R6(states).squeeze()
             # Get bootstrap predictions for next state
             next_value_pred = self.value_net(next_state).item()
             r1_next_cost_pred = self.cost_net_safe_distance(next_state).item()
             r2_next_cost_pred = self.cost_net_safe_speed(next_state).item()
+            r6_next_cost_pred = self.cost_net_R6(next_state).item()
 
         # Main Reward (Maximization)
         gae_returns = self._calculate_gae(rewards, value_preds, next_value_pred, masks)
@@ -209,10 +215,15 @@ class ConstrainedPPOAgent:
         r2_cumulative_cost = self._calculate_gae(cost_r2, r2_cost_preds, r2_next_cost_pred, masks)
         adv_r2 = r2_cumulative_cost - r2_cost_preds
 
+        # Cost R6 (Minimization)
+        r6_cumulative_cost = self._calculate_gae(cost_r6, r6_cost_preds, r6_next_cost_pred, masks)
+        adv_r6 = r6_cumulative_cost - r6_cost_preds
+
         return {
             "reward": (adv_reward, gae_returns),
             "r1": (adv_r1, r1_cumulative_cost),
-            "r2": (adv_r2, r2_cumulative_cost)
+            "r2": (adv_r2, r2_cumulative_cost),
+            "r6": (adv_r6, r6_cumulative_cost)
         }
    
     # We iterate n_epochs times over the collected data to increase sample efficiency.
@@ -222,8 +233,8 @@ class ConstrainedPPOAgent:
         Args:
             rollouts (dict): Dictionary containing raw lists from the buffer:
                              ['states', 'actions', 'rewards', 'masks', 
-                              'cost_r1', 'cost_r2', 'next_state', 'logprobs']
-            robustness_dict (dict): Current min robustness values e.g. {'R1': -0.1, 'R2': 0.5}
+                              'cost_r1', 'cost_r2', 'cost_r6', 'next_state', 'logprobs']
+            robustness_dict (dict): Current min robustness values e.g. {'R1': -0.1, 'R2': 0.5, 'R6': -0.2}
             entropy_coeff (float): Coefficient for entropy regularization
             n_epochs (int): Number of times to iterate over the entire buffer
             batch_size (int): Size of the mini-batches
@@ -240,12 +251,14 @@ class ConstrainedPPOAgent:
         masks = torch.from_numpy(rollouts['masks']).float().to(self.device).detach()
         cost_r1 = torch.from_numpy(rollouts['cost_r1']).float().to(self.device).detach()
         cost_r2 = torch.from_numpy(rollouts['cost_r2']).float().to(self.device).detach()
+        cost_r6 = torch.from_numpy(rollouts['cost_r6']).float().to(self.device).detach()
         next_state = torch.from_numpy(rollouts['next_state']).float().unsqueeze(0).to(self.device).detach()     
 
-        advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, masks)
+        advantages = self.compute_all_advantages(states, next_state, rewards, cost_r1, cost_r2, cost_r6, masks)
         adv_reward, gae_returns = advantages["reward"]
         adv_r1, r1_cumulative_cost = advantages["r1"]
         adv_r2, r2_cumulative_cost = advantages["r2"]
+        adv_r6, r6_cumulative_cost = advantages["r6"]
         # Normalize advantages to stabilize training (on the whole buffer)
         # Switched to minibatch normalization as done in stavle-baselines3 for reward
         #adv_reward = (adv_reward - adv_reward.mean()) / (adv_reward.std() + 1e-8)
@@ -258,6 +271,9 @@ class ConstrainedPPOAgent:
             writer.add_scalar("Debug_Adv/R2_Mean", adv_r2.mean().item(), current_step)
             writer.add_scalar("Debug_Adv/R1_Std", adv_r1.std().item(), current_step)
             writer.add_scalar("Debug_Adv/R2_Std", adv_r2.std().item(), current_step)
+            writer.add_scalar("Debug_Adv/R6_Mean", adv_r6.mean().item(), current_step)
+            writer.add_scalar("Debug_Adv/R6_Std", adv_r6.std().item(), current_step)
+            
 
         # Determine the training mode once for the entire update
         violated_rules = [rule for rule, rho in robustness_dict.items() if rho < 0]
@@ -277,17 +293,20 @@ class ConstrainedPPOAgent:
         if len(violated_rules) == 1:
             adv_r1 = (adv_r1 - adv_r1.mean()) / (adv_r1.std() + 1e-8)
             adv_r2 = (adv_r2 - adv_r2.mean()) / (adv_r2.std() + 1e-8)
+            adv_r6 = (adv_r6 - adv_r6.mean()) / (adv_r6.std() + 1e-8)
         elif len(violated_rules) > 1:
             # center in 0 for ppo
             adv_r1_centered = adv_r1 - adv_r1.mean()
             adv_r2_centered = adv_r2 - adv_r2.mean()
+            adv_r6_centered = adv_r6 - adv_r6.mean()
             # get max std to preserve relative scale between cost advantages for CAGrad
-            shared_std = torch.max(adv_r1_centered.std(), adv_r2_centered.std()) + 1e-8
+            shared_std = torch.max(torch.stack([adv_r1_centered.std(), adv_r2_centered.std(), adv_r6_centered.std()])) + 1e-8
             adv_r1 = adv_r1_centered / shared_std
             adv_r2 = adv_r2_centered / shared_std
+            adv_r6 = adv_r6_centered / shared_std
 
         pg_losses, v_losses, ent_vals = [], [], []
-        c_losses_r1, c_losses_r2 = [], []
+        c_losses_r1, c_losses_r2, c_losses_r6 = [], [], []
 
         total_samples = states.size(0)
         
@@ -296,6 +315,7 @@ class ConstrainedPPOAgent:
         value_grad_norms = []
         r1_grad_norms = []
         r2_grad_norms = []
+        r6_grad_norms = []
         kl_divs = []
         clip_fractions = []
         if writer is not None:
@@ -304,14 +324,17 @@ class ConstrainedPPOAgent:
                 v_preds = self.value_net(states).squeeze()
                 r1_preds = self.cost_net_safe_distance(states).squeeze()
                 r2_preds = self.cost_net_safe_speed(states).squeeze()
+                r6_preds = self.cost_net_R6(states).squeeze()
 
                 ev_v = self._explained_variance(v_preds, gae_returns)
                 ev_r1 = self._explained_variance(r1_preds, r1_cumulative_cost)
                 ev_r2 = self._explained_variance(r2_preds, r2_cumulative_cost)
+                ev_r6 = self._explained_variance(r6_preds, r6_cumulative_cost)
 
                 writer.add_scalar("Debug_EV/Value_Reward", ev_v, current_step)
                 writer.add_scalar("Debug_EV/Cost_R1", ev_r1, current_step)
                 writer.add_scalar("Debug_EV/Cost_R2", ev_r2, current_step)
+                writer.add_scalar("Debug_EV/Cost_R6", ev_r6, current_step)
 
         # PPO Multi-Epoch & Minibatch Training Loop
         continue_training = True
@@ -329,6 +352,8 @@ class ConstrainedPPOAgent:
                 b_r1_cum_cost = r1_cumulative_cost[batch_indices]
                 b_adv_r2 = adv_r2[batch_indices]
                 b_r2_cum_cost = r2_cumulative_cost[batch_indices]
+                b_adv_r6 = adv_r6[batch_indices]
+                b_r6_cum_cost = r6_cumulative_cost[batch_indices]
 
                 # Normalize advantage on mini-batch for reward as done in stable-baseline3
                 b_adv_reward = (b_adv_reward - b_adv_reward.mean()) / (b_adv_reward.std() + 1e-8)
@@ -363,6 +388,12 @@ class ConstrainedPPOAgent:
                         "cumulative_cost": b_r2_cum_cost,
                         "network": self.cost_net_safe_speed,
                         "optimizer": self.cost_opts[1]
+                    },
+                    "R6": {
+                        "adv": b_adv_r6,
+                        "cumulative_cost": b_r6_cum_cost,
+                        "network": self.cost_net_R6,
+                        "optimizer": self.cost_opts[2]
                     }
                 }
 
@@ -394,7 +425,9 @@ class ConstrainedPPOAgent:
                     if rule == "R2": 
                         c_losses_r2.append(cost_loss.item())
                         r2_grad_norms.append(grad_norm.item())
-                
+                    if rule == "R6":
+                        c_losses_r6.append(cost_loss.item())
+                        r6_grad_norms.append(grad_norm.item())
                 # Policy Update Logic
                 cur_log_probs, entropy = self.evaluate_actions(b_states, b_actions)
 
@@ -434,8 +467,10 @@ class ConstrainedPPOAgent:
                 elif len(violated_rules) == 1:
                     rule = violated_rules[0]
                     cost_adv = b_cost_config[rule]["adv"]
+
                     # -cost_adv because we want to minimize cost
                     policy_loss = self._get_ppo_loss(ratio, -cost_adv) + entropy_loss
+
                     self.policy_opt.zero_grad()
                     policy_loss.backward()
                     pg_losses.append(policy_loss.item())
@@ -478,6 +513,7 @@ class ConstrainedPPOAgent:
             writer.add_scalar("Debug_Grad_Norm/Value_Network", np.mean(value_grad_norms), current_step)
             writer.add_scalar("Debug_Grad_Norm/Cost_Network_R1", np.mean(r1_grad_norms), current_step)
             writer.add_scalar("Debug_Grad_Norm/Cost_Network_R2", np.mean(r2_grad_norms), current_step)
+            writer.add_scalar("Debug_Grad_Norm/Cost_Network_R6", np.mean(r6_grad_norms), current_step)
         # Return full tensors for accurate logging in train.py
         return {
             "mode": actual_mode,
@@ -486,9 +522,11 @@ class ConstrainedPPOAgent:
             "reward": (adv_reward, gae_returns),
             "r1": (adv_r1, r1_cumulative_cost),
             "r2": (adv_r2, r2_cumulative_cost),
+            "r6": (adv_r6, r6_cumulative_cost),
             "policy_loss": np.mean(pg_losses) if pg_losses else 0,
             "value_loss": np.mean(v_losses) if v_losses else 0,
             "entropy": np.mean(ent_vals) if ent_vals else 0,
             "cost_loss_r1": np.mean(c_losses_r1) if c_losses_r1 else 0,
-            "cost_loss_r2": np.mean(c_losses_r2) if c_losses_r2 else 0
+            "cost_loss_r2": np.mean(c_losses_r2) if c_losses_r2 else 0,
+            "cost_loss_r6": np.mean(c_losses_r6) if c_losses_r6 else 0,
         }
