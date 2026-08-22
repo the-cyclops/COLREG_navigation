@@ -24,7 +24,7 @@ from colreg_logic import rtamt_yml_parser
 # "../Builds/train_gui.app"  - path to macos build
 # "../Builds/train_5M.app" - path for 5M
 unity_env_path = "../Builds/train.app"
-unity_env_path = None
+#unity_env_path = None
 
 #DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 DEVICE = "cpu"
@@ -32,10 +32,10 @@ DEVICE = "cpu"
 OBSERVATION_SIZE = 20 # From UnityEnvironment/Scripts/BoatAgent.cs
 RAYCAST_COUNT = 7 # 3 side rays + 1 front ray # From Unity RayPerceptionSensorComponent3D
 RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
-NUM_ROBUSTNESS_FLAG = 2 # R1, R2
+NUM_ROBUSTNESS_FLAG = 3 # R1, R2, R6
 
 INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
-ACTION_SIZE = 2 # Left Jet, Right Jet
+ACTION_SIZE = 2 # throttle and steering
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
@@ -49,7 +49,7 @@ ENTROPY_COEF = 0.001
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 
-colreg_path = "colreg_logic/colreg.yaml"
+colreg_path = "colreg_logic/colregR6.yaml"
 
 SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10
@@ -76,6 +76,33 @@ def get_single_agent_obs(steps):
     
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
+
+def RTAMT_evaluation(memory_buffer, RTAMT):
+    tau_state_episode = []
+
+    for r1, speed, keep, no_turn in zip(memory_buffer.episode_r1_signal, memory_buffer.episode_phys_speed, memory_buffer.episode_keep_signal, memory_buffer.episode_no_turning_signal):
+        step_data = {
+            'id_r1_signal': r1,        
+            'id_boat_speed': speed,    
+            'id_keep_signal': keep, 
+            'id_no_turning_signal': no_turn
+        }
+        tau_state_episode.append(step_data)
+
+    _, single_rho_partial = RTAMT.compute_robustness_dense(tau_state_episode)
+
+    array_rho_1 = np.array(single_rho_partial.get('R1_safe_distance', [0.0]))
+    array_rho_2 = np.array(single_rho_partial.get('R2_safe_speed', [0.0]))
+    array_rho_6 = np.array(single_rho_partial.get('R6_stand_on', [0.0]))
+
+    costs_1 = np.tanh(-array_rho_1) * COST_SCALE
+    costs_2 = np.tanh(-array_rho_2) * COST_SCALE
+    costs_6 = np.tanh(-array_rho_6) * COST_SCALE
+
+    memory_buffer.add_costs(c_r1=costs_1, c_r2=costs_2, c_r6=costs_6)
+    memory_buffer.add_robustness(r1=array_rho_1, r2=array_rho_2, r6=array_rho_6)
+
+    return costs_1, costs_2, costs_6
 
 def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_params):
     agent.set_eval_mode()
@@ -155,7 +182,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 
 # final5 baseline setup: 
 # gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
-# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_horizon=5.0 and RTAMT_horizon=80 (4s)
+# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_coll=5.0, t_check=10.0 and RTAMT_horizon=80 (4s)
 # testing also with new evaluating pct from .8 to .85, 2 times same setup to look at consistency
 COST_SCALE =0.1 #1
 def main():
@@ -253,8 +280,8 @@ def main():
 
         agent.set_train_mode()
 
-        memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
-        print(f"horizon length from RTAMT: {RTAMT.horizon_length}")
+        memory_buffer = Memory(tau=80)
+        print(f"Memory tau for flag evaluation: {memory_buffer.tau} steps")
         try:
             s = starting_step
             decision_steps, terminal_steps = env.get_steps(behavior_name)
@@ -273,45 +300,21 @@ def main():
             recent_returns = deque(maxlen=window_size)
             recent_episode_cumulative_costs_r1 = deque(maxlen=window_size)
             recent_episode_cumulative_costs_r2 = deque(maxlen=window_size)
+            recent_episode_cumulative_costs_r6 = deque(maxlen=window_size)
             recent_episode_pos_cumulative_costs_r1 = deque(maxlen=window_size)
             recent_episode_pos_cumulative_costs_r2 = deque(maxlen=window_size)
+            recent_episode_pos_cumulative_costs_r6 = deque(maxlen=window_size)
 
             while s < TOT_STEPS: 
 
                 mean_throttle_buffer, mean_steering_buffer = [], []
                 std_throttle_buffer, std_steering_buffer = [], []
 
-
-                def RTAMT_evaluation():
-                    tau_state_episode = []
-
-                    for r1, speed, keep, no_turn in zip(memory_buffer.episode_r1_signal, memory_buffer.episode_phys_speed, memory_buffer.episode_keep_signal, memory_buffer.episode_no_turning_signal):
-                        step_data = {
-                            'id_r1_signal': r1,        
-                            'id_boat_speed': speed,    
-                            'id_keep_signal': keep, 
-                            'id_no_turning_signal': no_turn
-                        }
-                        tau_state_episode.append(step_data)
-
-                    _, single_rho_partial = RTAMT.compute_robustness_dense(tau_state_episode)
-
-                    array_rho_1 = np.array(single_rho_partial.get('R1_safe_distance', [0.0]))
-                    array_rho_2 = np.array(single_rho_partial.get('R2_safe_speed', [0.0]))
-                
-                    costs_1 = np.tanh(-array_rho_1) * COST_SCALE
-                    costs_2 = np.tanh(-array_rho_2) * COST_SCALE
-
-                    memory_buffer.add_costs(c_r1=costs_1, c_r2=costs_2)
-                    memory_buffer.add_robustness(r1=array_rho_1, r2=array_rho_2)
-
-                    return costs_1, costs_2
-            
                 while (len(memory_buffer.states) < ROLLOUT_SIZE):
                 
                     obs, vec_obs = get_single_agent_obs(decision_steps)
-                    r1_flag, r2_flag = memory_buffer.compute_markovian_flags()
-                    obs_augmented = np.concatenate((obs, [r1_flag, r2_flag]))
+                    r1_flag, r2_flag, r6_flag = memory_buffer.compute_markovian_flags()
+                    obs_augmented = np.concatenate((obs, [r1_flag, r2_flag, r6_flag]))
                     obs_tensor = torch.from_numpy(obs_augmented).float().unsqueeze(0).to(DEVICE)
 
                     action_tensor, log_probabs = agent.get_action(obs_tensor)
@@ -326,7 +329,26 @@ def main():
                         std_throttle_buffer.append(std[0, 0].detach().cpu().numpy())
                         std_steering_buffer.append(std[0, 1].detach().cpu().numpy())
 
+                    r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
 
+                    physical_speed = colreg_handler.get_ego_speed(vec_obs)
+
+                    keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
+
+                    get_no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
+
+                    memory_buffer.add_ppo_transition(
+                                            state=obs_tensor, 
+                                            action=action_tensor, 
+                                            logprob=log_probabs,
+                                            reward=reward, 
+                                            is_terminal=float(end_episode),
+                                            phys_speed=physical_speed, 
+                                            r1_signal=r1_signal, 
+                                            keep_signal=keep_signal, 
+                                            no_turn_signal=get_no_turning_signal
+                    )
+                    
                     env.set_actions(behavior_name, action_tuple)
                     env.step()
                     s += 1
@@ -338,41 +360,27 @@ def main():
                     reward = float(terminal_steps.reward[0]) if end_episode else float(decision_steps.reward[0])
                     current_return += reward
 
-                    memory_buffer.add_ppo_transition(
-                        state=obs_tensor, 
-                        action=action_tensor, 
-                        logprob=log_probabs,
-                        reward=reward, 
-                        is_terminal=float(end_episode)
-                    )
-                
-                    r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
-
-                    physical_speed = colreg_handler.get_ego_speed(vec_obs)
-
-                    keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
-
-                    get_no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
-
                     print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {get_no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
                 
-                    memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_signal=r1_signal, keep_signal=keep_signal, no_turn_signal=get_no_turning_signal)
-
                     if end_episode:
-                        costs_1, costs_2 = RTAMT_evaluation()
+                        costs_1, costs_2, costs_6 = RTAMT_evaluation(memory_buffer, RTAMT)
                         memory_buffer.clear_episode_signal()
 
                         ep_cost_r1 = np.sum(costs_1)
                         ep_cost_r2 = np.sum(costs_2)
+                        ep_cost_r6 = np.sum(costs_6)
                         ep_pos_cost_r1 = np.sum(np.maximum(0, costs_1)) # np.maximum gestisce gli array senza crashare
                         ep_pos_cost_r2 = np.sum(np.maximum(0, costs_2))
+                        ep_pos_cost_r6 = np.sum(np.maximum(0, costs_6))
 
                         recent_returns.append(current_return)
                         returns_episodes.append(current_return)
                         recent_episode_cumulative_costs_r1.append(ep_cost_r1)
                         recent_episode_cumulative_costs_r2.append(ep_cost_r2)
+                        recent_episode_cumulative_costs_r6.append(ep_cost_r6)
                         recent_episode_pos_cumulative_costs_r1.append(ep_pos_cost_r1)
                         recent_episode_pos_cumulative_costs_r2.append(ep_pos_cost_r2)
+                        recent_episode_pos_cumulative_costs_r6.append(ep_pos_cost_r6)
                         current_return = 0.0
 
                         env.reset()
@@ -387,7 +395,7 @@ def main():
 
                 if len(memory_buffer.episode_phys_speed) > 0:
                     # Force RTAMT evaluation at the end of the rollout to ensure we have the latest robustness values
-                    RTAMT_evaluation()
+                    RTAMT_evaluation(memory_buffer, RTAMT)
 
 
 
@@ -399,8 +407,8 @@ def main():
 
 
                 next_state = get_single_agent_obs(decision_steps)[0]
-                r1_next, r2_next = memory_buffer.compute_markovian_flags()
-                next_state_augmented = np.concatenate((next_state, [r1_next, r2_next]))
+                r1_next, r2_next, r6_next = memory_buffer.compute_markovian_flags()
+                next_state_augmented = np.concatenate((next_state, [r1_next, r2_next, r6_next]))
                 rollout_buffer = {}
                 rollout_buffer['states'] =  memory_buffer.states
                 rollout_buffer['actions'] = memory_buffer.actions
@@ -410,14 +418,15 @@ def main():
                 rollout_buffer['next_state'] = np.array(next_state_augmented)
                 rollout_buffer['cost_r1'] = np.array(memory_buffer.cost_r1)
                 rollout_buffer['cost_r2'] = np.array(memory_buffer.cost_r2)
+                rollout_buffer['cost_r6'] = np.array(memory_buffer.cost_r6)
 
-                robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
+                robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2), 'R6': min(memory_buffer.robustness_6)}
             
                 log_dict = agent.update(rollouts=rollout_buffer, 
                                         robustness_dict=robustness_dict, 
                                         current_step=s, 
                                         batch_size=BATCH_SIZE,
-                                         writer=writer)
+                                        writer=writer)
                 
                 n_updates += 1
             
@@ -440,21 +449,26 @@ def main():
                     writer.add_scalar("Training/Smoothed_Return", smoothed_return, s)
                     writer.add_scalar("Training/Smoothed_Ep_Cost_R1", np.mean(recent_episode_cumulative_costs_r1), s)
                     writer.add_scalar("Training/Smoothed_Ep_Cost_R2", np.mean(recent_episode_cumulative_costs_r2), s)
+                    writer.add_scalar("Training/Smoothed_Ep_Cost_R6", np.mean(recent_episode_cumulative_costs_r6), s)
                     writer.add_scalar("Training/Smoothed_Ep_Pos_Cost_R1", np.mean(recent_episode_pos_cumulative_costs_r1), s)
                     writer.add_scalar("Training/Smoothed_Ep_Pos_Cost_R2", np.mean(recent_episode_pos_cumulative_costs_r2), s)
+                    writer.add_scalar("Training/Smoothed_Ep_Pos_Cost_R6", np.mean(recent_episode_pos_cumulative_costs_r6), s)
 
                 pbar.set_postfix({
                     'Reward': f"{rewards.mean().item():.2f}",
                     'R1': f"{robustness_dict['R1']:.2f}",
-                    'R2': f"{robustness_dict['R2']:.2f}"
+                    'R2': f"{robustness_dict['R2']:.2f}",
+                    'R6': f"{robustness_dict['R6']:.2f}"
                 })
 
                 writer.add_scalar("Training/Mean_Reward", rewards.mean().item(), s)
                 writer.add_scalar("Training/Value_target_mean_GAE_returns", gae_returns.mean().item(), s)
                 writer.add_scalar("Training/Robustness_R1_Physics", robustness_dict['R1'], s)
                 writer.add_scalar("Training/Robustness_R2_Physics", robustness_dict['R2'], s)
+                writer.add_scalar("Training/Robustness_R6_Physics", robustness_dict['R6'], s)
                 writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
                 writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
+                writer.add_scalar("Training/R6_GAE_cumulative_cost", log_dict['r6'][1].mean().item(), s)
                 writer.add_text("Training/Mode_Log", mode, s)
                 writer.add_scalar("Policy/Throttle_Mean", np.mean(mean_throttle_buffer), s)
                 writer.add_scalar("Policy/Steering_Mean", np.mean(mean_steering_buffer), s)
@@ -465,8 +479,9 @@ def main():
                 writer.add_scalar("Loss/Value", log_dict['value_loss'], s)
                 writer.add_scalar("Loss/Cost_R1", log_dict['cost_loss_r1'], s)
                 writer.add_scalar("Loss/Cost_R2", log_dict['cost_loss_r2'], s)
+                writer.add_scalar("Loss/Cost_R6", log_dict['cost_loss_r6'], s)
 
-                memory_buffer.clear_ppo()
+                memory_buffer.clear_ppo() # Clear only on-policy data. Physical signals must persist until episode end for RTAMT.
 
                 # Save the model occasionally
                 checkpoint = {
@@ -479,8 +494,10 @@ def main():
                         'value_opt_state_dict': agent.value_opt.state_dict(),
                         'cost_safe_distance_opt_state_dict': agent.cost_opts[0].state_dict(),
                         'cost_safe_speed_opt_state_dict': agent.cost_opts[1].state_dict(),
+                        'cost_r6_opt_state_dict': agent.cost_opts[2].state_dict(),
                         'robustness_r1': robustness_dict['R1'],
-                        'robustness_r2': robustness_dict['R2']
+                        'robustness_r2': robustness_dict['R2'],
+                        'robustness_r6': robustness_dict['R6']
                     }
                 
                 if save_model:
@@ -499,27 +516,30 @@ def main():
                     save_model = False
 
                 current_r1 = robustness_dict['R1']
-                current_r2 = robustness_dict['R2']             
+                current_r2 = robustness_dict['R2']
+                current_r6 = robustness_dict['R6']
 
                 if n_updates % EVAL_INTERVAL == 0 and s >= START_SAFETY:
 
-                    mean_eval_return, total_r1_robustness, total_r2_robustness = evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT, eval_env=eval_env, eval_env_params=eval_env_params)
+                    mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness = evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT, eval_env=eval_env, eval_env_params=eval_env_params)
 
                     # Different safety criteria
                     is_safe_mean = np.mean(total_r1_robustness) >= 0.0 and np.mean(total_r2_robustness) >= 0.0
                     
                     safe_pct_r1 = sum(1 for r1 in total_r1_robustness if r1 >= 0.0) / len(total_r1_robustness)
                     safe_pct_r2 = sum(1 for r2 in total_r2_robustness if r2 >= 0.0) / len(total_r2_robustness)
+                    safe_pct_r6 = sum(1 for r6 in total_r6_robustness if r6 >= 0.0) / len(total_r6_robustness)
                     safety_threshold_percentage = 0.85
                     is_safe_pct = (safe_pct_r1 >= safety_threshold_percentage and 
-                                   safe_pct_r2 >= safety_threshold_percentage)
+                                   safe_pct_r2 >= safety_threshold_percentage and
+                                   safe_pct_r6 >= safety_threshold_percentage)
 
                     # Save best model (no safety constraint)
                     if mean_eval_return > best_return:
                         best_return = mean_eval_return
                         best_model_path = f"{save_dir}/best_model.pth"
                         torch.save(checkpoint, best_model_path)
-                        pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}     ***")
+                        pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}, R6: {current_r6:.2f}     ***")
 
                    
                     # Save best safe model (mean criterion)
@@ -539,12 +559,14 @@ def main():
                     # Log all three metrics
                     writer.add_scalar("Eval/Safe_Min_R1", min(total_r1_robustness), s)
                     writer.add_scalar("Eval/Safe_Min_R2", min(total_r2_robustness), s)
+                    writer.add_scalar("Eval/Safe_Min_R6", min(total_r6_robustness), s)
                     writer.add_scalar("Eval/Mean_Eval_Return", mean_eval_return, s)
                     writer.add_scalar("Eval/Safe_Mean_R1", np.mean(total_r1_robustness), s)
                     writer.add_scalar("Eval/Safe_Mean_R2", np.mean(total_r2_robustness), s)
+                    writer.add_scalar("Eval/Safe_Mean_R6", np.mean(total_r6_robustness), s)
                     writer.add_scalar("Eval/Safe_Pct_R1", safe_pct_r1, s)
                     writer.add_scalar("Eval/Safe_Pct_R2", safe_pct_r2, s)
-
+                    writer.add_scalar("Eval/Safe_Pct_R6", safe_pct_r6, s)
         except KeyboardInterrupt:
             print("Manual interruption...")
             break
