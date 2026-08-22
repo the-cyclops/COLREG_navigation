@@ -285,12 +285,12 @@ def main():
                 def RTAMT_evaluation():
                     tau_state_episode = []
 
-                    for r1, speed in zip(memory_buffer.episode_r1_signal, memory_buffer.episode_phys_speed):
+                    for r1, speed, keep, no_turn in zip(memory_buffer.episode_r1_signal, memory_buffer.episode_phys_speed, memory_buffer.episode_keep_signal, memory_buffer.episode_no_turning_signal):
                         step_data = {
                             'id_r1_signal': r1,        
                             'id_boat_speed': speed,    
-                            #'id_keep_signal': keep, 
-                            #'id_no_turning_signal': no_turn
+                            'id_keep_signal': keep, 
+                            'id_no_turning_signal': no_turn
                         }
                         tau_state_episode.append(step_data)
 
@@ -356,7 +356,7 @@ def main():
 
                     print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {get_no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
                 
-                    memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_signal=r1_signal)
+                    memory_buffer.add_stl_sample(phys_speed=physical_speed, r1_signal=r1_signal, keep_signal=keep_signal, no_turn_signal=get_no_turning_signal)
 
                     if end_episode:
                         costs_1, costs_2 = RTAMT_evaluation()
