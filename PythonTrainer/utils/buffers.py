@@ -31,16 +31,13 @@ class Memory:
         self.episode_keep_signal = []
         self.episode_no_turning_signal = []
 
-    def add_ppo_transition(self, state, action, logprob, reward, is_terminal):
-        """Store transition data for PPO update."""
+    def add_ppo_transition(self, state, action, logprob, reward, is_terminal, phys_speed, r1_signal, keep_signal, no_turn_signal):
+        """Store transition data for PPO update and denormalized physical data of the episode."""
         self.states.append(state)
         self.actions.append(action)
         self.logprobs.append(logprob)
         self.rewards.append(reward)
         self.is_terminals.append(is_terminal)
-
-    def add_stl_sample(self, phys_speed, r1_signal, keep_signal, no_turn_signal):
-        """Add denormalized physical data to the episode lists."""
         self.episode_phys_speed.append(phys_speed)
         self.episode_r1_signal.append(r1_signal)
         self.episode_keep_signal.append(keep_signal)
