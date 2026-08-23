@@ -42,3 +42,5 @@ __pycache__/
 # --- Timers --- 
 UnityEnvironment/COLREG_simulation/Assets/ML-Agents/Timers/OutdoorsScene_timers.json
 UnityEnvironment/COLREG_simulation/Assets/ML-Agents/Timers/TrainingScene_timers.json
+UnityEnvironment/COLREG_simulation/Assets/ML-Agents/Timers/NewTrainingScene_timers.json
+UnityEnvironment/COLREG_simulation/Assets/ML-Agents/Timers/NewEvalScene_timers.json
