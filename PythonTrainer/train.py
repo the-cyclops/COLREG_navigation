@@ -336,6 +336,17 @@ def main():
                     keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
 
                     get_no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
+                    
+                    env.set_actions(behavior_name, action_tuple)
+                    env.step()
+                    s += 1
+                    pbar.update(1)
+
+                    decision_steps, terminal_steps = env.get_steps(behavior_name)
+                    end_episode = len(terminal_steps) > 0
+
+                    reward = float(terminal_steps.reward[0]) if end_episode else float(decision_steps.reward[0])
+                    current_return += reward
 
                     memory_buffer.add_ppo_transition(
                                             state=obs_tensor, 
@@ -348,17 +359,6 @@ def main():
                                             keep_signal=keep_signal, 
                                             no_turn_signal=get_no_turning_signal
                     )
-                    
-                    env.set_actions(behavior_name, action_tuple)
-                    env.step()
-                    s += 1
-                    pbar.update(1)
-
-                    decision_steps, terminal_steps = env.get_steps(behavior_name)
-                    end_episode = len(terminal_steps) > 0
-
-                    reward = float(terminal_steps.reward[0]) if end_episode else float(decision_steps.reward[0])
-                    current_return += reward
 
                     print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {get_no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
                 
