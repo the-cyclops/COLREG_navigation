@@ -310,7 +310,8 @@ def main():
                 mean_throttle_buffer, mean_steering_buffer = [], []
                 std_throttle_buffer, std_steering_buffer = [], []
 
-                while (len(memory_buffer.states) < ROLLOUT_SIZE):
+                # Loop until we have enough transitions for a rollout and the episode ends to ensure rtamt robustness evaluation is accurate
+                while (len(memory_buffer.states) < ROLLOUT_SIZE or not end_episode):
                 
                     obs, vec_obs = get_single_agent_obs(decision_steps)
                     r1_flag, r2_flag, r6_flag = memory_buffer.compute_markovian_flags()
