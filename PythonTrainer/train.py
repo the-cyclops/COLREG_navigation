@@ -113,6 +113,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
     episode_returns = []
     total_r1_robustness = []
     total_r2_robustness = []
+    total_r6_robustness = []
     memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
 
     print(f"--- Starting Evaluation with seed {eval_seed} ---")
@@ -130,18 +131,23 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
             while not done:
                 obs, vec_obs = get_single_agent_obs(decision_steps)
 
-                r1, r2 = memory_buffer.compute_markovian_flags()
-                obs_augmented = np.concatenate((obs, [r1, r2]))
+                r1_flag, r2_flag, r6_flag = memory_buffer.compute_markovian_flags()
+                obs_augmented = np.concatenate((obs, [r1_flag, r2_flag, r6_flag]))
                 obs_tensor = torch.from_numpy(obs_augmented).float().unsqueeze(0).to(DEVICE)
 
                 with torch.no_grad():
-                    action_tensor, _ = agent.get_action(obs_tensor, deterministic=True)
+                    action_tensor, log_probabs = agent.get_action(obs_tensor, deterministic=True)
                 
                 action_numpy = action_tensor.cpu().numpy()
-                #pbar.write(f"Step {pbar.n+1} | Throttle: {action_numpy[0,0]:.3f}, Steering: {action_numpy[0,1]:.3f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
+                #pbar.write(f"Step {pbar.n+1} | Throttle: {action_numpy[0,0]:.3f}, Steering: {action_numpy[0,1]:.3f} | flag_R1: {r1_flag:.4f} | flag_R2: {r2_flag:.4f} | flag_R6: {r6_flag:.4f}")
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
 
+                r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
+                physical_speed = colreg_handler.get_ego_speed(vec_obs)
+                keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
+                no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
+                                 
                 eval_env.set_actions(BEHAVIOR_NAME, action_tuple)
                 eval_env.step()
                 pbar.update(1)
@@ -149,25 +155,46 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
                 decision_steps, terminal_steps = eval_env.get_steps(BEHAVIOR_NAME)
                 done = len(terminal_steps) > 0
                 step_reward = float(terminal_steps.reward[0]) if done else float(decision_steps.reward[0])
-                #pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.5f} | flag_R1: {r1:.4f} | flag_R2: {r2:.4f}")
+                #pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.5f} | flag_R1: {r1_flag:.4f} | flag_R2: {r2_flag:.4f} | flag_R6: {r6_flag:.4f}")
                 episode_reward += step_reward
 
-                r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
-                physical_speed = colreg_handler.get_ego_speed(vec_obs)
-                memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_signal=float(r1_signal))
+                memory_buffer.add_ppo_transition(
+                                        state=obs_tensor, 
+                                        action=action_tensor, 
+                                        logprob=log_probabs,
+                                        reward=step_reward, 
+                                        is_terminal=float(done),
+                                        phys_speed=physical_speed, 
+                                        r1_signal=r1_signal, 
+                                        keep_signal=keep_signal, 
+                                        no_turn_signal=no_turning_signal
+                )
 
-            _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
-            rho_1 = single_rho.get('R1_safe_distance', 0.0)
-            rho_2 = single_rho.get('R2_safe_speed', 0.0)
+            tau_state_episode = []
+            for r1, speed, keep, no_turn in zip(memory_buffer.episode_r1_signal, memory_buffer.episode_phys_speed, memory_buffer.episode_keep_signal, memory_buffer.episode_no_turning_signal):
+                step_data = {
+                    'id_r1_signal': r1,        
+                    'id_boat_speed': speed,    
+                    'id_keep_signal': keep, 
+                    'id_no_turning_signal': no_turn
+                }
+                tau_state_episode.append(step_data)
+        
+            _, single_rho_partial = RTAMT.compute_robustness_dense(tau_state_episode)
+        
+            array_rho_1 = np.array(single_rho_partial.get('R1_safe_distance', [0.0]))
+            array_rho_2 = np.array(single_rho_partial.get('R2_safe_speed', [0.0]))
+            array_rho_6 = np.array(single_rho_partial.get('R6_stand_on', [0.0]))
 
             episode_returns.append(episode_reward)
-            total_r1_robustness.append(rho_1)
-            total_r2_robustness.append(rho_2)
+            total_r1_robustness.extend(array_rho_1)
+            total_r2_robustness.extend(array_rho_2)
+            total_r6_robustness.extend(array_rho_6)
 
             pbar.close()
-            print(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f}")
+            print(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | R1: {np.mean(array_rho_1):.2f} | R2: {np.mean(array_rho_2):.2f} | R6: {np.mean(array_rho_6):.2f}")
 
-            memory_buffer.clear_stl_window()
+            memory_buffer.clear_episode_signal() 
             memory_buffer.clear_ppo() 
 
     except KeyboardInterrupt:
@@ -178,7 +205,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 
     mean_eval_return = float(np.mean(episode_returns)) if episode_returns else 0.0
     
-    return mean_eval_return, total_r1_robustness, total_r2_robustness
+    return mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness
 
 # final5 baseline setup: 
 # gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
@@ -336,7 +363,7 @@ def main():
 
                     keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
 
-                    get_no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
+                    no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
                     
                     env.set_actions(behavior_name, action_tuple)
                     env.step()
@@ -358,10 +385,10 @@ def main():
                                             phys_speed=physical_speed, 
                                             r1_signal=r1_signal, 
                                             keep_signal=keep_signal, 
-                                            no_turn_signal=get_no_turning_signal
+                                            no_turn_signal=no_turning_signal
                     )
 
-                    print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {get_no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
+                    print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
                 
                     if end_episode:
                         costs_1, costs_2, costs_6 = RTAMT_evaluation(memory_buffer, RTAMT)
@@ -525,7 +552,7 @@ def main():
                     mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness = evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT, eval_env=eval_env, eval_env_params=eval_env_params)
 
                     # Different safety criteria
-                    is_safe_mean = np.mean(total_r1_robustness) >= 0.0 and np.mean(total_r2_robustness) >= 0.0
+                    is_safe_mean = np.mean(total_r1_robustness) >= 0.0 and np.mean(total_r2_robustness) >= 0.0 and np.mean(total_r6_robustness) >= 0.0
                     
                     safe_pct_r1 = sum(1 for r1 in total_r1_robustness if r1 >= 0.0) / len(total_r1_robustness)
                     safe_pct_r2 = sum(1 for r2 in total_r2_robustness if r2 >= 0.0) / len(total_r2_robustness)
