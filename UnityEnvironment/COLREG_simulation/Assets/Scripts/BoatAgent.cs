@@ -249,6 +249,7 @@ public class BoatAgent : Agent
 
         // intruder1Speed = getRandomFloat(minS, maxS);
         // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
+        intruder1Speed = 2.1f;
         splineAnimator1.MaxSpeed = 2.1f; //intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
         
         // Partenza casuale lungo il percorso per non avere bias di posizione
