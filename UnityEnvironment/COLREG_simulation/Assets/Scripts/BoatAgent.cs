@@ -304,7 +304,7 @@ public class BoatAgent : Agent
         transform.localPosition = initialPosition;
         transform.localRotation = initialRotation;
 
-        float initialSpeed = 2.1f; // Safe Speed from COLREG
+        float initialSpeed = 0f; // Safe Speed from COLREG
 
         rb.linearVelocity = transform.forward * initialSpeed;
         rb.angularVelocity = Vector3.zero;
