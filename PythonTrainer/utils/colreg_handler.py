@@ -128,7 +128,7 @@ class COLREGHandler:
 
         # 1. COLLISION RISK SIGNAL (In meters)
         # Collision risk is positive if the intruder is predicted to violate the safe distance within the time horizon (cpa_margin < 0).
-        cpa_margin = self.compute_cpa_R1(pos, vel, safe_dist, t_check)
+        cpa_margin = self.compute_cpa_R1(pos, vel, safe_dist=safe_dist, t_horizon=t_check)
         collision_risk_signal = -cpa_margin 
 
         # 2. EXACT LEFT SECTOR SIGNAL (Angular)
