@@ -2,7 +2,7 @@ timestep: 0.05
 dense: True
 #horizon: 80 # 1 / (Unity_100Hz / Decision_Period_5) * 80 steps = 4.0s
 constants:
-  - name: V_MAX
+  - name: safe_speed_limit
     type: float
     value: 2.1 # Maximum safe speed (m/s) reasonable for our boats
 variables:
@@ -28,7 +28,7 @@ specifications:
     weight: 1.0
 
   - name: R2_safe_speed # R2: Maintain a safe speed within the time horizon
-    spec: R2_safe_speed = always[0, 80]((boat_speed <= V_MAX) and (boat_speed >= -1.0))
+    spec: R2_safe_speed = always[0, 80]((boat_speed <= safe_speed_limit) and (boat_speed >= -1.0))
     weight: 1.0
 
   - name: R6_stand_on # R6: Stand-on vessel must keep its course until the situation is resolved

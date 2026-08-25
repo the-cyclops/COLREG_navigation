@@ -1,11 +1,11 @@
 import numpy as np
 
 class COLREGHandler:
-    def __init__(self, max_linear_speed=2.5):
-        self.max_linear_speed = max_linear_speed
+    def __init__(self, physical_max_speed=2.5):
+        self.physical_max_speed = physical_max_speed
         # Parameters of Unity C# normalization
         self.max_dist = 43.0 
-        self.k_intruder_vel_rel = 2.0 * max_linear_speed 
+        self.k_intruder_vel_rel = 2.0 * physical_max_speed 
         
         # Constant for safety signal clipping (Avoids magic numbers)
         self.MAX_SAFETY_MARGIN_CAP = 1.0
@@ -16,7 +16,7 @@ class COLREGHandler:
         """
         # Indices 3 is normalized velocity x, 4 is normalized velocity z
         norm_speed = obs_vector[4]
-        phys_speed = norm_speed * self.max_linear_speed
+        phys_speed = norm_speed * self.physical_max_speed
         return phys_speed
 
     def denormalize_intruder_observation(self, obs_vector):
@@ -145,7 +145,7 @@ class COLREGHandler:
         # An angle margin of 50 degrees becomes a robustness of 5.0 (similar to 5.0 meters).
         scaling_factor = 10.0  # degrees to meters scaling #TODO controllare che sia fintunato
         left_sector_signal = raw_angular_robustness / scaling_factor
-
+        
         # 3. LOGICAL AND (min)
         # The rule is active ONLY IF there is a risk AND it's strictly in the left sector.
         intruder_keep = min(collision_risk_signal, left_sector_signal)
