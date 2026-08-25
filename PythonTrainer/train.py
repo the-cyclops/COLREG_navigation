@@ -146,7 +146,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
                 r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
                 keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
-                no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
+                no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[0][1])
                                  
                 eval_env.set_actions(BEHAVIOR_NAME, action_tuple)
                 eval_env.step()
@@ -363,7 +363,7 @@ def main():
 
                     keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
 
-                    no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[1])
+                    no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[0][1])
                     
                     env.set_actions(behavior_name, action_tuple)
                     env.step()

@@ -249,7 +249,7 @@ public class BoatAgent : Agent
 
         // intruder1Speed = getRandomFloat(minS, maxS);
         // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
-        splineAnimator1.MaxSpeed = maxS; //intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
+        splineAnimator1.MaxSpeed = 2.1f; //intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
         
         // Partenza casuale lungo il percorso per non avere bias di posizione
         splineAnimator1.ElapsedTime = 0f; //getRandomFloat(0f, splineAnimator1.Duration);
@@ -304,7 +304,7 @@ public class BoatAgent : Agent
         transform.localPosition = initialPosition;
         transform.localRotation = initialRotation;
 
-        float initialSpeed = 2.1f; // Safe Speed from COLREG
+        float initialSpeed = 0f; // Safe Speed from COLREG
 
         rb.linearVelocity = transform.forward * initialSpeed;
         rb.angularVelocity = Vector3.zero;
