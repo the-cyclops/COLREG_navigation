@@ -333,8 +333,23 @@ public class BoatAgent : Agent
         lastPosIntruder1_2D = new Vector2(intruderVessel1.transform.position.x, intruderVessel1.transform.position.z);
         lastPosIntruder2_2D = new Vector2(intruderVessel2.transform.position.x, intruderVessel2.transform.position.z);
 
-        intruder1Velocity = Vector3.zero;
-        intruder2Velocity = Vector3.zero;
+        if (intruderVessel1 != null && intruderVessel1.activeInHierarchy && curriculumStage == 2)
+        {
+            intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
+        }
+        else 
+        {
+            intruder1Velocity = Vector3.zero;
+        }
+
+        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
+        {
+            intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
+        }
+        else 
+        {
+            intruder2Velocity = Vector3.zero;
+        }
 
         Vector2 boatPos2D = new Vector2(transform.localPosition.x, transform.localPosition.z);
         Vector2 targetPos2D = new Vector2(target.transform.localPosition.x, target.transform.localPosition.z);
