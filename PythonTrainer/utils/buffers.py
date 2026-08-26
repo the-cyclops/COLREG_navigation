@@ -76,7 +76,7 @@ class Memory:
         del self.episode_keep_signal[:]
         del self.episode_no_turning_signal[:]
     
-    def compute_markovian_flags(self, v_max=2.1):
+    def compute_markovian_flags(self, safe_speed_limit=2.1):
 
         if not self.episode_r1_signal or not self.episode_phys_speed or not self.episode_keep_signal or not self.episode_no_turning_signal:
             return 0.5, 0.5, 0.5
@@ -110,7 +110,7 @@ class Memory:
                 r1_flag = 0.0
 
             # R2 is safe if the speed is within the limits (globally)
-            if -1.0 <= speed <= v_max:
+            if -1.0 <= speed <= safe_speed_limit:
                 r2_flag = min(r2_flag + step_increment, 1.0)
             else:
                 r2_flag = 0.0

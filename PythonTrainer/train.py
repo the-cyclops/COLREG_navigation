@@ -54,6 +54,7 @@ colreg_path = "colreg_logic/colregR6.yaml"
 SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10
 EVAL_INTERVAL = 5 # Evaluate every 5 episodes during evaluation phase (after safety activation)
+SAFETY_THRESHOLD_PERCENTAGE = 0.80
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -114,7 +115,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
     total_r1_robustness = []
     total_r2_robustness = []
     total_r6_robustness = []
-    memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
+    memory_buffer = Memory(tau=80)  
 
     print(f"--- Starting Evaluation with seed {eval_seed} ---")
 
@@ -137,8 +138,8 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 
                 with torch.no_grad():
                     action_tensor, log_probabs = agent.get_action(obs_tensor, deterministic=True)
-                
-                action_numpy = action_tensor.cpu().numpy()
+                    action_numpy = action_tensor.detach().cpu().numpy()
+
                 #pbar.write(f"Step {pbar.n+1} | Throttle: {action_numpy[0,0]:.3f}, Steering: {action_numpy[0,1]:.3f} | flag_R1: {r1_flag:.4f} | flag_R2: {r2_flag:.4f} | flag_R6: {r6_flag:.4f}")
                 action_tuple = ActionTuple()
                 action_tuple.add_continuous(action_numpy)
@@ -170,30 +171,19 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
                                         no_turn_signal=no_turning_signal
                 )
 
-            tau_state_episode = []
-            for r1, speed, keep, no_turn in zip(memory_buffer.episode_r1_signal, memory_buffer.episode_phys_speed, memory_buffer.episode_keep_signal, memory_buffer.episode_no_turning_signal):
-                step_data = {
-                    'id_r1_signal': r1,        
-                    'id_boat_speed': speed,    
-                    'id_keep_signal': keep, 
-                    'id_no_turning_signal': no_turn
-                }
-                tau_state_episode.append(step_data)
+            RTAMT_evaluation(memory_buffer, RTAMT)
         
-            _, single_rho_partial = RTAMT.compute_robustness_dense(tau_state_episode)
-        
-            array_rho_1 = np.array(single_rho_partial.get('R1_safe_distance', [0.0]))
-            array_rho_2 = np.array(single_rho_partial.get('R2_safe_speed', [0.0]))
-            array_rho_6 = np.array(single_rho_partial.get('R6_stand_on', [0.0]))
+            rho_1 = np.min(memory_buffer.robustness_1) if memory_buffer.robustness_1 else 0.0
+            rho_2 = np.min(memory_buffer.robustness_2) if memory_buffer.robustness_2 else 0.0
+            rho_6 = np.min(memory_buffer.robustness_6) if memory_buffer.robustness_6 else 0.0
 
             episode_returns.append(episode_reward)
-            total_r1_robustness.extend(array_rho_1)
-            total_r2_robustness.extend(array_rho_2)
-            total_r6_robustness.extend(array_rho_6)
+            total_r1_robustness.append(rho_1)
+            total_r2_robustness.append(rho_2)
+            total_r6_robustness.append(rho_6)
 
             pbar.close()
-            print(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | R1: {np.mean(array_rho_1):.2f} | R2: {np.mean(array_rho_2):.2f} | R6: {np.mean(array_rho_6):.2f}")
-
+            print(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f} | R6: {rho_6:.2f}")
             memory_buffer.clear_episode_signal() 
             memory_buffer.clear_ppo() 
 
@@ -297,10 +287,12 @@ def main():
             agent.value_net.load_state_dict(checkpoint['value_state_dict'])
             agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
             agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
+            agent.cost_net_R6.load_state_dict(checkpoint['cost_net_r6_state_dict'])
             agent.policy_opt.load_state_dict(checkpoint['policy_opt_state_dict'])
             agent.value_opt.load_state_dict(checkpoint['value_opt_state_dict'])
             agent.cost_opts[0].load_state_dict(checkpoint['cost_safe_distance_opt_state_dict'])
             agent.cost_opts[1].load_state_dict(checkpoint['cost_safe_speed_opt_state_dict'])
+            agent.cost_opts[2].load_state_dict(checkpoint['cost_safe_r6_opt_state_dict'])
             print(f"Model loaded, starting from step {starting_step}.")
         else:
             print(f"Start training on: {behavior_name}")
@@ -421,12 +413,6 @@ def main():
                         save_last_checkpoint = True
 
 
-                if len(memory_buffer.episode_phys_speed) > 0:
-                    # Force RTAMT evaluation at the end of the rollout to ensure we have the latest robustness values
-                    RTAMT_evaluation(memory_buffer, RTAMT)
-
-
-
                 if save_last_checkpoint:
                     pre_safety_path = f"{save_dir}/pre_safety_checkpoint.pth"
                     torch.save(checkpoint, pre_safety_path)
@@ -518,11 +504,12 @@ def main():
                         'value_state_dict': agent.value_net.state_dict(),
                         'cost_net_safe_distance_state_dict': agent.cost_net_safe_distance.state_dict(),
                         'cost_net_safe_speed_state_dict': agent.cost_net_safe_speed.state_dict(),
+                        'cost_net_r6_state_dict': agent.cost_net_R6.state_dict(),
                         'policy_opt_state_dict': agent.policy_opt.state_dict(),
                         'value_opt_state_dict': agent.value_opt.state_dict(),
                         'cost_safe_distance_opt_state_dict': agent.cost_opts[0].state_dict(),
                         'cost_safe_speed_opt_state_dict': agent.cost_opts[1].state_dict(),
-                        'cost_r6_opt_state_dict': agent.cost_opts[2].state_dict(),
+                        'cost_safe_r6_opt_state_dict': agent.cost_opts[2].state_dict(),
                         'robustness_r1': robustness_dict['R1'],
                         'robustness_r2': robustness_dict['R2'],
                         'robustness_r6': robustness_dict['R6']
@@ -557,10 +544,9 @@ def main():
                     safe_pct_r1 = sum(1 for r1 in total_r1_robustness if r1 >= 0.0) / len(total_r1_robustness)
                     safe_pct_r2 = sum(1 for r2 in total_r2_robustness if r2 >= 0.0) / len(total_r2_robustness)
                     safe_pct_r6 = sum(1 for r6 in total_r6_robustness if r6 >= 0.0) / len(total_r6_robustness)
-                    safety_threshold_percentage = 0.85
-                    is_safe_pct = (safe_pct_r1 >= safety_threshold_percentage and 
-                                   safe_pct_r2 >= safety_threshold_percentage and
-                                   safe_pct_r6 >= safety_threshold_percentage)
+                    is_safe_pct = (safe_pct_r1 >= SAFETY_THRESHOLD_PERCENTAGE and 
+                                   safe_pct_r2 >= SAFETY_THRESHOLD_PERCENTAGE and
+                                   safe_pct_r6 >= SAFETY_THRESHOLD_PERCENTAGE)
 
                     # Save best model (no safety constraint)
                     if mean_eval_return > best_return:
@@ -582,7 +568,7 @@ def main():
                         best_safe_return_pct = mean_eval_return
                         best_safe_pct_path = f"{save_dir}/best_safe_model_PCT.pth"
                         torch.save(checkpoint, best_safe_pct_path)
-                        pbar.write(f"*** NEW BEST SAFE MODEL (PCT={safety_threshold_percentage:.0%})! Return: {best_safe_return_pct:.2f} ***")
+                        pbar.write(f"*** NEW BEST SAFE MODEL (PCT={SAFETY_THRESHOLD_PERCENTAGE:.0%})! Return: {best_safe_return_pct:.2f} ***")
 
                     # Log all three metrics
                     writer.add_scalar("Eval/Safe_Min_R1", min(total_r1_robustness), s)
