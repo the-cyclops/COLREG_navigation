@@ -8,6 +8,9 @@ using Unity.VisualScripting;
 
 public class BoatAgent : Agent
 {
+
+    public bool evalMode; 
+
     public HDRPBoatPhysics boatPhysics;
     private Rigidbody rb;
     public GameObject target;
@@ -249,8 +252,22 @@ public class BoatAgent : Agent
 
         // intruder1Speed = getRandomFloat(minS, maxS);
         // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
-        intruder1Speed = 2.1f;
-        splineAnimator1.MaxSpeed = 2.1f; //intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
+        intruder1Speed = getRandomFloat(1.8f, 2.1f);
+
+        if (evalMode)
+        {
+            float scaleX = getRandomFloat(1f, 1.3f);
+            Path1.transform.localScale = new Vector3(scaleX, 1f, 1f);
+            splineAnimator1.MaxSpeed = intruder1Speed / scaleX;
+        }
+        else
+        {
+            float scaleZ = getRandomFloat(1f, 1.2f);
+            Path1.transform.localScale = new Vector3(1f, 1f, scaleZ);
+            splineAnimator1.MaxSpeed = intruder1Speed / scaleZ;    
+        }
+
+        
         
         // Partenza casuale lungo il percorso per non avere bias di posizione
         splineAnimator1.ElapsedTime = 0f; //getRandomFloat(0f, splineAnimator1.Duration);
