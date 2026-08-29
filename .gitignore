@@ -42,3 +42,4 @@ __pycache__/
 # --- Timers --- 
 UnityEnvironment/COLREG_simulation/Assets/_Recovery.meta
 **/Timers/*_timers.json
+**/Timers/*_timers.meta
