@@ -243,7 +243,7 @@ public class BoatAgent : Agent
 
         // Range di velocità richiesto
         float minS = 1.9f;
-        float maxS = 2.2f;
+        float maxS = 2.3f;
 
         // --- Path 1 Setup ---
         //float scaleX1 = getRandomFloat(0.9f, 1.1f);
@@ -252,7 +252,7 @@ public class BoatAgent : Agent
 
         // intruder1Speed = getRandomFloat(minS, maxS);
         // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
-        intruder1Speed = getRandomFloat(1.8f, 2.1f);
+        intruder1Speed = getRandomFloat(minS+1, maxS);
 
         if (evalMode)
         {
@@ -271,6 +271,7 @@ public class BoatAgent : Agent
         
         // Partenza casuale lungo il percorso per non avere bias di posizione
         splineAnimator1.ElapsedTime = 0f; //getRandomFloat(0f, splineAnimator1.Duration);
+        splineAnimator1.StartOffset = 0.2f;
         splineAnimator1.Play(); 
 
         // --- Path 2 Setup ---
