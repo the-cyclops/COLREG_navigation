@@ -209,7 +209,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 
 # final5 baseline setup: 
 # gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
-# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_coll=5.0, t_check=10.0 and RTAMT_horizon=80 (4s)
+# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_coll=0.5, t_check=1.5 and RTAMT_horizon=80 (4s)
 # testing also with new evaluating pct from .8 to .85, 2 times same setup to look at consistency
 COST_SCALE =0.1 #1
 def main():
@@ -254,8 +254,8 @@ def main():
             seed=seed,
             no_graphics=False
         )
-
         env.reset()
+        engine_config.set_configuration_parameters(time_scale=0.2)
         print("Environment loaded successfully.")
 
         """
@@ -392,7 +392,7 @@ def main():
                     )
 
                     print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
-                
+                    print(f"Step {s} | Reward: {reward:.4f} | R1_flag: {r1_flag:.4f} | R2_flag: {r2_flag:.4f} | R6_flag: {r6_flag:.4f} | Physical_speed: {physical_speed:.4f}")
                     if end_episode:
                         costs_1, costs_2, costs_6 = RTAMT_evaluation(memory_buffer, RTAMT)
                         memory_buffer.clear_episode_signal()

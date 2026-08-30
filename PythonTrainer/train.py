@@ -197,10 +197,10 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
     
     return mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness
 
-# final5 baseline setup: 
-# gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
-# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_coll=5.0, t_check=10.0 and RTAMT_horizon=80 (4s)
-# testing also with new evaluating pct from .8 to .85, 2 times same setup to look at consistency
+# R6 setup: 
+# gamma 0.995, lr 0.0003, ent 0.001, batchsize 128, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
+# smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_coll=1.0, t_check=2.0 and tau=80 (4s)
+# evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
 COST_SCALE =0.1 #1
 def main():
     model_name = f"boat_agent_final5_NEWEVAL2_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
@@ -234,7 +234,7 @@ def main():
         engine_config = EngineConfigurationChannel()
         env_params = EnvironmentParametersChannel()
         env_params.set_float_parameter("seed", float(seed))
-    
+        env_params.set_float_parameter("is_eval_scene", 0.0)
         print("Loading environment...")
         env = UnityEnvironment(
             file_name=unity_env_path, 
@@ -250,6 +250,7 @@ def main():
         eval_engine_config = EngineConfigurationChannel()
         eval_env_params = EnvironmentParametersChannel()
         eval_env_params.set_float_parameter("seed", float(eval_seed))
+        eval_env_params.set_float_parameter("is_eval_scene", 1.0)
         eval_env_params.set_float_parameter("eval_episode_seed", -1.0)
         eval_env = UnityEnvironment(
             file_name=unity_env_path,
