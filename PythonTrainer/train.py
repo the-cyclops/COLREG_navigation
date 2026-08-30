@@ -203,8 +203,8 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 # evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_final5_NEWEVAL2_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
-    eval_seed = 31
+    model_name = f"boat_agent_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    eval_seed = 50
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
     for seed in seeds:
