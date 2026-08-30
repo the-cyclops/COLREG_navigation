@@ -381,7 +381,7 @@ def main():
                                             no_turn_signal=no_turning_signal
                     )
 
-                    print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
+                    #print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
                 
                     if end_episode:
                         costs_1, costs_2, costs_6 = RTAMT_evaluation(memory_buffer, RTAMT)
@@ -450,7 +450,7 @@ def main():
                 rewards = rollout_buffer['rewards']
                 gae_returns = log_dict['reward'][1]
 
-                pbar.write(f"----- Update! Mode: {mode} -----\n Reward: {rewards.mean().item():.4f} | GAE_returns: {gae_returns.mean().item():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}") 
+                pbar.write(f"----- Update! Mode: {mode} -----\n Reward: {rewards.mean().item():.4f} | GAE_returns: {gae_returns.mean().item():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}| Rho R6: {robustness_dict['R6']:.4f}")
                 
                 mean_return = None
                 if returns_episodes:
