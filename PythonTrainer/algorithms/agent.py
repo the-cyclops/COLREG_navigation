@@ -62,8 +62,14 @@ class ConstrainedPPOAgent:
         generator = torch.Generator(device='cpu')
         generator.manual_seed(seed)
         indices = torch.randperm(total_size, generator=generator)
+        
+        min_batch_size = batch_size // 2 
+
         for start_idx in range(0, total_size, batch_size):
-            yield indices[start_idx:start_idx + batch_size]
+            batch_indices = indices[start_idx:start_idx + batch_size]
+            
+            if len(batch_indices) >= min_batch_size:
+                yield batch_indices
 
     def _compute_flat_grad(self, loss, network, retain_graph=False):
         """
