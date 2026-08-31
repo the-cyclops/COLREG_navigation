@@ -64,7 +64,7 @@ def set_all_seeds(seed):
 def get_single_agent_obs(steps):
     # Extract raw observations list
     raw_obs = steps.obs
-    
+
     # Check shapes to determine sensor order and extract agent 0 immediately
     if raw_obs[0].shape[1] == RAYCAST_SIZE and raw_obs[1].shape[1] == OBSERVATION_SIZE:
         ray_obs = raw_obs[0][0]
@@ -74,7 +74,7 @@ def get_single_agent_obs(steps):
         vec_obs = raw_obs[0][0]
     else:
         raise ValueError(f"Unexpected shapes: {raw_obs[0].shape}, {raw_obs[1].shape}")
-    
+
     # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
@@ -117,18 +117,17 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
     total_r6_robustness = []
     memory_buffer = Memory(tau=80)  
 
-    print(f"--- Starting Evaluation with seed {eval_seed} ---")
+    tqdm.write(f"--- Starting Evaluation with seed {eval_seed} ---")
 
     try:
-        for ep in range(NUM_EVAL_EPISODES):
+        eval_loop = tqdm(range(NUM_EVAL_EPISODES), desc="Evaluating", leave=False)
+        for ep in eval_loop:
             eval_env_params.set_float_parameter("eval_episode_seed", float(eval_seed + ep))
             eval_env.reset() # Reset a inizio ciclo per pulizia
             decision_steps, terminal_steps = eval_env.get_steps(BEHAVIOR_NAME)
             episode_reward = 0.0
             done = False
-            
-            pbar = tqdm(desc=f"Episode {ep+1}/{NUM_EVAL_EPISODES}", unit="steps")
-            
+
             while not done:
                 obs, vec_obs = get_single_agent_obs(decision_steps)
 
@@ -148,10 +147,9 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
                 physical_speed = colreg_handler.get_ego_speed(vec_obs)
                 keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
                 no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[0][1])
-                                 
+
                 eval_env.set_actions(BEHAVIOR_NAME, action_tuple)
                 eval_env.step()
-                pbar.update(1)
 
                 decision_steps, terminal_steps = eval_env.get_steps(BEHAVIOR_NAME)
                 done = len(terminal_steps) > 0
@@ -172,7 +170,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
                 )
 
             RTAMT_evaluation(memory_buffer, RTAMT)
-        
+
             rho_1 = np.min(memory_buffer.robustness_1) if memory_buffer.robustness_1 else 0.0
             rho_2 = np.min(memory_buffer.robustness_2) if memory_buffer.robustness_2 else 0.0
             rho_6 = np.min(memory_buffer.robustness_6) if memory_buffer.robustness_6 else 0.0
@@ -182,19 +180,26 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
             total_r2_robustness.append(rho_2)
             total_r6_robustness.append(rho_6)
 
-            pbar.close()
-            print(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f} | R6: {rho_6:.2f}")
+            #tqdm.write(f"Episode {ep+1} finished | Return: {episode_reward:.2f} | R1: {rho_1:.2f} | R2: {rho_2:.2f} | R6: {rho_6:.2f}")
+            eval_loop.set_postfix({
+                'Ret': f"{episode_reward:.1f}", 
+                'R1': f"{rho_1:.2f}", 
+                'R2': f"{rho_2:.2f}", 
+                'R6': f"{rho_6:.2f}"
+            })
             memory_buffer.clear_episode_signal() 
             memory_buffer.clear_ppo() 
 
     except KeyboardInterrupt:
-        print("Evaluation manually interrupted.")
+        tqdm.write("Evaluation manually interrupted.")
     finally:
+        if eval_loop not in locals():
+            eval_loop.close()
         eval_env_params.set_float_parameter("eval_episode_seed", -1.0)
         agent.set_train_mode()
 
     mean_eval_return = float(np.mean(episode_returns)) if episode_returns else 0.0
-    
+
     return mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness
 
 # R6 setup: 
@@ -203,7 +208,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 # evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_agent_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
     eval_seed = 50
     seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
@@ -260,15 +265,15 @@ def main():
             no_graphics=False
         )
         eval_env.reset()
-    
+
         # time_scale = 1.0 real time 20 step/s - 40.0 is 40x faster than real time 800 step/s
         engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
         eval_engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
 
         # Debug info print behaviors available
-        print("Behaviors found:", list(env.behavior_specs.keys()))
+        #print("Behaviors found:", list(env.behavior_specs.keys()))
         behavior_name = list(env.behavior_specs.keys())[0] 
-    
+
         agent = ConstrainedPPOAgent(
             INPUT_SIZE, 
             ACTION_SIZE, 
@@ -332,7 +337,7 @@ def main():
 
                 # Loop until we have enough transitions for a rollout and the episode ends to ensure rtamt robustness evaluation is accurate
                 while (len(memory_buffer.states) < ROLLOUT_SIZE or not end_episode):
-                
+
                     obs, vec_obs = get_single_agent_obs(decision_steps)
                     r1_flag, r2_flag, r6_flag = memory_buffer.compute_markovian_flags()
                     obs_augmented = np.concatenate((obs, [r1_flag, r2_flag, r6_flag]))
@@ -357,7 +362,7 @@ def main():
                     keep_signal = colreg_handler.get_keep_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
 
                     no_turning_signal = colreg_handler.get_no_turning_signal(steering_action=action_numpy[0][1])
-                    
+
                     env.set_actions(behavior_name, action_tuple)
                     env.step()
                     s += 1
@@ -382,7 +387,7 @@ def main():
                     )
 
                     #print(f"Step {s} | Reward: {reward:.4f} | R1_signal: {r1_signal:.4f} | Keep_signal: {keep_signal:.4f} | No_turning_signal: {no_turning_signal:.4f} | Physical_speed: {physical_speed:.4f}")
-                
+
                     if end_episode:
                         costs_1, costs_2, costs_6 = RTAMT_evaluation(memory_buffer, RTAMT)
                         memory_buffer.clear_episode_signal()
@@ -409,7 +414,7 @@ def main():
 
                     if s % SAVE_INTERVAL == 0:
                         save_model = True
-                    
+
                     if s == START_SAFETY-1:
                         save_last_checkpoint = True
 
@@ -436,26 +441,28 @@ def main():
                 rollout_buffer['cost_r6'] = np.array(memory_buffer.cost_r6)
 
                 robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2), 'R6': min(memory_buffer.robustness_6)}
-            
+
                 log_dict = agent.update(rollouts=rollout_buffer, 
                                         robustness_dict=robustness_dict, 
                                         current_step=s, 
                                         batch_size=BATCH_SIZE,
                                         writer=writer)
-                
+
                 n_updates += 1
-            
+
                 mode = log_dict['mode']
 
                 rewards = rollout_buffer['rewards']
                 gae_returns = log_dict['reward'][1]
 
-                pbar.write(f"----- Update! Mode: {mode} -----\n Reward: {rewards.mean().item():.4f} | GAE_returns: {gae_returns.mean().item():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}| Rho R6: {robustness_dict['R6']:.4f}")
-                
+                # Commentato per rimuovere lo spam dal terminale
+                # pbar.write(f"----- Update! Mode: {mode} -----\n Reward: {rewards.mean().item():.4f} | GAE_returns: {gae_returns.mean().item():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}| Rho R6: {robustness_dict['R6']:.4f}")
+
                 mean_return = None
                 if returns_episodes:
                     mean_return = np.mean(returns_episodes)
-                    pbar.write(f"Mean Return: {mean_return:.2f}")
+                    # Commentato per rimuovere lo spam
+                    # pbar.write(f"Mean Return: {mean_return:.2f}")
                     writer.add_scalar("Training/Mean_Return", mean_return, s)
                     returns_episodes.clear()
 
@@ -469,12 +476,18 @@ def main():
                     writer.add_scalar("Training/Smoothed_Ep_Pos_Cost_R2", np.mean(recent_episode_pos_cumulative_costs_r2), s)
                     writer.add_scalar("Training/Smoothed_Ep_Pos_Cost_R6", np.mean(recent_episode_pos_cumulative_costs_r6), s)
 
-                pbar.set_postfix({
-                    'Reward': f"{rewards.mean().item():.2f}",
+                # Aggiornato in modo da contenere tutti i dati sulla stessa barra in modo dinamico
+                pbar_dict = {
+                    'Mode': mode[:4], 
+                    'Rew': f"{rewards.mean().item():.2f}",
                     'R1': f"{robustness_dict['R1']:.2f}",
                     'R2': f"{robustness_dict['R2']:.2f}",
                     'R6': f"{robustness_dict['R6']:.2f}"
-                })
+                }
+                if mean_return is not None:
+                    pbar_dict['MeanRet'] = f"{mean_return:.1f}"
+
+                pbar.set_postfix(pbar_dict)
 
                 writer.add_scalar("Training/Mean_Reward", rewards.mean().item(), s)
                 writer.add_scalar("Training/Value_target_mean_GAE_returns", gae_returns.mean().item(), s)
@@ -515,11 +528,11 @@ def main():
                         'robustness_r2': robustness_dict['R2'],
                         'robustness_r6': robustness_dict['R6']
                     }
-                
+
                 if save_model:
                     current_path = f"{save_dir}/steps_{s}.pth"
                     torch.save(checkpoint, current_path)
-                    pbar.write(f"Checkpoint saved: {current_path}")
+                    # pbar.write(f"Checkpoint saved: {current_path}") 
 
                     if last_checkpoint_path is not None and last_checkpoint_path != current_path:
                         if os.path.exists(last_checkpoint_path):
@@ -527,7 +540,7 @@ def main():
                                 os.remove(last_checkpoint_path)
                             except OSError as e:
                                 pbar.write(f"Warning: could not delete old checkpoint: {e}")
-                    
+
                     last_checkpoint_path = current_path
                     save_model = False
 
@@ -541,7 +554,7 @@ def main():
 
                     # Different safety criteria
                     is_safe_mean = np.mean(total_r1_robustness) >= 0.0 and np.mean(total_r2_robustness) >= 0.0 and np.mean(total_r6_robustness) >= 0.0
-                    
+
                     safe_pct_r1 = sum(1 for r1 in total_r1_robustness if r1 >= 0.0) / len(total_r1_robustness)
                     safe_pct_r2 = sum(1 for r2 in total_r2_robustness if r2 >= 0.0) / len(total_r2_robustness)
                     safe_pct_r6 = sum(1 for r6 in total_r6_robustness if r6 >= 0.0) / len(total_r6_robustness)
@@ -556,7 +569,7 @@ def main():
                         torch.save(checkpoint, best_model_path)
                         pbar.write(f"*** NEW BEST MODEL! Return: {best_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}, R6: {current_r6:.2f}     ***")
 
-                   
+
                     # Save best safe model (mean criterion)
                     if is_safe_mean and mean_eval_return > best_safe_return_mean:
                         best_safe_return_mean = mean_eval_return
