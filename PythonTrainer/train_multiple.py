@@ -189,8 +189,10 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 
 def main():
     # Loop esterno sulle configurazioni
+    start_time = time.time()
     for BATCH_SIZE in BATCH_SIZES_TO_TEST:
-        model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+        model_start_time = time.time()
+        model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_0.1"
         print("\n" + "="*60)
         print(f"=== AVVIO TRAINING CON BATCH_SIZE: {BATCH_SIZE} ===")
         print(f"=== Modello: {model_name} ===")
@@ -537,6 +539,11 @@ def main():
                 writer.close()
                 print(f"Environment with seed {seed} (BS: {BATCH_SIZE}) closed.")
                 time.sleep(5) 
+        model_end_time = time.time() - model_start_time
+        print(f"\n=== Training completed for Batch Size {BATCH_SIZE} in {model_end_time/60:.2f} minutes ===")
+
+    script_end_time = time.time() - start_time
+    print(f"\n=== All trainings completed in {script_end_time/3600:.2f} hours ===")
 
 if __name__ == "__main__":
     main()

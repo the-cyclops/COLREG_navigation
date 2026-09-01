@@ -203,7 +203,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
         agent.set_train_mode()
 
     mean_eval_return = float(np.mean(episode_returns)) if episode_returns else 0.0
-
+    tqdm.write(f"Mean evaluation return: {mean_eval_return:.2f}")
     return mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness
 
 # R6 setup: 
@@ -212,7 +212,8 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 # evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
 COST_SCALE =0.1 #1
 def main():
-    model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
+    model_start_time = time.time()
+    model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_0.1"
     seed_iteration = 0
     for seed in SEEDS:
         seed_iteration += 1
@@ -608,6 +609,8 @@ def main():
             writer.close()
             print(f"Environment with seed {seed} closed.")
             time.sleep(5) 
+    model_end_time = time.time() - model_start_time
+    print(f"Training completed in {model_end_time/60:.2f} minutes.")
 
 if __name__ == "__main__":
     main()
