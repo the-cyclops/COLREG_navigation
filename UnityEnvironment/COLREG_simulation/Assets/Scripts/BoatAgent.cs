@@ -3,8 +3,6 @@ using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.Splines;
-using Unity.VisualScripting;
-
 
 public class BoatAgent : Agent
 {
@@ -18,16 +16,9 @@ public class BoatAgent : Agent
     private float arenaRadius = 15f;
     private float maxDistance = 43f;
     private float spawnObstacleRadius = 1f;
-    private float currentReductionRadius = 10f;
 
     private float spawnDistance;
     private float invSpawnDistance;
-
-    // TEST COUNTER
-    private int currentEpisodeStep = 0;
-
-
-    private float minSpawnDist = 3f; // Minimum distance from target
 
     private int current_step = 0;
     //private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
@@ -61,6 +52,9 @@ public class BoatAgent : Agent
     private Vector2 lastPosIntruder2_2D;
     private float realSpeedIntruder1;
     private float realSpeedIntruder2;
+
+
+    private float maxReward = 1.0f;
 
     [SerializeField] private bool debugMode = false;
 
@@ -154,23 +148,6 @@ public class BoatAgent : Agent
 
     private void MoveTarget()
     {
-        // Set the curriculum radius based on the training step
-        // initially currentReductionRadius is 13
-        //if (curriculumStage == 2) // 10 to 14
-        //{
-        //    currentReductionRadius = 1f;
-        //    minSpawnDist = 10f;
-        //}
-        //else if (curriculumStage == 1) // 8 to 12
-        //{
-        //    currentReductionRadius = 3f;
-        //    minSpawnDist = 8f;
-        //}
-        //else // 6 to 10
-        //{
-        //    currentReductionRadius = 5f;
-        //    minSpawnDist = 6f;
-        //}
         
         float minSpawnDist = 0f;
         float maxSpawnDist = arenaRadius -1; //arenaRadius - currentReductionRadius;
@@ -246,12 +223,7 @@ public class BoatAgent : Agent
         float maxS = 2.3f;
 
         // --- Path 1 Setup ---
-        //float scaleX1 = getRandomFloat(0.9f, 1.1f);
-        //float scaleZ1 = getRandomFloat(0.9f, 1.1f);
-        //Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
 
-        // intruder1Speed = getRandomFloat(minS, maxS);
-        // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
         intruder1Speed = getRandomFloat(minS+1, maxS);
 
         if (evalMode)
@@ -270,7 +242,7 @@ public class BoatAgent : Agent
         
         
         // Partenza casuale lungo il percorso per non avere bias di posizione
-        splineAnimator1.ElapsedTime = 0f; //getRandomFloat(0f, splineAnimator1.Duration);
+        splineAnimator1.ElapsedTime = 0f;
         splineAnimator1.StartOffset = 0.2f;
         splineAnimator1.Play(); 
 
@@ -299,12 +271,6 @@ public class BoatAgent : Agent
             random = new System.Random((int)evalEpisodeSeed);
             curriculumStage = 2; 
         }
-
-        //float evalMode = Academy.Instance.EnvironmentParameters.GetWithDefault("eval_mode", 0);
-        //random = evalMode > 0 ? evalRandom : trainRandom;
-
-        // TEST COUNTER
-        currentEpisodeStep = 0;
         
         // Move Obstacles
         MoveObstacles();
@@ -525,11 +491,6 @@ public class BoatAgent : Agent
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; //15 -12 = +3 (good) | 15 -18 = -3 (bad)
         distanceReward *= invSpawnDistance; // Normalizziamo per la distanza di spawn per mantenere coerenza del reward indipendentemente da dove appare il target
 
-        // TEST COUNTER - DA COMMENTARE PER TEST
-        //distanceReward = distanceReward * (1f - (currentEpisodeStep / MaxStep)); // Decay del reward di distanza
-
-        currentEpisodeStep++;
-
 
         previousDistanceToTarget = currentDistanceToTarget;
 
@@ -567,7 +528,7 @@ public class BoatAgent : Agent
         // penalty to maintain stability
         stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
         // Time penalty
-        stepReward += -10.0f / MaxStep;
+        stepReward += -maxReward / MaxStep;
 
         AddReward(stepReward); 
  
@@ -588,7 +549,7 @@ public class BoatAgent : Agent
     {
         if (!collision.gameObject.CompareTag("Target")) {
             if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Wall") || collision.gameObject.CompareTag("Boat")) {
-                AddReward(-10.0f);
+                AddReward(-maxReward);
             }
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode();
@@ -600,7 +561,7 @@ public class BoatAgent : Agent
     {
         if (other.CompareTag("Target"))
         {
-            AddReward(10.0f);
+            AddReward(maxReward);
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode(); 
         }
