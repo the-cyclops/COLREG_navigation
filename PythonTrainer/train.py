@@ -42,6 +42,7 @@ ROLLOUT_SIZE = 2_048
 TOT_STEPS = 2_048_000 # 1000 updates
 GAMMA = 0.995
 LR = 0.0003
+# size of the mini-batch for PPO updates
 BATCH_SIZE = 256
 #BATCH_SIZE = 128
 #ENTROPY_COEF = 0.0001
@@ -55,6 +56,9 @@ SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10
 EVAL_INTERVAL = 5 # Evaluate every 5 episodes during evaluation phase (after safety activation)
 SAFETY_THRESHOLD_PERCENTAGE = 0.80
+
+EVAL_SEED = 59
+SEEDS= [1, 3, 7, 34, 42]
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -209,10 +213,8 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 COST_SCALE =0.1 #1
 def main():
     model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}"
-    eval_seed = 50
-    seeds= [1, 3, 7, 34, 42]
     seed_iteration = 0
-    for seed in seeds:
+    for seed in SEEDS:
         seed_iteration += 1
         print(f"--- Avvio Training Seed {seed} ({seed_iteration}/5) ---")
         set_all_seeds(seed)
@@ -254,14 +256,14 @@ def main():
 
         eval_engine_config = EngineConfigurationChannel()
         eval_env_params = EnvironmentParametersChannel()
-        eval_env_params.set_float_parameter("seed", float(eval_seed))
+        eval_env_params.set_float_parameter("seed", float(EVAL_SEED))
         eval_env_params.set_float_parameter("is_eval_scene", 1.0)
         eval_env_params.set_float_parameter("eval_episode_seed", -1.0)
         eval_env = UnityEnvironment(
             file_name=unity_env_path,
             side_channels=[eval_engine_config, eval_env_params],
-            worker_id=eval_seed + seed + 100,
-            seed=eval_seed,
+            worker_id=EVAL_SEED + seed + 100,
+            seed=EVAL_SEED,
             no_graphics=False
         )
         eval_env.reset()
@@ -550,7 +552,7 @@ def main():
 
                 if n_updates % EVAL_INTERVAL == 0 and s >= START_SAFETY:
 
-                    mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness = evaluate_model(eval_seed=eval_seed, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT, eval_env=eval_env, eval_env_params=eval_env_params)
+                    mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness = evaluate_model(eval_seed=EVAL_SEED, agent=agent, colreg_handler=colreg_handler, RTAMT=RTAMT, eval_env=eval_env, eval_env_params=eval_env_params)
 
                     # Different safety criteria
                     is_safe_mean = np.mean(total_r1_robustness) >= 0.0 and np.mean(total_r2_robustness) >= 0.0 and np.mean(total_r6_robustness) >= 0.0
