@@ -43,8 +43,8 @@ TOT_STEPS = 2_048_000 # 1000 updates
 GAMMA = 0.995
 LR = 0.0003
 # size of the mini-batch for PPO updates
-BATCH_SIZE = 256
-#BATCH_SIZE = 128
+#BATCH_SIZE = 256
+BATCH_SIZE = 128
 #ENTROPY_COEF = 0.0001
 ENTROPY_COEF = 0.001
 SAVE_INTERVAL = 20_480
@@ -59,6 +59,9 @@ SAFETY_THRESHOLD_PERCENTAGE = 0.80
 
 EVAL_SEED = 59
 SEEDS= [1, 3, 7, 34, 42]
+
+COST_SCALE = 0.1
+REWARD_SCALE = 0.1
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -96,9 +99,9 @@ def RTAMT_evaluation(memory_buffer, RTAMT):
 
     _, single_rho_partial = RTAMT.compute_robustness_dense(tau_state_episode)
 
-    array_rho_1 = np.array(single_rho_partial.get('R1_safe_distance', [0.0]))
-    array_rho_2 = np.array(single_rho_partial.get('R2_safe_speed', [0.0]))
-    array_rho_6 = np.array(single_rho_partial.get('R6_stand_on', [0.0]))
+    array_rho_1 = np.atleast_1d(single_rho_partial.get('R1_safe_distance', 0.0))
+    array_rho_2 = np.atleast_1d(single_rho_partial.get('R2_safe_speed', 0.0))
+    array_rho_6 = np.atleast_1d(single_rho_partial.get('R6_stand_on', 0.0))
 
     costs_1 = np.tanh(-array_rho_1) * COST_SCALE
     costs_2 = np.tanh(-array_rho_2) * COST_SCALE
@@ -158,6 +161,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
                 decision_steps, terminal_steps = eval_env.get_steps(BEHAVIOR_NAME)
                 done = len(terminal_steps) > 0
                 step_reward = float(terminal_steps.reward[0]) if done else float(decision_steps.reward[0])
+                step_reward *= REWARD_SCALE
                 #pbar.write(f"Step {pbar.n+1} | Step Reward: {step_reward:.5f} | flag_R1: {r1_flag:.4f} | flag_R2: {r2_flag:.4f} | flag_R6: {r6_flag:.4f}")
                 episode_reward += step_reward
 
@@ -210,10 +214,9 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 # gamma 0.995, lr 0.0003, ent 0.001, batchsize 128, logstd=0.0, gradclip 0.5 ( on critics too), unbound costs with scale 0.1
 # smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_coll=1.0, t_check=2.0 and tau=80 (4s)
 # evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
-COST_SCALE =0.1 #1
 def main():
     model_start_time = time.time()
-    model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_0.1"
+    model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"
     seed_iteration = 0
     for seed in SEEDS:
         seed_iteration += 1
@@ -375,6 +378,7 @@ def main():
                     end_episode = len(terminal_steps) > 0
 
                     reward = float(terminal_steps.reward[0]) if end_episode else float(decision_steps.reward[0])
+                    reward *= REWARD_SCALE
                     current_return += reward
 
                     memory_buffer.add_ppo_transition(

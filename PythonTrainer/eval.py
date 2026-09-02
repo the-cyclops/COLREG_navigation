@@ -16,7 +16,7 @@ from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
 # Ricordati di aggiornare model_name con la stringa esatta della cartella del tuo nuovo training
-model_name = "boat_R6_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1/seed_34"
+model_name = "boat_R6_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_128_costscale_0.1_reward_0.1/seed_34"
 unity_env_path = None 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 20
