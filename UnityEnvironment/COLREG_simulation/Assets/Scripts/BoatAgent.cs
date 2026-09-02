@@ -54,7 +54,7 @@ public class BoatAgent : Agent
     private float realSpeedIntruder2;
 
 
-    private float maxReward = 1.0f;
+    private float maxReward = 10.0f;
 
     [SerializeField] private bool debugMode = false;
 
