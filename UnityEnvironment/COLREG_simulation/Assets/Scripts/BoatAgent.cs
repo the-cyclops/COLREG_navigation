@@ -509,11 +509,12 @@ public class BoatAgent : Agent
         //{
         //    AddReward(facingTarget * 0.0001f);
         //}
-        if (facingTarget > 0.8)
-        {
-        // Reward to incetivize mantainig direction and speed towards the target
-            stepReward += facingTarget * 0.0001f;
-        }
+        //if (facingTarget > 0.8)
+        //{
+        //// Reward to incetivize mantainig direction and speed towards the target
+        //    stepReward += facingTarget * 0.0001f;
+        //}
+        stepReward += facingTarget * 0.0001f;
         // possible penalty for reverse
         Vector3 flatForward = transform.forward;
         flatForward.y = 0;
@@ -526,7 +527,7 @@ public class BoatAgent : Agent
             stepReward += forwardSpeed * 0.0001f;
         }
         // penalty to maintain stability
-        stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
+        //stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
         // Time penalty
         stepReward += -maxReward / MaxStep;
 
