@@ -51,7 +51,7 @@ COST_SCALE = 0.1
 REWARD_SCALE = 0.1
 
 # Lista dei batch size da testare
-BATCH_SIZES_TO_TEST = [256, 128]
+BATCH_SIZES_TO_TEST = [256, 512]
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -194,7 +194,7 @@ def main():
     start_time = time.time()
     for BATCH_SIZE in BATCH_SIZES_TO_TEST:
         model_start_time = time.time()
-        model_name = f"boat_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"    
+        model_name = f"boat_GRADFIX_R6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"    
         print("="*60 + "\n") 
         print(f"=== AVVIO TRAINING CON BATCH_SIZE: {BATCH_SIZE} ===")
         print(f"=== Modello: {model_name} ===")
