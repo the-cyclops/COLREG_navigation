@@ -85,10 +85,11 @@ class ConstrainedPPOAgent:
         # Collect and flatten gradients from all parameters
         grads = []
         for p in network.parameters():
-            if p.grad is not None:
-                grads.append(p.grad.view(-1))
-            else:
-                grads.append(torch.zeros_like(p).view(-1))
+            if p.requires_grad:
+                if p.grad is not None :
+                    grads.append(p.grad.view(-1))
+                else:
+                    grads.append(torch.zeros_like(p).view(-1))
 
         # Concatenate into a single 1D tensor
         if not grads:
@@ -103,13 +104,13 @@ class ConstrainedPPOAgent:
         
         idx = 0
         for p in network.parameters():
-            if p.grad is not None:
+            if p.requires_grad:
                 num_param = p.numel()
                 # Slice the flat vector corresponding to this parameter
                 grad_slice = flat_grad[idx : idx + num_param]
                 
                 # Reshape and assign to the .grad attribute
-                p.grad = grad_slice.view_as(p)
+                p.grad = grad_slice.view_as(p).clone()
                 
                 idx += num_param
 
