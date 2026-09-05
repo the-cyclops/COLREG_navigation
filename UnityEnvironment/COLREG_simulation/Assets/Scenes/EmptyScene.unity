@@ -591,12 +591,7 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
---- !u!1 &1196181481 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 677776691591717823, guid: 234d170725d112c4396b2805f19ccc12, type: 3}
-  m_PrefabInstance: {fileID: 744999885102640815}
-  m_PrefabAsset: {fileID: 0}
---- !u!43 &1235049142
+--- !u!43 &1090215383
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -774,6 +769,11 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
+--- !u!1 &1196181481 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 677776691591717823, guid: 234d170725d112c4396b2805f19ccc12, type: 3}
+  m_PrefabInstance: {fileID: 744999885102640815}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1823688464
 GameObject:
   m_ObjectHideFlags: 0
@@ -1006,7 +1006,7 @@ MonoBehaviour:
       enableFptlForForwardOpaque: 0
       enableBigTilePrepass: 0
       isFptlEnabled: 0
---- !u!43 &1926020356
+--- !u!43 &1833268226
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1466,6 +1466,10 @@ PrefabInstance:
     - target: {fileID: 2409254818241288292, guid: 234d170725d112c4396b2805f19ccc12, type: 3}
       propertyPath: m_IsActive
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2715088827859542945, guid: 234d170725d112c4396b2805f19ccc12, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2753709036136615576, guid: 234d170725d112c4396b2805f19ccc12, type: 3}
       propertyPath: m_IsActive
