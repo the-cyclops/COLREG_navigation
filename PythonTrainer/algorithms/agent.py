@@ -235,7 +235,7 @@ class ConstrainedPPOAgent:
    
     # We iterate n_epochs times over the collected data to increase sample efficiency.
     # In each epoch, we shuffle the data and perform updates on small random subsets (minibatches) of dimension batch_size.
-    def update(self, rollouts, robustness_dict, current_step, entropy_coeff=None, n_epochs=10, batch_size=64, target_kl=0.03, writer=None):
+    def update(self, rollouts, robustness_dict, current_step, entropy_coeff=None, n_epochs=10, batch_size=64, target_kl=None, writer=None):
         """
         Args:
             rollouts (dict): Dictionary containing raw lists from the buffer:
