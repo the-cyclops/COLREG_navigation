@@ -39,7 +39,7 @@ ACTION_SIZE = 2 # throttle and steering
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
-TOT_STEPS = 2_048_000 # 1000 updates
+TOT_STEPS = 2_048_000 # max 1000 updates
 GAMMA = 0.995
 LR = 0.0003
 # size of the mini-batch for PPO updates

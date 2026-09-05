@@ -1,56 +1,53 @@
 import random
 import os
 import time
+import itertools
 import numpy as np
 import torch
-import itertools
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from collections import deque
 
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.base_env import ActionTuple
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
+from mlagents_envs.side_channel.environment_parameters_channel import EnvironmentParametersChannel
 
 from algorithms.agent import ConstrainedPPOAgent
-
 from utils.buffers import Memory
 from utils.colreg_handler import COLREGHandler
-
 from colreg_logic import rtamt_yml_parser
 
-# None - use the Unity Editor (press Play)
-# "../Builds/train_gui.app"  - path to macos build
-# "../Builds/train_5M.app" - path for 5M
-unity_env_path = "../Builds/emptyscene.app"
-
-#DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+# Unity build path
+unity_env_path = "../Builds/empty_scene.app"
 DEVICE = "cpu"
-# BoatAgent Parameters - must match those in Unity
-OBSERVATION_SIZE = 16 # From UnityEnvironment/Scripts/BoatAgent.cs
-RAYCAST_COUNT = 7 # 3 side rays + 1 front ray  From Unity RayPerceptionSensorComponent3D
-RAYCAST_SIZE = RAYCAST_COUNT * 2 # Each ray (7) has a distance and a hit flag (1 or 0)
-NUM_ROBUSTNESS_FLAG = 2 # R1, R2
+
+# Parametri ambiente Unity
+OBSERVATION_SIZE = 20
+RAYCAST_COUNT = 7
+RAYCAST_SIZE = RAYCAST_COUNT * 2
+NUM_ROBUSTNESS_FLAG = 3  # R1, R2, R6
 
 INPUT_SIZE = OBSERVATION_SIZE + RAYCAST_SIZE + NUM_ROBUSTNESS_FLAG
-ACTION_SIZE = 2 # Left Jet, Right Jet
+ACTION_SIZE = 2
 BEHAVIOR_NAME = "BoatAgent"
 
 ROLLOUT_SIZE = 2_048
 TOT_STEPS = 512_000 # 250 updates
-
 SAVE_INTERVAL = 20_480
-START_SAFETY = TOT_STEPS +1 # Stay in reward-only for parameter tuning
-
-colreg_path = "colreg_logic/colreg.yaml"
-
-SAFE_DISTANCE = 1.0
+START_SAFETY = TOT_STEPS + 1  # Reward-only durante il tuning
+COST_SCALE = 0.1
+REWARD_SCALE = 0.1
 
 # Hyperparameter Grid
 GAMMAS = [0.99, 0.995]
 LEARNING_RATES = [1e-4, 3e-4]
-ENTROPY_COEFS = [0.0, 0.0001]
+ENTROPY_COEFS = [0.0001, 0.001]
 BATCH_SIZES = [64, 128, 256]
-FIXED_SEED = 42 # Keep seed fixed for fair comparison between hyperparameters
+FIXED_SEED = 420
+
+DUMMY_FLAGS = np.zeros(NUM_ROBUSTNESS_FLAG, dtype=np.float32)
+DUMMY_ROBUSTNESS = {'R1': 1.0, 'R2': 1.0, 'R6': 1.0}
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -58,10 +55,7 @@ def set_all_seeds(seed):
     torch.manual_seed(seed)
 
 def get_single_agent_obs(steps):
-    # Extract raw observations list
     raw_obs = steps.obs
-    
-    # Check shapes to determine sensor order and extract agent 0 immediately
     if raw_obs[0].shape[1] == RAYCAST_SIZE and raw_obs[1].shape[1] == OBSERVATION_SIZE:
         ray_obs = raw_obs[0][0]
         vec_obs = raw_obs[1][0]
@@ -70,116 +64,73 @@ def get_single_agent_obs(steps):
         vec_obs = raw_obs[0][0]
     else:
         raise ValueError(f"Unexpected shapes: {raw_obs[0].shape}, {raw_obs[1].shape}")
-    
-    # Concatenate to get a 1D array
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = f"TEST" # For saving models and TensorBoard logs
+    model_name = "GRID_SEARCH_EMPTY_SCENE"
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES, GAMMAS))
     total_runs = len(hp_combinations)
-    
+
     for run_idx, (lr, entropy, batch_size, gamma) in enumerate(hp_combinations, 1):
-        
         run_name = f"GAMMA_{gamma}_lr_{lr}_ent_{entropy}_batchsize_{batch_size}"
-        print(f"\n--- Starting Training Run ({run_idx}/{total_runs}) | LR: {lr}, Entropy: {entropy}, Batch Size: {batch_size}, Gamma: {gamma} ---")
-        
+        print(f"\n--- Run ({run_idx}/{total_runs}) | LR: {lr}, Ent: {entropy}, Batch: {batch_size}, Gamma: {gamma} ---")
+
         set_all_seeds(FIXED_SEED)
 
         save_dir = f"Models/{model_name}/{run_name}"
         os.makedirs(save_dir, exist_ok=True)
-
         writer = SummaryWriter(log_dir=f"runs/{model_name}/{run_name}")
 
-        starting_step = 0
-
         last_checkpoint_path = None
-        best_feasible_return = -float('inf')
+        best_return = -float('inf')
 
-        colreg_handler = COLREGHandler()
-
-        RTAMT = rtamt_yml_parser.RTAMTYmlParser(colreg_path)
-
-        safety_active = False
-
-        # Channel used to speed up the game time
         engine_config = EngineConfigurationChannel()
-    
-        print("Loading environment...")
+        env_params = EnvironmentParametersChannel()
+        env_params.set_float_parameter("seed", float(FIXED_SEED))
+        env_params.set_float_parameter("is_eval_scene", 0.0)
+
         env = UnityEnvironment(
-            file_name=unity_env_path, 
-            side_channels=[engine_config],
+            file_name=unity_env_path,
+            side_channels=[engine_config, env_params],
+            worker_id=FIXED_SEED + run_idx,
             seed=FIXED_SEED,
             no_graphics=False
         )
-    
         env.reset()
-        print("Environment loaded successfully.")
-    
-        # time_scale = 1.0 real time 20 step/s - 40.0 is 40x faster than real time 800 step/s
         engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
+        behavior_name = list(env.behavior_specs.keys())[0]
 
-        # Debug info print behaviors available
-        print("Behaviors found:", list(env.behavior_specs.keys()))
-        behavior_name = list(env.behavior_specs.keys())[0] 
-    
-        # Ensure ConstrainedPPOAgent __init__ accepts lr and entropy_coeff
         agent = ConstrainedPPOAgent(
-            INPUT_SIZE, 
-            ACTION_SIZE, 
-            device=DEVICE, 
-            start_safety=START_SAFETY, 
+            INPUT_SIZE,
+            ACTION_SIZE,
+            device=DEVICE,
+            start_safety=START_SAFETY,
             gamma=gamma,
             lr=lr,
-            entropy_coeff=entropy 
+            entropy_coeff=entropy
         )
+        agent.set_train_mode()
 
-        if starting_step != 0:
-            checkpoint_path = f"Models/{model_name}/{run_name}/steps_{starting_step}.pth"
-            print(f"Loading model from {checkpoint_path}...")
-            checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
-            starting_step = checkpoint['step']
-            agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
-            agent.value_net.load_state_dict(checkpoint['value_state_dict'])
-            agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
-            agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
-            agent.policy_opt.load_state_dict(checkpoint['policy_opt_state_dict'])
-            agent.value_opt.load_state_dict(checkpoint['value_opt_state_dict'])
-            agent.cost_opts[0].load_state_dict(checkpoint['cost_safe_distance_opt_state_dict'])
-            agent.cost_opts[1].load_state_dict(checkpoint['cost_safe_speed_opt_state_dict'])
-            print(f"Model loaded, starting from step {starting_step}.")
-        else:
-            print(f"Start training on: {behavior_name}")
-
-        memory_buffer = Memory(stl_horizon=RTAMT.horizon_length)
+        memory_buffer = Memory(tau=80)
+        recent_returns = deque(maxlen=50)
+        returns_episodes = []
 
         try:
-            s = starting_step
+            s = 0
             decision_steps, terminal_steps = env.get_steps(behavior_name)
-
             current_return = 0.0
-            returns_episodes = []
-
-            # Training progress bar
-            pbar = tqdm(total=TOT_STEPS, desc=f"Run {run_idx}/{total_runs} [LR:{lr} Ent:{entropy} B:{batch_size} y:{gamma}]", unit="steps")
-
             save_model = False
 
-            while s < TOT_STEPS: 
+            pbar = tqdm(total=TOT_STEPS, desc=f"Run {run_idx}/{total_runs}", unit="steps")
 
-                if not safety_active and s >= START_SAFETY:
-                    safety_active = True
-                    pbar.write(f"Safety constraints activated at step {s}.")
+            while s < TOT_STEPS:
+                mean_throttle_buf, mean_steer_buf = [], []
+                std_throttle_buf, std_steer_buf = [], []
 
-                # TEMPORARY
-                mean_throttle_buffer, mean_steering_buffer = [], []
-                std_throttle_buffer, std_steering_buffer = [], []
-            
-                while (len(memory_buffer.states) < ROLLOUT_SIZE):
-                
+                # Raccolta pura a dimensione fissa (nessuna attesa di fine episodio)
+                while len(memory_buffer.states) < ROLLOUT_SIZE:
                     obs, vec_obs = get_single_agent_obs(decision_steps)
-                    r1, r2 = memory_buffer.compute_markovian_flags()
-                    obs_augmented = np.concatenate((obs, [r1, r2]))
+                    obs_augmented = np.concatenate((obs, DUMMY_FLAGS))
                     obs_tensor = torch.from_numpy(obs_augmented).float().unsqueeze(0).to(DEVICE)
 
                     action_tensor, log_probabs = agent.get_action(obs_tensor)
@@ -187,13 +138,12 @@ def main():
                     action_tuple = ActionTuple()
                     action_tuple.add_continuous(action_numpy)
 
-                    # TEMPORARY
                     with torch.no_grad():
                         mean, _, std = agent.policy_net(obs_tensor)
-                        mean_throttle_buffer.append(mean[0, 0].detach().cpu().numpy())
-                        mean_steering_buffer.append(mean[0, 1].detach().cpu().numpy())
-                        std_throttle_buffer.append(std[0, 0].detach().cpu().numpy())
-                        std_steering_buffer.append(std[0, 1].detach().cpu().numpy())
+                        mean_throttle_buf.append(mean[0, 0].cpu().item())
+                        mean_steer_buf.append(mean[0, 1].cpu().item())
+                        std_throttle_buf.append(std[0, 0].cpu().item())
+                        std_steer_buf.append(std[0, 1].cpu().item())
 
                     env.set_actions(behavior_name, action_tuple)
                     env.step()
@@ -204,153 +154,119 @@ def main():
                     end_episode = len(terminal_steps) > 0
 
                     reward = float(terminal_steps.reward[0]) if end_episode else float(decision_steps.reward[0])
+                    reward *= REWARD_SCALE
                     current_return += reward
 
+                    # Passiamo 0.0 per i segnali fisici non usati nell'arena vuota
                     memory_buffer.add_ppo_transition(
-                        state=obs_tensor, 
-                        action=action_tensor, 
+                        state=obs_tensor,
+                        action=action_tensor,
                         logprob=log_probabs,
-                        reward=reward, 
-                        is_terminal=float(end_episode)
+                        reward=reward,
+                        is_terminal=float(end_episode),
+                        phys_speed=0.0,
+                        r1_signal=0.0,
+                        keep_signal=0.0,
+                        no_turn_signal=0.0
                     )
-                
-                    r1_signal = colreg_handler.get_R1_safety_signal(obs=vec_obs, safe_dist=SAFE_DISTANCE)
-
-                    physical_speed = colreg_handler.get_ego_speed(vec_obs)
-
-                    memory_buffer.add_stl_sample(phys_speed=float(physical_speed), r1_signal=float(r1_signal))
-                
-
-                    _ , single_rho = RTAMT.compute_robustness_dense(memory_buffer.stl_window)
-                
-                    #rho_1 = single_rho.get('R1_safe_distance', 0.0)
-                    #rho_2 = single_rho.get('R2_safe_speed', 0.0)
-                    rho_1, rho_2 = 1.0, 1.0
-                    cost_1 = max(0, -rho_1) / SAFE_DISTANCE
-                    cost_2 = max(0, -rho_2)
-                    memory_buffer.add_robustness(r1=rho_1, r2=rho_2)
-                    memory_buffer.add_costs(c_r1=cost_1, c_r2=cost_2)
 
                     if end_episode:
+                        recent_returns.append(current_return)
                         returns_episodes.append(current_return)
                         current_return = 0.0
-                        memory_buffer.clear_stl_window()
                         env.reset()
                         decision_steps, terminal_steps = env.get_steps(behavior_name)
 
                     if s % SAVE_INTERVAL == 0:
                         save_model = True
 
-                next_state = get_single_agent_obs(decision_steps)[0]
-                r1_next, r2_next = memory_buffer.compute_markovian_flags()
-                next_state_augmented = np.concatenate((next_state, [r1_next, r2_next]))
-                
-                rollout_buffer = {}
-                rollout_buffer['states'] =  memory_buffer.states
-                rollout_buffer['actions'] = memory_buffer.actions
-                rollout_buffer['logprobs'] = memory_buffer.logprobs
-                rollout_buffer['rewards'] = np.array(memory_buffer.rewards)
-                rollout_buffer['masks'] = 1 - np.array(memory_buffer.is_terminals)
-                rollout_buffer['next_state'] = np.array(next_state_augmented)
-                rollout_buffer['cost_r1'] = np.array(memory_buffer.cost_r1)
-                rollout_buffer['cost_r2'] = np.array(memory_buffer.cost_r2)
+                next_obs, next_vec_obs = get_single_agent_obs(decision_steps)
+                next_state_augmented = np.concatenate((next_obs, DUMMY_FLAGS))
+                num_samples = len(memory_buffer.states)
 
-                robustness_dict = {'R1': min(memory_buffer.robustness_1), 'R2': min(memory_buffer.robustness_2)}
-            
-                log_dict = agent.update(rollouts=rollout_buffer, robustness_dict=robustness_dict, current_step=s, batch_size=batch_size)
-            
-                mode = log_dict['mode']
+                rollout_buffer = {
+                    'states': memory_buffer.states,
+                    'actions': memory_buffer.actions,
+                    'logprobs': memory_buffer.logprobs,
+                    'rewards': np.array(memory_buffer.rewards),
+                    'masks': 1 - np.array(memory_buffer.is_terminals),
+                    'next_state': np.array(next_state_augmented),
+                    'cost_r1': np.zeros(num_samples, dtype=np.float32),
+                    'cost_r2': np.zeros(num_samples, dtype=np.float32),
+                    'cost_r6': np.zeros(num_samples, dtype=np.float32)
+                }
+
+                log_dict = agent.update(
+                    rollouts=rollout_buffer,
+                    robustness_dict=DUMMY_ROBUSTNESS,
+                    current_step=s,
+                    batch_size=batch_size,
+                    writer=writer
+                )
 
                 rewards = rollout_buffer['rewards']
-                gae_returns = log_dict['reward'][1]
+                mean_return = np.mean(returns_episodes) if returns_episodes else None
 
-                pbar.write(f"----- Update! Mode: {mode} -----\n Reward: {rewards.mean().item():.4f} | GAE_returns: {gae_returns.mean().item():.4f} | Rho R1: {robustness_dict['R1']:.4f} | Rho R2: {robustness_dict['R2']:.4f}") 
-                
-                mean_return = None
-                if returns_episodes:
-                    mean_return = np.mean(returns_episodes)
-                    pbar.write(f"Mean Return: {mean_return:.2f}")
+                pbar_dict = {'Rew': f"{rewards.mean().item():.2f}"}
+                if mean_return is not None:
+                    pbar_dict['MeanRet'] = f"{mean_return:.1f}"
                     writer.add_scalar("Training/Mean_Return", mean_return, s)
                     returns_episodes.clear()
 
-                pbar.set_postfix({
-                    'Reward': f"{rewards.mean().item():.2f}",
-                    'R1': f"{robustness_dict['R1']:.2f}",
-                    'R2': f"{robustness_dict['R2']:.2f}"
-                })
+                pbar.set_postfix(pbar_dict)
+
+                if len(recent_returns) > 0:
+                    writer.add_scalar("Training/Smoothed_Return", np.mean(recent_returns), s)
 
                 writer.add_scalar("Training/Mean_Reward", rewards.mean().item(), s)
-                writer.add_scalar("Training/Value_target_mean_GAE_returns", gae_returns.mean().item(), s)
-                writer.add_scalar("Training/Robustness_R1_Physics", robustness_dict['R1'], s)
-                writer.add_scalar("Training/Robustness_R2_Physics", robustness_dict['R2'], s)
-                writer.add_scalar("Training/R1_GAE_cumulative_cost", log_dict['r1'][1].mean().item(), s)
-                writer.add_scalar("Training/R2_GAE_cumulative_cost", log_dict['r2'][1].mean().item(), s)
-                writer.add_text("Training/Mode_Log", mode, s)
-                writer.add_scalar("Policy/Throttle_Mean", np.mean(mean_throttle_buffer), s)
-                writer.add_scalar("Policy/Steering_Mean", np.mean(mean_steering_buffer), s)
-                writer.add_scalar("Policy/Throttle_Std", np.mean(std_throttle_buffer), s)
-                writer.add_scalar("Policy/Steering_Std", np.mean(std_steering_buffer), s)
+                writer.add_scalar("Policy/Throttle_Mean", np.mean(mean_throttle_buf), s)
+                writer.add_scalar("Policy/Steering_Mean", np.mean(mean_steer_buf), s)
                 writer.add_scalar("Policy/Entropy", log_dict['entropy'], s)
                 writer.add_scalar("Loss/Policy", log_dict['policy_loss'], s)
                 writer.add_scalar("Loss/Value", log_dict['value_loss'], s)
-                writer.add_scalar("Loss/Cost_R1", log_dict['cost_loss_r1'], s)
-                writer.add_scalar("Loss/Cost_R2", log_dict['cost_loss_r2'], s)
 
                 memory_buffer.clear_ppo()
 
-                # Save the model occasionally
                 checkpoint = {
-                        'step': s,
-                        'policy_state_dict': agent.policy_net.state_dict(),
-                        'value_state_dict': agent.value_net.state_dict(),
-                        'cost_net_safe_distance_state_dict': agent.cost_net_safe_distance.state_dict(),
-                        'cost_net_safe_speed_state_dict': agent.cost_net_safe_speed.state_dict(),
-                        'policy_opt_state_dict': agent.policy_opt.state_dict(),
-                        'value_opt_state_dict': agent.value_opt.state_dict(),
-                        'cost_safe_distance_opt_state_dict': agent.cost_opts[0].state_dict(),
-                        'cost_safe_speed_opt_state_dict': agent.cost_opts[1].state_dict(),
-                        'robustness_r1': robustness_dict['R1'],
-                        'robustness_r2': robustness_dict['R2']
-                    }
+                    'step': s,
+                    'policy_state_dict': agent.policy_net.state_dict(),
+                    'value_state_dict': agent.value_net.state_dict(),
+                    'cost_net_safe_distance_state_dict': agent.cost_net_safe_distance.state_dict(),
+                    'cost_net_safe_speed_state_dict': agent.cost_net_safe_speed.state_dict(),
+                    'cost_net_r6_state_dict': agent.cost_net_R6.state_dict(),
+                    'policy_opt_state_dict': agent.policy_opt.state_dict(),
+                    'value_opt_state_dict': agent.value_opt.state_dict(),
+                    'cost_safe_distance_opt_state_dict': agent.cost_opts[0].state_dict(),
+                    'cost_safe_speed_opt_state_dict': agent.cost_opts[1].state_dict(),
+                    'cost_safe_r6_opt_state_dict': agent.cost_opts[2].state_dict(),
+                    'robustness_r1': 1.0,
+                    'robustness_r2': 1.0,
+                    'robustness_r6': 1.0
+                }
+
                 if save_model:
                     current_path = f"{save_dir}/steps_{s}.pth"
                     torch.save(checkpoint, current_path)
-                    pbar.write(f"Checkpoint saved: {current_path}")
-
-                    if last_checkpoint_path is not None and last_checkpoint_path != current_path:
-                        if os.path.exists(last_checkpoint_path):
-                            try:
-                                os.remove(last_checkpoint_path)
-                            except OSError as e:
-                                pbar.write(f"Warning: could not delete old checkpoint: {e}")
-                    
+                    if last_checkpoint_path and os.path.exists(last_checkpoint_path):
+                        os.remove(last_checkpoint_path)
                     last_checkpoint_path = current_path
                     save_model = False
 
-                current_r1 = robustness_dict['R1']
-                current_r2 = robustness_dict['R2']             
-
-                is_feasible = (current_r1 >= 0.0) and (current_r2 >= 0.0)
-                if mean_return is not None and s >= START_SAFETY:
-                    if is_feasible and (mean_return > best_feasible_return):
-                        best_feasible_return = mean_return
-                        best_path = f"{save_dir}/best_feasible_model.pth"
-                    
-                        # Save specific copy
-                        torch.save(checkpoint, best_path)
-                        pbar.write(f"*** NEW BEST FEASIBLE MODEL! Return: {best_feasible_return:.2f}, R1: {current_r1:.2f}, R2: {current_r2:.2f}    ***")
+                if mean_return is not None and mean_return > best_return:
+                    best_return = mean_return
+                    torch.save(checkpoint, f"{save_dir}/best_model.pth")
 
         except KeyboardInterrupt:
-            print("Manual interruption... Exiting the entire grid search.")
-            # Break completely out of the function so it doesn't just jump to the next hyperparameter set
+            print("Interruzione manuale del grid search.")
+            env.close()
+            writer.close()
             return
 
         finally:
             pbar.close()
             env.close()
             writer.close()
-            print(f"Environment for LR: {lr}, Entropy: {entropy} closed.")
-            time.sleep(5) 
+            time.sleep(3)
 
 if __name__ == "__main__":
     main()
