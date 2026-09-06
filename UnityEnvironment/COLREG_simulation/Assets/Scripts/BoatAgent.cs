@@ -24,6 +24,7 @@ public class BoatAgent : Agent
     //private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
 
     private int curriculumStage = 0; // 0: Empty Arena, 1: Fixed Obstacles, 2: Moving Obstacles
+    private float forceCurriculumStage = -1f; // to force curricula 0 in all gridsearch steps
 
     private int stage1Threshold = 251_904 * 5; // Update 123
     private int stage2Threshold = 501_760 * 5; // Update 245
@@ -86,6 +87,11 @@ public class BoatAgent : Agent
         int seed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("seed", 0);
         random = new System.Random(seed);
 
+        forceCurriculumStage = Academy.Instance.EnvironmentParameters.GetWithDefault("force_curriculum_stage", -1f);
+        if (forceCurriculumStage >= 0f)
+        {
+            curriculumStage = (int)forceCurriculumStage;
+        }
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
 
@@ -534,12 +540,12 @@ public class BoatAgent : Agent
         AddReward(stepReward); 
  
         current_step++;
-        if (current_step == stage1Threshold)
+        if (current_step == stage1Threshold && forceCurriculumStage == -1f)
         {
             curriculumStage = 1;
             if (debugMode) Debug.Log("Curriculum Stage 1: Fixed Obstacles");
         }
-        else if (current_step == stage2Threshold)
+        else if (current_step == stage2Threshold && forceCurriculumStage == -1f)
         {
             curriculumStage = 2;
             if (debugMode) Debug.Log("Curriculum Stage 2: Moving Obstacles");

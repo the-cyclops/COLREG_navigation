@@ -67,7 +67,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = "GRID_SEARCH_EMPTY_SCENE"
+    model_name = "GRID_SEARCH_EMPTY_SCENE_FIXED_CURRICULA"
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES, GAMMAS))
     total_runs = len(hp_combinations)
 
@@ -88,7 +88,7 @@ def main():
         env_params = EnvironmentParametersChannel()
         env_params.set_float_parameter("seed", float(FIXED_SEED))
         env_params.set_float_parameter("is_eval_scene", 0.0)
-
+        env_params.set_float_parameter("force_curriculum_stage", 0.0)
         env = UnityEnvironment(
             file_name=unity_env_path,
             side_channels=[engine_config, env_params],
@@ -97,7 +97,7 @@ def main():
             no_graphics=False
         )
         env.reset()
-        engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
+        engine_config.set_configuration_parameters(width=600, height=600, time_scale=50.0)
         behavior_name = list(env.behavior_specs.keys())[0]
 
         agent = ConstrainedPPOAgent(
