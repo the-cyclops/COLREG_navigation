@@ -303,14 +303,17 @@ class ConstrainedPPOAgent:
             adv_r6 = (adv_r6 - adv_r6.mean()) / (adv_r6.std() + 1e-8)
         elif len(violated_rules) > 1:
             # center in 0 for ppo
-            adv_r1_centered = adv_r1 - adv_r1.mean()
-            adv_r2_centered = adv_r2 - adv_r2.mean()
-            adv_r6_centered = adv_r6 - adv_r6.mean()
+            adv_centered = {
+                "R1": adv_r1 - adv_r1.mean(),
+                "R2": adv_r2 - adv_r2.mean(),
+                "R6": adv_r6 - adv_r6.mean()
+            }
             # get max std to preserve relative scale between cost advantages for CAGrad
-            shared_std = torch.max(torch.stack([adv_r1_centered.std(), adv_r2_centered.std(), adv_r6_centered.std()])) + 1e-8
-            adv_r1 = adv_r1_centered / shared_std
-            adv_r2 = adv_r2_centered / shared_std
-            adv_r6 = adv_r6_centered / shared_std
+            stds_to_compare = [adv_centered[r].std() for r in violated_rules]
+            shared_std = torch.max(torch.stack(stds_to_compare)) + 1e-8
+            adv_r1 = adv_centered["R1"] / shared_std
+            adv_r2 = adv_centered["R2"] / shared_std
+            adv_r6 = adv_centered["R6"] / shared_std
 
         pg_losses, v_losses, ent_vals = [], [], []
         c_losses_r1, c_losses_r2, c_losses_r6 = [], [], []
