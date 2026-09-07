@@ -16,7 +16,7 @@ from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
 # Ricordati di aggiornare model_name con la stringa esatta della cartella del tuo nuovo training
-model_name = "boat_R6_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_128_costscale_0.1_reward_0.1/seed_34"
+model_name = "boat_GRADFIX_R6_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_0.1/seed_1"
 unity_env_path = None 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 20
@@ -31,6 +31,7 @@ SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10 
 FIXED_SEED = 59
 COST_SCALE = 0.1 
+REWARD_SCALE = 0.1
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -77,11 +78,11 @@ def main():
     set_all_seeds(FIXED_SEED)
     
     #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
-    checkpoint_path = f"Models/{model_name}/best_model.pth"
+    #checkpoint_path = f"Models/{model_name}/best_model.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_MEAN.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_PCT.pth"
-    #checkpoint_path = f"Models/{model_name}/steps_2049333.pth"
+    checkpoint_path = f"Models/{model_name}/steps_2049739.pth"
     
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
@@ -165,6 +166,7 @@ def main():
                 decision_steps, terminal_steps = env.get_steps(BEHAVIOR_NAME)
                 done = len(terminal_steps) > 0
                 step_reward = float(terminal_steps.reward[0]) if done else float(decision_steps.reward[0])
+                step_reward *= REWARD_SCALE
                 episode_reward += step_reward
 
                 memory_buffer.add_ppo_transition(

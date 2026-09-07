@@ -181,7 +181,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
     except KeyboardInterrupt:
         tqdm.write("Evaluation manually interrupted.")
     finally:
-        if eval_loop not in locals():
+        if 'eval_loop' in locals():
             eval_loop.close()
         eval_env_params.set_float_parameter("eval_episode_seed", -1.0)
         agent.set_train_mode()
@@ -276,6 +276,7 @@ def main():
 
                 current_return = 0.0
                 returns_episodes = []
+                end_episode = False
 
                 pbar = tqdm(total=TOT_STEPS, desc=f"Training {seed_iteration}/5 (BS: {BATCH_SIZE})", unit="steps")
                 save_model = False

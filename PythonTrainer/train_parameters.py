@@ -97,7 +97,7 @@ def main():
             no_graphics=False
         )
         env.reset()
-        engine_config.set_configuration_parameters(width=600, height=600, time_scale=50.0)
+        engine_config.set_configuration_parameters(width=600, height=600, time_scale=40.0)
         behavior_name = list(env.behavior_specs.keys())[0]
 
         agent = ConstrainedPPOAgent(
