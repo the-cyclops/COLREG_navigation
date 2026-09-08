@@ -171,7 +171,6 @@ public class BoatAgent : Agent
 
         Vector3 targetPosition = new Vector3(randomPoint.x, 0.0f, randomPoint.y);
         target.transform.localPosition = targetPosition;
-        spawnDistance = targetPosition.magnitude;
          
     }
 
@@ -286,7 +285,6 @@ public class BoatAgent : Agent
 
         // Move Target 
         MoveTarget();
-        invSpawnDistance = 1f / Mathf.Max(spawnDistance, 1e-4f);
 
         //Reset Boat Velocities
         boatPhysics.ResetVelocities();
@@ -294,6 +292,12 @@ public class BoatAgent : Agent
         // Reset Boat Position and Rotation
         transform.localPosition = initialPosition;
         transform.localRotation = initialRotation;
+
+        spawnDistance = Vector2.Distance(
+            new Vector2(transform.localPosition.x, transform.localPosition.z),
+            new Vector2(target.transform.localPosition.x, target.transform.localPosition.z)
+        );
+        invSpawnDistance = 1f / Mathf.Max(spawnDistance, 1e-4f);
 
         float initialSpeed = 0f; // Safe Speed from COLREG
 
@@ -475,6 +479,11 @@ public class BoatAgent : Agent
 
         // Differential Drive Mixer
         float throttle = Mathf.Clamp(continuousActions[0], -1f, 1f);
+        if (throttle < 0f)
+        {
+            throttle *= 0.3f; // Reduce reverse speed 
+        }
+
         float steering = Mathf.Clamp(continuousActions[1], -1f, 1f);
 
         float leftInput = throttle + steering;
@@ -500,42 +509,15 @@ public class BoatAgent : Agent
 
         previousDistanceToTarget = currentDistanceToTarget;
 
-        Vector3 dirToTarget = target.transform.position - transform.position;
-        dirToTarget.y = 0; // XZ Only
-        float facingTarget = Vector3.Dot(transform.forward, dirToTarget.normalized);
+        //Vector3 dirToTarget = target.transform.position - transform.position;
+        //dirToTarget.y = 0; // XZ Only
 
-        // TEST NEGATIVE REWARD FOR FACING AWAY FROM TARGET
-        if (facingTarget < 0 && distanceReward > 0)
-        {
-            distanceReward *= 0.5f;
-        }
         stepReward += distanceReward * 1f; // Scale the reward for distance improvement
-        // small encoragment to face correcyly
-        //if (facingTarget > 0)
-        //{
-        //    AddReward(facingTarget * 0.0001f);
-        //}
-        //if (facingTarget > 0.8)
-        //{
-        //// Reward to incetivize mantainig direction and speed towards the target
-        //    stepReward += facingTarget * 0.0001f;
-        //}
-        stepReward += facingTarget * 0.0001f;
-        // possible penalty for reverse
-        Vector3 flatForward = transform.forward;
-        flatForward.y = 0;
-        flatForward.Normalize();
-        Vector3 flatVelocity = rb.linearVelocity;
-        flatVelocity.y = 0;
-        float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
-        if (forwardSpeed < -0.1f)
-        {
-            stepReward += forwardSpeed * 0.0001f;
-        }
-        // penalty to maintain stability
-        //stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
-        // Time penalty
-        stepReward += -maxReward / MaxStep;
+
+        //float facingTarget = Vector3.Dot(transform.forward, dirToTarget.normalized);
+        //stepReward += facingTarget * 0.0001f;
+
+        stepReward += - maxReward / MaxStep;
 
         AddReward(stepReward); 
  
