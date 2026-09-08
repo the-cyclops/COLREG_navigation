@@ -3,11 +3,12 @@ using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.Splines;
-using Unity.VisualScripting;
 
-
-public class BoatAgentOLD : Agent
+public class BoatAgent : Agent
 {
+
+    public bool evalMode; 
+
     public HDRPBoatPhysics boatPhysics;
     private Rigidbody rb;
     public GameObject target;
@@ -15,16 +16,9 @@ public class BoatAgentOLD : Agent
     private float arenaRadius = 15f;
     private float maxDistance = 43f;
     private float spawnObstacleRadius = 1f;
-    private float currentReductionRadius = 10f;
 
     private float spawnDistance;
     private float invSpawnDistance;
-
-    // TEST COUNTER
-    private int currentEpisodeStep = 0;
-
-
-    private float minSpawnDist = 3f; // Minimum distance from target
 
     private int current_step = 0;
     //private int startSafetyStep = 1_024_000 * 5; //1 getaction in python corresponds to 5 steps in unity for decisionperiod = 5 
@@ -59,16 +53,44 @@ public class BoatAgentOLD : Agent
     private float realSpeedIntruder1;
     private float realSpeedIntruder2;
 
+
+    private float maxReward = 10.0f;
+
     [SerializeField] private bool debugMode = false;
+
+    private System.Random random;
+    private System.Random trainRandom;
+    private System.Random evalRandom;
+
+    private float getRandomFloat(float min, float max)
+    {
+        return (float)(random.NextDouble() * (max - min) + min);
+    }
+
+    private Vector2 getRandomUniformInCircle(float radius)
+    {
+        double angle = random.NextDouble() * 2 * Mathf.PI;
+        double r = radius * Mathf.Sqrt((float)random.NextDouble());
+        return new Vector2((float)(r * Mathf.Cos((float)angle)), (float)(r * Mathf.Sin((float)angle)));
+    }
 
     public override void Initialize()
     {
+
         this.MaxStep = 5000; // timer limit for episode, max 5000/100 = 50 s
+
+        //int trainSeed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("train_seed", 0);
+        //int evalSeed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("eval_seed", 0);
+        //trainRandom = new System.Random(trainSeed);
+        //evalRandom = new System.Random(evalSeed);
+        int seed = (int)Academy.Instance.EnvironmentParameters.GetWithDefault("seed", 0);
+        random = new System.Random(seed);
 
         boatPhysics = GetComponent<HDRPBoatPhysics>();
         rb = GetComponent<Rigidbody>();
 
-        initialPosition = Vector3.zero;
+        //initialPosition = Vector3.zero;
+        initialPosition = new Vector3(0, 0, -12f);
         initialRotation = Quaternion.identity;
 
         splineAnimator1 = intruderVessel1.GetComponent<SplineAnimate>();
@@ -85,15 +107,15 @@ public class BoatAgentOLD : Agent
     void FixedUpdate()
     {
         if (intruderVessel1 != null && intruderVessel1.activeInHierarchy && curriculumStage == 2)
-    {
-        // Usiamo il valore teorico intruder1Speed per l'IA
-        intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
-    }
+        {
+            // Usiamo il valore teorico intruder1Speed per l'IA
+            intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
+        }
 
-    if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
-    {
-        intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
-    }
+        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
+        {
+            intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
+        }
 
         // Print di controllo (Sanity Check)
         if (debugMode && Time.frameCount % 100 == 0)
@@ -126,33 +148,17 @@ public class BoatAgentOLD : Agent
 
     private void MoveTarget()
     {
-        // Set the curriculum radius based on the training step
-        // initially currentReductionRadius is 13
-        if (curriculumStage == 2) // 10 to 14
-        {
-            currentReductionRadius = 1f;
-            minSpawnDist = 10f;
-        }
-        else if (curriculumStage == 1) // 8 to 12
-        {
-            currentReductionRadius = 3f;
-            minSpawnDist = 8f;
-        }
-        else // 6 to 10
-        {
-            currentReductionRadius = 5f;
-            minSpawnDist = 6f;
-        }
         
-        float maxSpawnDist = arenaRadius - currentReductionRadius;
+        float minSpawnDist = 0f;
+        float maxSpawnDist = arenaRadius -1; //arenaRadius - currentReductionRadius;
         // Randomly sample a point within a donut-shaped area 
         // bounded by minSpawnDist and maxSpawnDist to prevent overlapping with target at spawn
         Vector2 randomPoint;
         do
         {
             //randomCircle = UnityEngine.Random.insideUnitCircle * (arenaRadius-currentReductionRadius);
-            Vector2 randomDir = UnityEngine.Random.insideUnitCircle.normalized;
-            float randomDist = UnityEngine.Random.Range(minSpawnDist, maxSpawnDist);
+            Vector2 randomDir = getRandomUniformInCircle(1f).normalized; // Random direction
+            float randomDist = getRandomFloat(minSpawnDist, maxSpawnDist);
             randomPoint = randomDir * randomDist;
         }
         while (!CheckTargetPosition(randomPoint));
@@ -188,7 +194,7 @@ public class BoatAgentOLD : Agent
 
         foreach (Transform obstacle in obstacles.transform)
         {
-            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * radius;
+            Vector2 randomCircle = getRandomUniformInCircle(radius);
             Vector3 newPos = new Vector3(randomCircle.x, 0.0f, randomCircle.y);
             Transform sphereTransform = obstacle.Find("Sphere");
             if (sphereTransform != null)
@@ -199,58 +205,72 @@ public class BoatAgentOLD : Agent
         }
     }
 
-private void MoveIntruders()
-{
-    if (curriculumStage < 2)
+    private void MoveIntruders()
     {
-        intruderVessel1.SetActive(false);
-        intruderVessel2.SetActive(false);
-        return;
+        if (curriculumStage < 2)
+        {
+            intruderVessel1.SetActive(false);
+            intruderVessel2.SetActive(false);
+            return;
+        }
+
+        // Riattiviamo entrambi
+        intruderVessel1.SetActive(true);
+        intruderVessel2.SetActive(true);
+
+        // Range di velocità richiesto
+        float minS = 1.9f;
+        float maxS = 2.3f;
+
+        // --- Path 1 Setup ---
+
+        intruder1Speed = getRandomFloat(minS+1, maxS);
+
+        if (evalMode)
+        {
+            float scaleX = getRandomFloat(1f, 1.3f);
+            Path1.transform.localScale = new Vector3(scaleX, 1f, 1f);
+            splineAnimator1.MaxSpeed = intruder1Speed / scaleX;
+        }
+        else
+        {
+            float scaleZ = getRandomFloat(1f, 1.2f);
+            Path1.transform.localScale = new Vector3(1f, 1f, scaleZ);
+            splineAnimator1.MaxSpeed = intruder1Speed / scaleZ;    
+        }
+
+        
+        
+        // Partenza casuale lungo il percorso per non avere bias di posizione
+        splineAnimator1.ElapsedTime = 0f;
+        splineAnimator1.StartOffset = 0.2f;
+        splineAnimator1.Play(); 
+
+        // --- Path 2 Setup ---
+        float scaleX2 = getRandomFloat(0.9f, 1.1f);
+        float scaleZ2 = getRandomFloat(0.9f, 1.1f);
+        Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
+
+        intruder2Speed = getRandomFloat(minS, maxS);
+        splineAnimator2.MaxSpeed = intruder2Speed / Mathf.Max(scaleX2, scaleZ2);
+        
+        splineAnimator2.ElapsedTime = getRandomFloat(0f, splineAnimator2.Duration);
+        splineAnimator2.Play(); 
+
+        if (debugMode)
+        {
+            Debug.Log($"[SPAWN] I1 Speed: {intruder1Speed:F2} | I2 Speed: {intruder2Speed:F2}");
+        }
     }
-
-    // Riattiviamo entrambi
-    intruderVessel1.SetActive(true);
-    intruderVessel2.SetActive(true);
-
-    // Range di velocità richiesto
-    float minS = 1.9f;
-    float maxS = 2.2f;
-
-    // --- Path 1 Setup ---
-    float scaleX1 = UnityEngine.Random.Range(0.9f, 1.1f);
-    float scaleZ1 = UnityEngine.Random.Range(0.9f, 1.1f);
-    Path1.transform.localScale = new Vector3(scaleX1, 1f, scaleZ1);
-
-    intruder1Speed = UnityEngine.Random.Range(minS, maxS);
-    // Compensazione: velocità locale = velocità desiderata / scala massima del percorso
-    splineAnimator1.MaxSpeed = intruder1Speed / Mathf.Max(scaleX1, scaleZ1);
-    
-    // Partenza casuale lungo il percorso per non avere bias di posizione
-    splineAnimator1.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator1.Duration);
-    splineAnimator1.Play(); 
-
-    // --- Path 2 Setup ---
-    float scaleX2 = UnityEngine.Random.Range(0.9f, 1.1f);
-    float scaleZ2 = UnityEngine.Random.Range(0.9f, 1.1f);
-    Path2.transform.localScale = new Vector3(scaleX2, 1f, scaleZ2);
-
-    intruder2Speed = UnityEngine.Random.Range(minS, maxS);
-    splineAnimator2.MaxSpeed = intruder2Speed / Mathf.Max(scaleX2, scaleZ2);
-    
-    splineAnimator2.ElapsedTime = UnityEngine.Random.Range(0f, splineAnimator2.Duration);
-    splineAnimator2.Play(); 
-
-    if (debugMode)
-    {
-        Debug.Log($"[SPAWN] I1 Speed: {intruder1Speed:F2} | I2 Speed: {intruder2Speed:F2}");
-    }
-}
 
     public override void OnEpisodeBegin()
     {
-
-        // TEST COUNTER
-        currentEpisodeStep = 0;
+        float evalEpisodeSeed = Academy.Instance.EnvironmentParameters.GetWithDefault("eval_episode_seed", -1f);
+        if (evalEpisodeSeed != -1f)
+        {
+            random = new System.Random((int)evalEpisodeSeed);
+            curriculumStage = 2; 
+        }
         
         // Move Obstacles
         MoveObstacles();
@@ -269,14 +289,34 @@ private void MoveIntruders()
         transform.localPosition = initialPosition;
         transform.localRotation = initialRotation;
 
+        float initialSpeed = 0f; // Safe Speed from COLREG
+
+        rb.linearVelocity = transform.forward * initialSpeed;
+        rb.angularVelocity = Vector3.zero;
+
         Physics.SyncTransforms();
 
         // RESET POSIZIONI PER EVITARE SPIKE DI VELOCITÀ AL PRIMO FRAME
         lastPosIntruder1_2D = new Vector2(intruderVessel1.transform.position.x, intruderVessel1.transform.position.z);
         lastPosIntruder2_2D = new Vector2(intruderVessel2.transform.position.x, intruderVessel2.transform.position.z);
 
-        intruder1Velocity = Vector3.zero;
-        intruder2Velocity = Vector3.zero;
+        if (intruderVessel1 != null && intruderVessel1.activeInHierarchy && curriculumStage == 2)
+        {
+            intruder1Velocity = intruderVessel1.transform.forward * intruder1Speed;
+        }
+        else 
+        {
+            intruder1Velocity = Vector3.zero;
+        }
+
+        if (intruderVessel2 != null && intruderVessel2.activeInHierarchy && curriculumStage == 2)
+        {
+            intruder2Velocity = intruderVessel2.transform.forward * intruder2Speed;
+        }
+        else 
+        {
+            intruder2Velocity = Vector3.zero;
+        }
 
         Vector2 boatPos2D = new Vector2(transform.localPosition.x, transform.localPosition.z);
         Vector2 targetPos2D = new Vector2(target.transform.localPosition.x, target.transform.localPosition.z);
@@ -286,14 +326,14 @@ private void MoveIntruders()
     public override void CollectObservations(VectorSensor sensor)
     {
         // Observation Structure:
-        // 0-1: Target Relative Position (2) - X and Z in local space (direction to the target)
-        // 2:   Target Distance (1)
-        // 3-4: Linear Velocity (2) - X and Z in local space
-        // 5: Angular Velocity (1) - Yaw (Y) in local space
-        // 6-10: Intruder Vessel 1 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
-        // 11-12: Intruder Vessel 1 - Heading (2) - Direction in local space
-        // 13-17: Intruder Vessel 2 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
-        // 18-19: Intruder Vessel 2 - Heading (2) - Direction in local space
+        // 0-1:     Target Relative Position (2) - X and Z in local space (direction to the target)
+        // 2:       Target Distance (1)
+        // 3-4:     Linear Velocity (2) - X and Z in local space
+        // 5:       Angular Velocity (1) - Yaw (Y) in local space
+        // 6-10:    Intruder Vessel 1 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
+        // 11-12:   Intruder Vessel 1 - Heading (2) - Direction in local space
+        // 13-17:   Intruder Vessel 2 - Position, Distance, Relative Velocity (5) = (2 + 1 + 2)
+        // 18-19:   Intruder Vessel 2 - Heading (2) - Direction in local space
 
         // --- SELF & TARGET OBSERVATIONS ---
 
@@ -415,7 +455,7 @@ private void MoveIntruders()
             // Padding if no intruder is active to keep observation size constant
             // Obs Index [13-19]: Zeros for Intruder 2
             sensor.AddObservation(Vector2.zero); // Rel Pos
-            sensor.AddObservation(1.0f);           // Dist
+            sensor.AddObservation(1.0f);         // Dist
             sensor.AddObservation(Vector2.zero); // Rel Vel
             sensor.AddObservation(Vector2.zero); // Heading
         }
@@ -451,11 +491,6 @@ private void MoveIntruders()
         float distanceReward = previousDistanceToTarget - currentDistanceToTarget; //15 -12 = +3 (good) | 15 -18 = -3 (bad)
         distanceReward *= invSpawnDistance; // Normalizziamo per la distanza di spawn per mantenere coerenza del reward indipendentemente da dove appare il target
 
-        // TEST COUNTER - DA COMMENTARE PER TEST
-        //distanceReward = distanceReward * (1f - (currentEpisodeStep / MaxStep)); // Decay del reward di distanza
-
-        currentEpisodeStep++;
-
 
         previousDistanceToTarget = currentDistanceToTarget;
 
@@ -480,20 +515,20 @@ private void MoveIntruders()
             stepReward += facingTarget * 0.0001f;
         }
         // possible penalty for reverse
-        //Vector3 flatForward = transform.forward;
-        //flatForward.y = 0;
-        //flatForward.Normalize();
-        //Vector3 flatVelocity = rb.linearVelocity;
-        //flatVelocity.y = 0;
-        //float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
-        //if (forwardSpeed < -0.1f)
-        //{
-        //    stepReward += forwardSpeed * 0.0001f;
-        //}
+        Vector3 flatForward = transform.forward;
+        flatForward.y = 0;
+        flatForward.Normalize();
+        Vector3 flatVelocity = rb.linearVelocity;
+        flatVelocity.y = 0;
+        float forwardSpeed = Vector3.Dot(flatForward, flatVelocity);
+        if (forwardSpeed < -0.1f)
+        {
+            stepReward += forwardSpeed * 0.0001f;
+        }
         // penalty to maintain stability
         stepReward += -0.00005f * Mathf.Abs(rb.angularVelocity.y);
         // Time penalty
-        stepReward += -10.0f / MaxStep;
+        stepReward += -maxReward / MaxStep;
 
         AddReward(stepReward); 
  
@@ -514,7 +549,7 @@ private void MoveIntruders()
     {
         if (!collision.gameObject.CompareTag("Target")) {
             if (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("Wall") || collision.gameObject.CompareTag("Boat")) {
-                AddReward(-10.0f);
+                AddReward(-maxReward);
             }
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode();
@@ -526,7 +561,7 @@ private void MoveIntruders()
     {
         if (other.CompareTag("Target"))
         {
-            AddReward(10.0f);
+            AddReward(maxReward);
             if (debugMode) Debug.Log(GetCumulativeReward());
             EndEpisode(); 
         }
