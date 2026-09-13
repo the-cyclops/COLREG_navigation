@@ -4,7 +4,7 @@ using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.Splines;
 
-public class BoatAgent : Agent
+public class BoatAgentOLD : Agent
 {
 
     public bool evalMode; 

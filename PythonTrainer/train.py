@@ -45,8 +45,8 @@ LR = 0.0003
 # size of the mini-batch for PPO updates
 BATCH_SIZE = 256
 #BATCH_SIZE = 128
-ENTROPY_COEF = 0.0001
-#ENTROPY_COEF = 0.001
+#ENTROPY_COEF = 0.0001
+ENTROPY_COEF = 0.001
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS // 2 # Activate safety constraints after roughly 50%, this number is a mupltiple of rollout size
 
@@ -61,7 +61,7 @@ EVAL_SEED = 59
 SEEDS= [1, 3, 7, 34, 42]
 
 COST_SCALE = 0.1
-REWARD_SCALE = 0.1
+REWARD_SCALE = 1.0 #0.1
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -211,12 +211,12 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
     return mean_eval_return, total_r1_robustness, total_r2_robustness, total_r6_robustness
 
 # R6 setup: 
-# gamma 0.995, lr 0.0003, ent 0.0001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), costs and reward with scale 0.1
+# gamma 0.995, lr 0.0003, ent 0.001, batchsize 256, logstd=0.0, gradclip 0.5 ( on critics too), costs and reward with scale 0.1
 # smaller reward for facing target 1/5, SAFE_DISTANCE = 2.0, t_coll=1.0, t_check=2.0 and tau=80 (4s)
 # evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
 def main():
     model_start_time = time.time()
-    model_name = f"boat_FINALR6_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"
+    model_name = f"boat_R6_FIXREWARD_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"
     seed_iteration = 0
     for seed in SEEDS:
         seed_iteration += 1

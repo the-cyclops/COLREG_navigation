@@ -2,7 +2,7 @@ import os
 import numpy as np
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-def analyze_runs(log_dir="runs/GRID_SEARCH_EMPTY_SCENE_FIXED_CURRICULA", top_k=5, min_final_entropy=-3.0):
+def analyze_runs(log_dir="runs/GRID_SEARCH_EMPTY_SCENE_FIXED_REWARD_SCALE_1.0", top_k=5, min_final_entropy=-3.0):
     runs_data = []
 
     print(f"Analisi di {log_dir} in corso...")
@@ -54,4 +54,4 @@ def analyze_runs(log_dir="runs/GRID_SEARCH_EMPTY_SCENE_FIXED_CURRICULA", top_k=5
         print(f"   Return Finale: {r['mean_return']:.2f} (± {r['std_return']:.2f}) | Entropia: {r['entropy']:.3f}\n")
 
 if __name__ == "__main__":
-    analyze_runs()
+    analyze_runs(top_k=10)

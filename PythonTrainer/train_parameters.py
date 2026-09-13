@@ -37,7 +37,8 @@ TOT_STEPS = 512_000 # 250 updates
 SAVE_INTERVAL = 20_480
 START_SAFETY = TOT_STEPS + 1  # Reward-only durante il tuning
 COST_SCALE = 0.1
-REWARD_SCALE = 0.1
+REWARD_SCALE = 1.0 #0.1
+
 
 # Hyperparameter Grid
 GAMMAS = [0.995]
@@ -67,7 +68,7 @@ def get_single_agent_obs(steps):
     return np.concatenate((ray_obs, vec_obs)), vec_obs
 
 def main():
-    model_name = "GRID_SEARCH_EMPTY_SCENE_FIXED_CURRICULA"
+    model_name = "GRID_SEARCH_EMPTY_SCENE_FIXED_REWARD_SCALE_1.0"
     hp_combinations = list(itertools.product(LEARNING_RATES, ENTROPY_COEFS, BATCH_SIZES, GAMMAS))
     total_runs = len(hp_combinations)
 
