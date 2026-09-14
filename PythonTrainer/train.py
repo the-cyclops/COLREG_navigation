@@ -13,6 +13,7 @@ from mlagents_envs.side_channel.engine_configuration_channel import EngineConfig
 from mlagents_envs.side_channel.environment_parameters_channel import EnvironmentParametersChannel
 
 from algorithms.agent import ConstrainedPPOAgent
+from algorithms.agent_CMORL import RandomCMORLAgent
 
 from utils.buffers import Memory
 from utils.colreg_handler import COLREGHandler
@@ -62,7 +63,8 @@ SEEDS= [1, 3, 7, 34, 42]
 
 COST_SCALE = 0.1
 REWARD_SCALE = 1.0 #0.1
-
+# BASELINE FLAGS
+IS_CMORL = True
 def set_all_seeds(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -218,7 +220,8 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 # evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
 def main():
     model_start_time = time.time()
-    model_name = f"boat_R6_FIXREWARD_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"
+    tag = "CMORL" if IS_CMORL else "FIXREWARD"
+    model_name = f"boat_R6_{tag}_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"
     seed_iteration = 0
     for seed in SEEDS:
         seed_iteration += 1
@@ -281,16 +284,28 @@ def main():
         # Debug info print behaviors available
         #print("Behaviors found:", list(env.behavior_specs.keys()))
         behavior_name = list(env.behavior_specs.keys())[0] 
+        if IS_CMORL:
+            agent = RandomCMORLAgent(
+                INPUT_SIZE, 
+                ACTION_SIZE, 
+                device=DEVICE, 
+                start_safety=START_SAFETY, 
+                gamma=GAMMA,
+                lr=LR,
+                entropy_coeff=ENTROPY_COEF,
+                seed=seed
+            )
 
-        agent = ConstrainedPPOAgent(
-            INPUT_SIZE, 
-            ACTION_SIZE, 
-            device=DEVICE, 
-            start_safety=START_SAFETY, 
-            gamma=GAMMA,
-            lr=LR,
-            entropy_coeff=ENTROPY_COEF
-        )
+        else:    
+            agent = ConstrainedPPOAgent(
+                INPUT_SIZE, 
+                ACTION_SIZE, 
+                device=DEVICE, 
+                start_safety=START_SAFETY, 
+                gamma=GAMMA,
+                lr=LR,
+                entropy_coeff=ENTROPY_COEF
+            )
 
         if starting_step != 0:
             checkpoint_path = f"Models/{model_name}/seed_{seed}/steps_{starting_step}.pth"
