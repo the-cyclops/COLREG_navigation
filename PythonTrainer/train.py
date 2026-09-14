@@ -67,6 +67,8 @@ def set_all_seeds(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    torch.set_num_threads(1)
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 def get_single_agent_obs(steps):
     # Extract raw observations list

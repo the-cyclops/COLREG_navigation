@@ -16,7 +16,7 @@ from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
 # Ricordati di aggiornare model_name con la stringa esatta della cartella del tuo nuovo training
-model_name = "boat_GRADFIX_R6_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_0.1/seed_3"
+model_name = "boat_R6_FIXREWARD_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0/seed_3"
 unity_env_path = None 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 20
@@ -37,6 +37,8 @@ def set_all_seeds(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    torch.set_num_threads(1)
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 def get_single_agent_obs(steps):
     raw_obs = steps.obs
@@ -78,11 +80,11 @@ def main():
     set_all_seeds(FIXED_SEED)
     
     #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
-    checkpoint_path = f"Models/{model_name}/best_model.pth"
+    #checkpoint_path = f"Models/{model_name}/best_model.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_MEAN.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_PCT.pth"
-    #checkpoint_path = f"Models/{model_name}/steps_2048377.pth"
+    checkpoint_path = f"Models/{model_name}/steps_2049365.pth"
     
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
