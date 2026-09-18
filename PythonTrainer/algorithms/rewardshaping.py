@@ -1,7 +1,7 @@
 import torch
 import torch.optim as optim
 import numpy as np
-from PythonTrainer.algorithms.agent import ConstrainedPPOAgent
+from algorithms.agent import ConstrainedPPOAgent
 from algorithms.networks import Policy, Value, CostValue
 from utils.cagrad import Cagrad_all
 

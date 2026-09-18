@@ -219,7 +219,7 @@ def evaluate_model(eval_seed, agent, colreg_handler, RTAMT, eval_env, eval_env_p
 # evaluation safety pct set to 0.80 (8 out of 10 safe episodes required to save best safe model)
 def main():
     model_start_time = time.time()
-    model_name = f"boat_R6_FIXREWARD_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"
+    model_name = f"boat_R6_REWARDSHAPING_GAMMA_{GAMMA}_lr_{LR}_ent_{ENTROPY_COEF}_batchsize_{BATCH_SIZE}_costscale_{COST_SCALE}_reward_scale_{REWARD_SCALE}"
     seed_iteration = 0
     for seed in SEEDS:
         seed_iteration += 1
@@ -287,7 +287,6 @@ def main():
             INPUT_SIZE, 
             ACTION_SIZE, 
             device=DEVICE, 
-            start_safety=START_SAFETY, 
             gamma=GAMMA,
             lr=LR,
             entropy_coeff=ENTROPY_COEF,
