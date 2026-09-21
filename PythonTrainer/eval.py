@@ -10,13 +10,16 @@ from mlagents_envs.side_channel.engine_configuration_channel import EngineConfig
 from mlagents_envs.side_channel.environment_parameters_channel import EnvironmentParametersChannel
 
 from algorithms.agent import ConstrainedPPOAgent
+from algorithms.rewardshaping import RewardShapingPPOAgent
 from utils.buffers import Memory
 from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
 # Ricordati di aggiornare model_name con la stringa esatta della cartella del tuo nuovo training
-model_name = "boat_R6_FIXREWARD_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0/seed_3"
+model_name = "boat_R6_REWARDSHAPING_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0"
+seed = "seed_1"
+model_name = f"{model_name}/{seed}"
 unity_env_path = None 
 DEVICE = "cpu"
 OBSERVATION_SIZE = 20
@@ -84,7 +87,7 @@ def main():
     #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_MEAN.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_PCT.pth"
-    checkpoint_path = f"Models/{model_name}/steps_2049365.pth"
+    checkpoint_path = f"Models/{model_name}/steps_2049089.pth"
     
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
@@ -116,13 +119,13 @@ def main():
 
     engine_config.set_configuration_parameters(width=800, height=600, time_scale=5.0)
 
-    agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=0)
-    
+    #agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=0)
+    agent = RewardShapingPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE)
     agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
     agent.value_net.load_state_dict(checkpoint['value_state_dict'])
-    agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
-    agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
-    agent.cost_net_R6.load_state_dict(checkpoint['cost_net_r6_state_dict']) 
+    #agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
+    #agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
+    #agent.cost_net_R6.load_state_dict(checkpoint['cost_net_r6_state_dict']) 
     
     agent.set_eval_mode()
 
