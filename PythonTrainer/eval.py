@@ -11,14 +11,18 @@ from mlagents_envs.side_channel.environment_parameters_channel import Environmen
 
 from algorithms.agent import ConstrainedPPOAgent
 from algorithms.rewardshaping import RewardShapingPPOAgent
+from algorithms.agent_CMORL import RandomCMORLAgent
 from utils.buffers import Memory
 from utils.colreg_handler import COLREGHandler
 from colreg_logic import rtamt_yml_parser
 
 # --- CONFIGURATIONS ---
-# Ricordati di aggiornare model_name con la stringa esatta della cartella del tuo nuovo training
+#model_name = "boat_R6_FIXREWARD_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0"
+#model_name = "boat_R6_CMORL_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0"
 model_name = "boat_R6_REWARDSHAPING_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0"
-seed = "seed_1"
+
+seed = "seed_1" # best for shaping and CMORL
+#seed = "seed_3" # best for OUR
 model_name = f"{model_name}/{seed}"
 unity_env_path = None 
 DEVICE = "cpu"
@@ -32,9 +36,9 @@ ACTION_SIZE = 2
 colreg_path = "colreg_logic/colregR6.yaml" 
 SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10 
-FIXED_SEED = 59
+FIXED_SEED = 2005 # 59 eval - 172 test - 180 test - 2005 - 5909
 COST_SCALE = 0.1 
-REWARD_SCALE = 0.1
+REWARD_SCALE = 1.0
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -81,13 +85,16 @@ def RTAMT_evaluation(memory_buffer, RTAMT):
 
 def main():
     set_all_seeds(FIXED_SEED)
-    
+
     #checkpoint_path = f"Models/{model_name}/pre_safety_checkpoint.pth"
     #checkpoint_path = f"Models/{model_name}/best_model.pth"
+    #checkpoint_path = f"Models/{model_name}/steps_2049365.pth" # OUR
+    #checkpoint_path = f"Models/{model_name}/steps_2050518.pth" # CMORL
+    checkpoint_path = f"Models/{model_name}/steps_2049089.pth" # REWARDSHAPING
+    
     #checkpoint_path = f"Models/{model_name}/best_safe_model.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_MEAN.pth"
     #checkpoint_path = f"Models/{model_name}/best_safe_model_PCT.pth"
-    checkpoint_path = f"Models/{model_name}/steps_2049089.pth"
     
     print(f"--- Starting Evaluation from model: {checkpoint_path} ---")
     
@@ -98,7 +105,7 @@ def main():
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Model not found at path: {checkpoint_path}")
     
-    checkpoint = torch.load(checkpoint_path, map_location=DEVICE)
+    checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
     print(f"Loaded checkpoint from {checkpoint_path} from step {checkpoint['step']}")
     sleep(3)
 
@@ -117,15 +124,35 @@ def main():
     BEHAVIOR_NAME = list(env.behavior_specs.keys())[0]
     print(f"Connected to behavior: {BEHAVIOR_NAME}")
 
-    engine_config.set_configuration_parameters(width=800, height=600, time_scale=5.0)
+    engine_config.set_configuration_parameters(width=800, height=600, time_scale=4.0)
 
-    #agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=0)
-    agent = RewardShapingPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE)
-    agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
-    agent.value_net.load_state_dict(checkpoint['value_state_dict'])
-    #agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
-    #agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
-    #agent.cost_net_R6.load_state_dict(checkpoint['cost_net_r6_state_dict']) 
+    # Selezione e caricamento dinamico dell'agente
+    if "FIXREWARD" in model_name:
+        print("USING OURS")
+        agent = ConstrainedPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=0)
+        agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
+        agent.value_net.load_state_dict(checkpoint['value_state_dict'])
+        agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
+        agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
+        agent.cost_net_R6.load_state_dict(checkpoint['cost_net_r6_state_dict'])
+
+    elif "CMORL" in model_name:
+        print("USING CMORL")
+        agent = RandomCMORLAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE, start_safety=0)
+        agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
+        agent.value_net.load_state_dict(checkpoint['value_state_dict'])
+        agent.cost_net_safe_distance.load_state_dict(checkpoint['cost_net_safe_distance_state_dict'])
+        agent.cost_net_safe_speed.load_state_dict(checkpoint['cost_net_safe_speed_state_dict'])
+        agent.cost_net_R6.load_state_dict(checkpoint['cost_net_r6_state_dict'])
+
+    elif "REWARDSHAPING" in model_name:
+        print("USING REWARD SHAPING")
+        agent = RewardShapingPPOAgent(INPUT_SIZE, ACTION_SIZE, device=DEVICE)
+        agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
+        agent.value_net.load_state_dict(checkpoint['value_state_dict'])
+
+    else:
+        raise ValueError(f"Configurazione non riconosciuta nel nome: {model_name}")
     
     agent.set_eval_mode()
 
@@ -221,19 +248,23 @@ def main():
             # Calcolo episodi totalmente sicuri (tutte e 3 le regole rispettate contemporaneamente)
             totally_safe = sum(1 for r1, r2, r6 in zip(total_r1_robustness, total_r2_robustness, total_r6_robustness) if r1 >= 0.0 and r2 >= 0.0 and r6 >= 0.0)
 
+            print(f"\nLoaded checkpoint from {checkpoint_path} from step {checkpoint['step']}")
             print("\n--- Final Evaluation Results ---")
             print(f"Episodes Completed: {total_ep}")
             print(f"Average Return: {np.mean(total_rewards):.2f} ± {np.std(total_rewards):.2f}")
             print(f"Max Return: {np.max(total_rewards):.2f} | Min Return: {np.min(total_rewards):.2f}")
             print("-" * 35)
+            print(f"Average R1: {np.mean(total_r1_robustness):.2f} ± {np.std(total_r1_robustness):.2f}")
+            print(f"Max R1: {np.max(total_r1_robustness):.2f} | Min R1: {np.min(total_r1_robustness):.2f}")
+            print(f"Average R2: {np.mean(total_r2_robustness):.2f} ± {np.std(total_r2_robustness):.2f}")
+            print(f"Max R2: {np.max(total_r2_robustness):.2f} | Min R2: {np.min(total_r2_robustness):.2f}")
+            print(f"Average R6: {np.mean(total_r6_robustness):.2f} ± {np.std(total_r6_robustness):.2f}")
+            print(f"Max R6: {np.max(total_r6_robustness):.2f} | Min R6: {np.min(total_r6_robustness):.2f}")
+            print("-" * 35)
             print(f"Safe Episodes (R1 - Distance): {safe_r1}/{total_ep} ({safe_r1/total_ep:.0%})")
             print(f"Safe Episodes (R2 - Speed):    {safe_r2}/{total_ep} ({safe_r2/total_ep:.0%})")
             print(f"Safe Episodes (R6 - Stand-on): {safe_r6}/{total_ep} ({safe_r6/total_ep:.0%})")
             print(f"TOTALLY SAFE EPISODES:         {totally_safe}/{total_ep} ({totally_safe/total_ep:.0%})")
-            print("-" * 35)
-            print(f"Min R1: {np.min(total_r1_robustness):.2f} | Mean R1: {np.mean(total_r1_robustness):.2f}")
-            print(f"Min R2: {np.min(total_r2_robustness):.2f} | Mean R2: {np.mean(total_r2_robustness):.2f}")
-            print(f"Min R6: {np.min(total_r6_robustness):.2f} | Mean R6: {np.mean(total_r6_robustness):.2f}")
         else:
             print("\nNo episodes completed.")
 
