@@ -36,7 +36,7 @@ ACTION_SIZE = 2
 colreg_path = "colreg_logic/colregR6.yaml" 
 SAFE_DISTANCE = 2.0
 NUM_EVAL_EPISODES = 10 
-FIXED_SEED = 2005 # 59 eval - 172 test - 180 test - 2005 - 5909
+FIXED_SEED = 2005 # 59 eval - 2005 test
 COST_SCALE = 0.1 
 REWARD_SCALE = 1.0
 
