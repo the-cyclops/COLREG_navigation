@@ -14,20 +14,20 @@ X_SCALE = 50000.0       # Fattore di scala asse X (5 * 10^4)
 
 pio.templates.default = "simple_white"
 
-# Mappa metodi, percorsi e colori
+# Mappa metodi, percorsi e colori (percorsi relativi da utils/)
 METHODS_CONFIG = {
     "Our": {
-        "dir": "runs/boat_R6_FIXREWARD_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0",
+        "dir": "../runs/boat_R6_FIXREWARD_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0",
         "color": "#D81B60",
         "highlight": True
     },
     "Reward shaping": {
-        "dir": "runs/boat_R6_REWARDSHAPING_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0",
+        "dir": "../runs/boat_R6_REWARDSHAPING_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0",
         "color": "#6B4F3A",
         "highlight": False
     },
     "CMORL original": {
-        "dir": "runs/boat_R6_CMORL_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0",
+        "dir": "../runs/boat_R6_CMORL_GAMMA_0.995_lr_0.0003_ent_0.001_batchsize_256_costscale_0.1_reward_scale_1.0",
         "color": "#ff7f0e",
         "highlight": False
     }
@@ -73,7 +73,6 @@ def extract_scalar_from_seed(seed_dir: str, tag: str):
     steps = np.array([e.step for e in events])
     values = np.array([e.value for e in events])
     return steps, values
-
 
 
 def load_and_aggregate_metrics(methods_config: dict, tot_steps: int = None, start_safety: int = None):
@@ -238,7 +237,7 @@ def apply_custom_layout(fig, y_title: str, start_safety_scaled: float = None):
         )
 
 
-def generate_plots(scaled_steps, scaled_eval_steps, parsed_data, start_safety: int = None, output_dir: str = "results_plots"):
+def generate_plots(scaled_steps, scaled_eval_steps, parsed_data, start_safety: int = None, output_dir: str = "../results_plots"):
     os.makedirs(output_dir, exist_ok=True)
     start_safety_scaled = (start_safety / X_SCALE) if start_safety is not None else None
 
@@ -250,6 +249,7 @@ def generate_plots(scaled_steps, scaled_eval_steps, parsed_data, start_safety: i
             label=label, color=conf["color"], highlight=conf["highlight"]
         )
     apply_custom_layout(fig_ret, "Return", start_safety_scaled)
+    fig_ret.write_image(os.path.join(output_dir, "training_return.png"), scale=2)
     fig_ret.write_html(os.path.join(output_dir, "training_return.html"))
 
     # 2. Eval Return (inizia da start_safety)
@@ -257,6 +257,7 @@ def generate_plots(scaled_steps, scaled_eval_steps, parsed_data, start_safety: i
     for label, conf in METHODS_CONFIG.items():
         add_metric_trace(fig_eval_ret, scaled_eval_steps, parsed_data[label]["eval_return"], label=label, color=conf["color"], highlight=conf["highlight"])
     apply_custom_layout(fig_eval_ret, "Eval Return", start_safety_scaled)
+    fig_eval_ret.write_image(os.path.join(output_dir, "eval_return.png"), scale=2)
     fig_eval_ret.write_html(os.path.join(output_dir, "eval_return.html"))
 
     # 3. Grafico Costi Totali
@@ -267,6 +268,7 @@ def generate_plots(scaled_steps, scaled_eval_steps, parsed_data, start_safety: i
             label=label, color=conf["color"], highlight=conf["highlight"]
         )
     apply_custom_layout(fig_cost, "Total cost", start_safety_scaled)
+    fig_cost.write_image(os.path.join(output_dir, "training_total_cost.png"), scale=2)
     fig_cost.write_html(os.path.join(output_dir, "training_total_cost.html"))
 
     # 4. Grafico Positive Cost Totale
@@ -277,6 +279,7 @@ def generate_plots(scaled_steps, scaled_eval_steps, parsed_data, start_safety: i
             label=label, color=conf["color"], highlight=conf["highlight"]
         )
     apply_custom_layout(fig_pos_cost, "Total positive cost", start_safety_scaled)
+    fig_pos_cost.write_image(os.path.join(output_dir, "training_positive_cost.png"), scale=2)
     fig_pos_cost.write_html(os.path.join(output_dir, "training_positive_cost.html"))
 
     # 5. Grafici separati per ogni Robustness
@@ -294,6 +297,7 @@ def generate_plots(scaled_steps, scaled_eval_steps, parsed_data, start_safety: i
                 label=label, color=conf["color"], highlight=conf["highlight"]
             )
         apply_custom_layout(fig_rho, f"Robustness {title}", start_safety_scaled)
+        fig_rho.write_image(os.path.join(output_dir, f"{file_name}.png"), scale=2)
         fig_rho.write_html(os.path.join(output_dir, f"{file_name}.html"))
 
     print(f"Grafici esportati con successo in: {output_dir}/")
