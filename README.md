@@ -189,7 +189,13 @@ Rather than collapsing task rewards and safety penalties into a single scalar va
 3. **$V^{\psi_2}_{R2}(\mathbf{s})$ (Speed Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_2$.
 4. **$V^{\psi_3}_{R6}(\mathbf{s})$ (Stand-on Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_6$.
 
-This decoupling isolates per-rule advantage signals $\hat{A}^\text{cost}_{Rk} = \text{GAE}(c_{Rk}, V^{\psi_k}_{Rk})$, preventing high mission rewards from obscuring critical safety infractions.
+This decoupling isolates per-rule advantage signals:
+
+$$
+\hat{A}^\text{cost}_{Rk} = \text{GAE}(c_{Rk}, V^{\psi_k}_{Rk})
+$$
+
+preventing high mission rewards from obscuring critical safety infractions.
 
 ### 4.2 Shared Scale Normalization
 Standard independent advantage normalization ($\sigma_k = 1$) distorts multi-objective balance by artificially equating minor infractions with critical collision risks. To maintain true physical ratios across active violations $\mathcal{V} = \{k \mid \rho_k < 0\}$:
@@ -201,16 +207,28 @@ $$
 ### 4.3 Mode Switching & CAGrad Conflict Resolution
 The policy loss $\mathcal{L}(\theta)$ dynamically switches based on safety compliance:
 * **Nominal Mode ($\forall k, \rho_k \ge 0$)**: Maximizes task progress:
-  $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^\text{reward}) - c_\text{ent} \mathcal{H}(\pi_\theta)$.
+
+  $$
+  \mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^\text{reward}) - c_\text{ent} \mathcal{H}(\pi_\theta)
+  $$
+
 * **Single Violation ($\exists! k, \rho_k < 0$)**: Discards task return to prioritize immediate recovery:
-  $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk}) - c_\text{ent} \mathcal{H}(\pi_\theta)$.
+
+  $$
+  \mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk}) - c_\text{ent} \mathcal{H}(\pi_\theta)
+  $$
+
 * **Multiple Violations ($|\mathcal{V}| > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
 
 $$
 g_m = \arg\max_g \min_{k \in \mathcal{V}} \langle g, g_{Rk} \rangle \quad \text{subject to} \quad \|g - g_\text{avg}\| \le c \|g_\text{avg}\|
 $$
 
-where $g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk})$ and $g_\text{avg} = \frac{1}{|\mathcal{V}|} \sum_{k \in \mathcal{V}} g_{Rk}$.
+where:
+
+$$
+g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk}), \qquad g_\text{avg} = \frac{1}{|\mathcal{V}|} \sum_{k \in \mathcal{V}} g_{Rk}
+$$
 
 ---
 
