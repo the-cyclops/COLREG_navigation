@@ -163,7 +163,7 @@ s_{keep} = \min(s_{risk}, \, s_{sector}), \qquad s_{risk} = -s_{R1}(t_h = 2.0\,\
 $$
 
 $$
-s_{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, \, 112.5^\circ - \theta), \quad \theta = \operatorname{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}
+s_{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, \, 112.5^\circ - \theta), \quad \theta = \mathrm{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}
 $$
 
 $$
