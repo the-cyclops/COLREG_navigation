@@ -112,7 +112,7 @@ Task difficulty scales across three automated stages based on environment steps:
 The steering and sailing rules formalize the International Regulations for Preventing Collisions at Sea (IMO, 1972; Krasowski & Althoff, 2021) using **Signal Temporal Logic (STL)** evaluated via `rtamt` in dense-time semantics over a sliding horizon ($H = 80$ steps, $4.0\,\text{s}$ at $20\,\text{Hz}$).
 
 ### 3.1 Kinematics & Closest Point of Approach (CPA)
-From denormalized intruder relative position $\mathbf{p}_\text{rel}$ and velocity $\mathbf{v}_\text{rel}$, the analytical time to CPA ($t_\text{cpa}$) and horizon-bounded minimum distance ($d_\text{min}$ over $t_h = 1.0\,\text{s}$) are:
+From denormalized intruder relative position and velocity, the analytical time to CPA and horizon-bounded minimum distance (over horizon $t_h = 1.0\,\text{s}$) are:
 
 $$
 t_\text{cpa} = -\frac{\mathbf{p}_\text{rel} \cdot \mathbf{v}_\text{rel}}{\|\mathbf{v}_\text{rel}\|^2} \quad (\text{for } \|\mathbf{v}_\text{rel}\|^2 > 10^{-6})
@@ -164,7 +164,7 @@ s_\text{keep} = \min(s_\text{risk}, s_\text{sector}), \qquad s_\text{risk} = -s_
 $$
 
 $$
-s_\text{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, 112.5^\circ - \theta), \quad \theta = \operatorname{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}
+s_\text{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, 112.5^\circ - \theta), \quad \theta = \text{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}
 $$
 
 $$
