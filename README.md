@@ -47,29 +47,29 @@ COLREG_navigation/
 │   └── presentation.pdf                                          # Project slides & experimental presentation
 ├── PythonTrainer/
 │   ├── algorithms/
-│   │   ├── agent.py                # ConstrainedPPOAgent (Decoupled Multi-Critic + CAGrad)
-│   │   ├── agent_CMORL.py          # Random Constraint Selection baseline
-│   │   ├── networks.py             # Actor, Value, and CostValue MLP architectures
-│   │   └── rewardshaping.py        # Reward Shaping baseline agent
+│   │   ├── agent.py               # ConstrainedPPOAgent (Decoupled Multi-Critic + CAGrad)
+│   │   ├── agent_CMORL.py         # Random Constraint Selection baseline
+│   │   ├── networks.py            # Actor, Value, and CostValue MLP architectures
+│   │   └── rewardshaping.py       # Reward Shaping baseline agent
 │   ├── colreg_logic/
-│   │   ├── colregR6.yaml           # Formal STL specifications (Rules R1, R2, R6)
-│   │   └── rtamt_yml_parser.py     # Pre-compiled multi-monitor RTAMT interface
+│   │   ├── colregR6.yaml          # Formal STL specifications (Rules R1, R2, R6)
+│   │   └── rtamt_yml_parser.py    # Pre-compiled multi-monitor RTAMT interface
 │   ├── utils/
-│   │   ├── buffers.py              # Rollout buffer with Markovian STL flag updates
-│   │   ├── cagrad.py               # Conflict-Averse Gradient Descent dual solver
-│   │   ├── colreg_handler.py       # CPA extrapolation & safety margin calculations
-│   │   └── plot_results.py         # TensorBoard / evaluation plotting utilities
-│   ├── train.py                    # Main training loop (Multi-Critic + CAGrad)
-│   ├── train_rewardshaping.py      # Training loop for Reward Shaping baseline
-│   ├── train_parameters.py         # Grid search tuning script on Stage 0
-│   ├── eval.py                     # Deterministic validation and generalization test suite
-│   ├── demo.py                     # Real-time visual deployment with Unity Editor
-│   └── environment.yml             # Conda / Mamba dependencies
+│   │   ├── buffers.py             # Rollout buffer with Markovian STL flag updates
+│   │   ├── cagrad.py              # Conflict-Averse Gradient Descent dual solver
+│   │   ├── colreg_handler.py      # CPA extrapolation & safety margin calculations
+│   │   └── plot_results.py        # TensorBoard / evaluation plotting utilities
+│   ├── train.py                   # Main training loop (Multi-Critic + CAGrad)
+│   ├── train_rewardshaping.py     # Training loop for Reward Shaping baseline
+│   ├── train_parameters.py        # Grid search tuning script on Stage 0
+│   ├── eval.py                    # Deterministic validation and generalization test suite
+│   ├── demo.py                    # Real-time visual deployment with Unity Editor
+│   └── environment.yml            # Conda / Mamba dependencies
 ├── UnityEnvironment/
 │   └── COLREG_simulation/
 │       └── Assets/Scripts/
-│           ├── BoatAgent.cs        # ML-Agents agent: observations, curriculum, step rewards
-│           └── HDRPBoatPhysics.cs  # 6-point floater buoyancy, keel drag, thrusters
+│           ├── BoatAgent.cs       # ML-Agents agent: observations, curriculum, step rewards
+│           └── HDRPBoatPhysics.cs # 6-point floater buoyancy, keel drag, thrusters
 └── README.md
 ```
 
@@ -80,7 +80,9 @@ COLREG_navigation/
 ### 2.1 Action Space
 Continuous 2-dimensional control vector $a_t \in [-1.0, 1.0]^2$ controlling stern differential thrusters:
 
-$$a_t = [\text{throttle}, \, \text{steering}]^T$$
+$$
+a_t = [\text{throttle}, \text{steering}]^T
+$$
 
 * **Propulsion Mapping**: $T_\text{left} = \text{throttle} + \text{steering}$, $T_\text{right} = \text{throttle} - \text{steering}$ (clamped to $[-1, 1]$, scaled by $F_\text{max} = 25\,\text{N}$).
 * **Asymmetric Reverse**: When $\text{throttle} < 0$, thrust is attenuated by $0.3\times$ to reflect maritime propeller inefficiency in reverse.
@@ -110,45 +112,71 @@ Task difficulty scales across three automated stages based on environment steps:
 The steering and sailing rules formalize the International Regulations for Preventing Collisions at Sea (IMO, 1972; Krasowski & Althoff, 2021) using **Signal Temporal Logic (STL)** evaluated via `rtamt` in dense-time semantics over a sliding horizon ($H = 80$ steps, $4.0\,\text{s}$ at $20\,\text{Hz}$).
 
 ### 3.1 Kinematics & Closest Point of Approach (CPA)
-From denormalized intruder relative position $\mathbf{p_{rel}}$ and velocity $\mathbf{v_{rel}}$, the analytical time to CPA ($t_\text{cpa}$) and horizon-bounded minimum distance ($d_\text{min}$ over $t_h = 1.0\,\text{s}$) are:
+From denormalized intruder relative position $\mathbf{p}_\text{rel}$ and velocity $\mathbf{v}_\text{rel}$, the analytical time to CPA ($t_\text{cpa}$) and horizon-bounded minimum distance ($d_\text{min}$ over $t_h = 1.0\,\text{s}$) are:
 
-$$t_\text{cpa} = -\frac{\mathbf{p}_\text{rel} \cdot \mathbf{v}_\text{rel}}{\Vert{}\mathbf{v}_\text{rel}\Vert{}^2} \quad (\text{for } \Vert{}\mathbf{v}_\text{rel}\Vert{}^2 > 10^{-6})$$
+$$
+t_\text{cpa} = -\frac{\mathbf{p}_\text{rel} \cdot \mathbf{v}_\text{rel}}{\|\mathbf{v}_\text{rel}\|^2} \quad (\text{for } \|\mathbf{v}_\text{rel}\|^2 > 10^{-6})
+$$
 
-$$d_\text{min} = \begin{cases} \Vert{}\mathbf{p}_\text{rel}\Vert{} & \text{if } t_\text{cpa} < 0 \quad \text{(Diverging)} \\\\ \Vert{}\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_h\Vert{} & \text{if } t_\text{cpa} > t_h \quad \text{(Slow convergence)} \\\\ \Vert{}\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_\text{cpa}\Vert{} & \text{if } 0 \le t_\text{cpa} \le t_h \quad \text{(Imminent CPA)} \end{cases}$$
+$$
+d_\text{min} = \begin{cases}
+\|\mathbf{p}_\text{rel}\| & \text{if } t_\text{cpa} < 0 \quad \text{(Diverging)} \\
+\|\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_h\| & \text{if } t_\text{cpa} > t_h \quad \text{(Slow convergence)} \\
+\|\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_\text{cpa}\| & \text{if } 0 \le t_\text{cpa} \le t_h \quad \text{(Imminent CPA)}
+\end{cases}
+$$
 
 ### 3.2 Formal Specifications
 
 #### Rule 1: Safe Distance (COLREG Rules 4 & 8(d))
 Maintains a physical safety margin around other vessels ($d_\text{safe} = 2.0\,\text{m}$):
 
-$$\phi_{R1} = G_{[0, 80]} (s_{R1} \ge 0.0)$$
+$$
+\phi_{R1} = G_{[0, 80]} (s_{R1} \ge 0.0)
+$$
 
-$$s_{R1} = \min(d_\text{min} - d_\text{safe}, \, 1.0\,\text{m})$$
+$$
+s_{R1} = \min(d_\text{min} - d_\text{safe}, 1.0\,\text{m})
+$$
 
 #### Rule 2: Safe Speed (COLREG Rules 4 & 6)
 Restricts surge velocity in proximity to hazards ($v_\text{safe} = 2.1\,\text{m/s}$):
 
-$$\phi_{R2} = G_{[0, 80]} (v_\text{ego} \le v_\text{safe} \land v_\text{ego} \ge -1.0)$$
+$$
+\phi_{R2} = G_{[0, 80]} (v_\text{ego} \le v_\text{safe} \land v_\text{ego} \ge -1.0)
+$$
 
-$$s_{R2} = v_\text{safe} - v_\text{ego}$$
+$$
+s_{R2} = v_\text{safe} - v_\text{ego}
+$$
 
 #### Rule 6: Stand-On Vessel (COLREG Rules 11, 15, 17)
-When holding right-of-way (intruder in port sector $[5.0^\circ, 112.5^\circ]$ with collision risk within $t_h = 2.0\,\text{s}$), the vessel must maintain its course ($\vert{}a_\text{steer}\vert{} \le 0.1$) until the encounter is resolved:
+When holding right-of-way (intruder in port sector $[5.0^\circ, 112.5^\circ]$ with collision risk within $t_h = 2.0\,\text{s}$), the vessel must maintain its course ($|a_\text{steer}| \le 0.1$) until the encounter is resolved:
 
-$$\phi_{R6} = G_{[0, 80]} \Big( (s_\text{keep} \le 0.0) \;\lor\; \big( (s_\text{noturn} \ge 0.0) \;\mathcal{U}\; (s_\text{keep} \le 0.0) \big) \Big)$$
+$$
+\phi_{R6} = G_{[0, 80]} \Big( (s_\text{keep} \le 0.0) \lor \big( (s_\text{noturn} \ge 0.0) \;\mathcal{U}\; (s_\text{keep} \le 0.0) \big) \Big)
+$$
 
 where:
 
-$$s_\text{keep} = \min(s_\text{risk}, \, s_\text{sector}), \qquad s_\text{risk} = -s_{R1}(t_h = 2.0\,\text{s})$$
+$$
+s_\text{keep} = \min(s_\text{risk}, s_\text{sector}), \qquad s_\text{risk} = -s_{R1}(t_h = 2.0\,\text{s})
+$$
 
-$$s_\text{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, \, 112.5^\circ - \theta), \quad \theta = \mathrm{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}$$
+$$
+s_\text{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, 112.5^\circ - \theta), \quad \theta = \operatorname{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}
+$$
 
-$$s_\text{noturn} = 0.1 - \vert{}a_\text{steer}\vert{}$$
+$$
+s_\text{noturn} = 0.1 - |a_\text{steer}|
+$$
 
 ### 3.3 Offline Episode-Aligned Monitoring & Cost Mapping
 Online evaluation of future-oriented operators (such as the Until operator $\mathcal{U}$ in $R_6$) with an unknown future would force heuristic approximations. To compute **exact ground-truth robustness without future truncation**, rollout collection is strictly episode-aligned (`while len(buffer) < 2048 or not end_episode`). At episode boundaries, RTAMT evaluates the complete trajectory trace offline with full future knowledge. Continuous robustness values $\rho_k$ are then mapped to bounded step costs ($c_k > 0 \iff \rho_k < 0$):
 
-$$c_k = \tanh(-\rho_k) \cdot \alpha_\text{cost}, \quad \alpha_\text{cost} = 0.1$$
+$$
+c_k = \tanh(-\rho_k) \cdot \alpha_\text{cost}, \quad \alpha_\text{cost} = 0.1
+$$
 
 ---
 
@@ -166,7 +194,9 @@ This decoupling isolates per-rule advantage signals $\hat{A}^\text{cost}_{Rk} = 
 ### 4.2 Shared Scale Normalization
 Standard independent advantage normalization ($\sigma_k = 1$) distorts multi-objective balance by artificially equating minor infractions with critical collision risks. To maintain true physical ratios across active violations $\mathcal{V} = \{k \mid \rho_k < 0\}$:
 
-$$\bar{A}_{Rk} = \frac{A_{Rk} - \mu_{Rk}}{\max_{j \in \mathcal{V}}(\sigma_{Rj}) + \epsilon}, \quad \epsilon = 10^{-8}$$
+$$
+\bar{A}_{Rk} = \frac{A_{Rk} - \mu_{Rk}}{\max_{j \in \mathcal{V}}(\sigma_{Rj}) + \epsilon}, \quad \epsilon = 10^{-8}
+$$
 
 ### 4.3 Mode Switching & CAGrad Conflict Resolution
 The policy loss $\mathcal{L}(\theta)$ dynamically switches based on safety compliance:
@@ -174,11 +204,13 @@ The policy loss $\mathcal{L}(\theta)$ dynamically switches based on safety compl
   $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^\text{reward}) - c_\text{ent} \mathcal{H}(\pi_\theta)$.
 * **Single Violation ($\exists! k, \rho_k < 0$)**: Discards task return to prioritize immediate recovery:
   $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk}) - c_\text{ent} \mathcal{H}(\pi_\theta)$.
-* **Multiple Violations ($\vert{}\mathcal{V}\vert{} > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
+* **Multiple Violations ($|\mathcal{V}| > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
 
-$$g_m = \arg\max_g \min_{k \in \mathcal{V}} \langle g, g_{Rk} \rangle \quad \text{subject to} \quad \Vert{}g - g_\text{avg}\Vert{} \le c \Vert{}g_\text{avg}\Vert{}$$
+$$
+g_m = \arg\max_g \min_{k \in \mathcal{V}} \langle g, g_{Rk} \rangle \quad \text{subject to} \quad \|g - g_\text{avg}\| \le c \|g_\text{avg}\|
+$$
 
-where $g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk})$ and $g_\text{avg} = \frac{1}{\vert{}\mathcal{V}\vert{}} \sum_{k \in \mathcal{V}} g_{Rk}$.
+where $g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk})$ and $g_\text{avg} = \frac{1}{|\mathcal{V}|} \sum_{k \in \mathcal{V}} g_{Rk}$.
 
 ---
 
