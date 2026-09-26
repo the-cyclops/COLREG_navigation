@@ -110,11 +110,11 @@ Task difficulty scales across three automated stages based on environment steps:
 The steering and sailing rules formalize the International Regulations for Preventing Collisions at Sea (IMO, 1972; Krasowski & Althoff, 2021) using **Signal Temporal Logic (STL)** evaluated via `rtamt` in dense-time semantics over a sliding horizon ($H = 80$ steps, $4.0\,\text{s}$ at $20\,\text{Hz}$).
 
 ### 3.1 Kinematics & Closest Point of Approach (CPA)
-From denormalized intruder relative position $\mathbf{p}_\text{rel}$ and velocity $\mathbf{v}_\text{rel}$, the analytical time to CPA ($t_\text{cpa}$) and horizon-bounded minimum distance ($d_\text{min}$ over $t_h = 1.0\,\text{s}$) are:
+From denormalized intruder relative position $\mathbf{p_{rel}}$ and velocity $\mathbf{v_{rel}}$, the analytical time to CPA ($t_\text{cpa}$) and horizon-bounded minimum distance ($d_\text{min}$ over $t_h = 1.0\,\text{s}$) are:
 
 $$t_\text{cpa} = -\frac{\mathbf{p}_\text{rel} \cdot \mathbf{v}_\text{rel}}{\Vert{}\mathbf{v}_\text{rel}\Vert{}^2} \quad (\text{for } \Vert{}\mathbf{v}_\text{rel}\Vert{}^2 > 10^{-6})$$
 
-$$d_\text{min} = \begin{cases} \Vert{}\mathbf{p}_\text{rel}\Vert{} & \text{if } t_\text{cpa} < 0 \quad \text{(Diverging)} \\ \Vert{}\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_h\Vert{} & \text{if } t_\text{cpa} > t_h \quad \text{(Slow convergence)} \\ \Vert{}\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_\text{cpa}\Vert{} & \text{if } 0 \le t_\text{cpa} \le t_h \quad \text{(Imminent CPA)} \end{cases}$$
+$$d_\text{min} = \begin{cases} \Vert{}\mathbf{p}_\text{rel}\Vert{} & \text{if } t_\text{cpa} < 0 \quad \text{(Diverging)} \\\\ \Vert{}\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_h\Vert{} & \text{if } t_\text{cpa} > t_h \quad \text{(Slow convergence)} \\\\ \Vert{}\mathbf{p}_\text{rel} + \mathbf{v}_\text{rel} t_\text{cpa}\Vert{} & \text{if } 0 \le t_\text{cpa} \le t_h \quad \text{(Imminent CPA)} \end{cases}$$
 
 ### 3.2 Formal Specifications
 
@@ -141,7 +141,7 @@ where:
 
 $$s_\text{keep} = \min(s_\text{risk}, \, s_\text{sector}), \qquad s_\text{risk} = -s_{R1}(t_h = 2.0\,\text{s})$$
 
-$$s_\text{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, \, 112.5^\circ - \theta), \quad \theta = \operatorname{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}$$
+$$s_\text{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, \, 112.5^\circ - \theta), \quad \theta = \mathrm{atan2}(-p_x, p_z) \in [0^\circ, 180^\circ], \quad k_\theta = 10^\circ/\text{m}$$
 
 $$s_\text{noturn} = 0.1 - \vert{}a_\text{steer}\vert{}$$
 
