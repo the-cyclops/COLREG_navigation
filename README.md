@@ -78,26 +78,26 @@ COLREG_navigation/
 ## 2. Environment Setup: Task, Spaces & Curriculum
 
 ### 2.1 Action Space
-Continuous 2-dimensional control vector $a_t \in [-1.0, 1.0]^2$ controlling stern differential thrusters:
+Continuous 2-dimensional control vector $a_{t} \in [-1.0, 1.0]^2$ controlling stern differential thrusters:
 
 $$
 a_t = [\text{throttle}, \, \text{steering}]^T
 $$
 
-* **Propulsion Mapping**: $T_{left} = \text{throttle} + \text{steering}$, $T_{right} = \text{throttle} - \text{steering}$ (clamped to $[-1, 1]$, scaled by $F_{max} = 25\,\text{N}$).
+* **Propulsion Mapping**: $T_{\text{left}} = \text{throttle} + \text{steering}$, $T_{\text{right}} = \text{throttle} - \text{steering}$ (clamped to $[-1, 1]$, scaled by $F_{\text{max}} = 25\,\text{N}$).
 * **Asymmetric Reverse**: When $\text{throttle} < 0$, thrust is attenuated by $0.3\times$ to reflect maritime propeller inefficiency in reverse.
 
 ### 2.2 Observation Space (37 Dimensions)
 | Slice | Dim | Description |
 | :---: | :---: | :--- |
 | `0:2` | 2 | Target relative direction (local 2D unit vector). |
-| `2` | 1 | Normalized target distance ($d / d_{max}$, with $d_{max} = 43.0\,\text{m}$). |
-| `3:5` | 2 | Local surge and sway velocities (normalized by $v_{max} = 2.5\,\text{m/s}$). |
-| `5` | 1 | Local yaw rate (normalized by $\omega_{max} = 1.4\,\text{rad/s}$). |
+| `2` | 1 | Normalized target distance ($d / d_{\text{max}}$, with $d_{\text{max}} = 43.0\,\text{m}$). |
+| `3:5` | 2 | Local surge and sway velocities (normalized by $v_{\text{max}} = 2.5\,\text{m/s}$). |
+| `5` | 1 | Local yaw rate (normalized by $\omega_{\text{max}} = 1.4\,\text{rad/s}$). |
 | `6:13` | 7 | Intruder 1: relative position (2), distance (1), relative velocity (2), heading (2). |
 | `13:20` | 7 | Intruder 2: relative position (2), distance (1), relative velocity (2), heading (2). |
 | `20:34` | 14 | 7-ray LiDAR perception sensor $\times$ [normalized distance, hit flag]. |
-| `34:37` | 3 | Real-time Markovian STL compliance flags in $[-0.5, 0.5]$ tracking $R_1, R_2, R_6$ over sliding window $\tau = 80$. |
+| `34:37` | 3 | Real-time Markovian STL compliance flags in $[-0.5, 0.5]$ tracking $R_{1}, R_{2}, R_{6}$ over sliding window $\tau = 80$. |
 
 ### 2.3 Curriculum Learning Strategy
 Task difficulty scales across three automated stages based on environment steps:
@@ -110,8 +110,9 @@ Task difficulty scales across three automated stages based on environment steps:
 ## 3. COLREG Rules & STL Robustness Formulations
 
 The steering and sailing rules formalize the International Regulations for Preventing Collisions at Sea (IMO, 1972; Krasowski & Althoff, 2021) using **Signal Temporal Logic (STL)** evaluated via `rtamt` in dense-time semantics over a sliding horizon ($H = 80$ steps, $4.0\,\text{s}$ at $20\,\text{Hz}$).
+
 ### 3.1 Kinematics & Closest Point of Approach (CPA)
-From denormalized intruder relative position $\mathbf{p}_{rel}$ and velocity $\mathbf{v}_{rel}$, the analytical time to CPA ($t_{cpa}$) and horizon-bounded minimum distance ($d_{min}$ over $t_h = 1.0\,\text{s}$) are:
+From denormalized intruder relative position $\mathbf{p}_{\text{rel}}$ and velocity $\mathbf{v}_{\text{rel}}$, the analytical time to CPA ($t_{\text{cpa}}$) and horizon-bounded minimum distance ($d_{\text{min}}$ over $t_{h} = 1.0\,\text{s}$) are:
 
 $$
 t_{cpa} = -\frac{\mathbf{p}_{rel} \cdot \mathbf{v}_{rel}}{\|\mathbf{v}_{rel}\|^2} \quad (\text{for } \|\mathbf{v}_{rel}\|^2 > 10^{-6})
@@ -128,7 +129,7 @@ $$
 ### 3.2 Formal Specifications
 
 #### Rule 1: Safe Distance (COLREG Rules 4 & 8(d))
-Maintains a physical safety margin around other vessels ($d_{safe} = 2.0\,\text{m}$):
+Maintains a physical safety margin around other vessels ($d_{\text{safe}} = 2.0\,\text{m}$):
 
 $$
 \phi_{R1} = G_{[0, 80]} (s_{R1} \ge 0.0)
@@ -139,7 +140,7 @@ s_{R1} = \min(d_{min} - d_{safe}, \, 1.0\,\text{m})
 $$
 
 #### Rule 2: Safe Speed (COLREG Rules 4 & 6)
-Restricts surge velocity in proximity to hazards ($v_{safe\_limit} = 2.1\,\text{m/s}$):
+Restricts surge velocity in proximity to hazards ($v_{\text{safe\_limit}} = 2.1\,\text{m/s}$):
 
 $$
 \phi_{R2} = G_{[0, 80]} (v_{ego} \le v_{safe\_limit} \;\land\; v_{ego} \ge -1.0)
@@ -150,7 +151,7 @@ s_{R2} = v_{safe\_limit} - v_{ego}
 $$
 
 #### Rule 6: Stand-On Vessel (COLREG Rules 11, 15, 17)
-When holding right-of-way (intruder in port sector $[5.0^\circ, 112.5^\circ]$ with collision risk within $t_h = 2.0\,\text{s}$), the vessel must maintain its course ($|a_{steer}| \le 0.1$) until the encounter is resolved:
+When holding right-of-way (intruder in port sector $[5.0^\circ, 112.5^\circ]$ with collision risk within $t_{h} = 2.0\,\text{s}$), the vessel must maintain its course ($|a_{\text{steer}}| \le 0.1$) until the encounter is resolved:
 
 $$
 \phi_{R6} = G_{[0, 80]} \Big( (s_{keep} \le 0.0) \;\lor\; \big( (s_{no\_turn} \ge 0.0) \;\mathcal{U}\; (s_{keep} \le 0.0) \big) \Big)
@@ -171,7 +172,7 @@ s_{no\_turn} = 0.1 - |a_{steer}|
 $$
 
 ### 3.3 Offline Episode-Aligned Monitoring & Cost Mapping
-Online evaluation of future-oriented operators (such as the Until operator $\mathcal{U}$ in $R_6$) with an unknown future would force heuristic approximations. To compute **exact ground-truth robustness without future truncation**, rollout collection is strictly episode-aligned (`while len(buffer) < 2048 or not end_episode`). At episode boundaries, RTAMT evaluates the complete trajectory trace offline with full future knowledge. Continuous robustness values $\rho_k$ are then mapped to bounded step costs ($c_k > 0 \iff \rho_k < 0$):
+Online evaluation of future-oriented operators (such as the Until operator $\mathcal{U}$ in $R_{6}$) with an unknown future would force heuristic approximations. To compute **exact ground-truth robustness without future truncation**, rollout collection is strictly episode-aligned (`while len(buffer) < 2048 or not end_episode`). At episode boundaries, RTAMT evaluates the complete trajectory trace offline with full future knowledge. Continuous robustness values $\rho_{k}$ are then mapped to bounded step costs ($c_{k} > 0 \iff \rho_{k} < 0$):
 
 $$
 c_k = \tanh(-\rho_k) \cdot \alpha_{cost}, \quad \alpha_{cost} = 0.1
@@ -184,14 +185,14 @@ $$
 ### 4.1 Decoupled Multi-Critic Structure
 Rather than collapsing task rewards and safety penalties into a single scalar value function (as in standard reward shaping), the agent decouples objectives into four separate networks (2-layer MLPs, 128 units):
 1. **$V^\phi(\mathbf{s})$ (Task Value Critic)**: Estimates expected target-reaching returns.
-2. **$V^{\psi_1}_{R1}(\mathbf{s})$ (Distance Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_1$.
-3. **$V^{\psi_2}_{R2}(\mathbf{s})$ (Speed Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_2$.
-4. **$V^{\psi_3}_{R6}(\mathbf{s})$ (Stand-on Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_6$.
+2. **$V^{\psi_1}_{R1}(\mathbf{s})$ (Distance Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_{1}$.
+3. **$V^{\psi_2}_{R2}(\mathbf{s})$ (Speed Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_{2}$.
+4. **$V^{\psi_3}_{R6}(\mathbf{s})$ (Stand-on Cost Critic)**: Estimates discounted cumulative penalties for Rule $R_{6}$.
 
 This decoupling isolates per-rule advantage signals $\hat{A}^{cost}_{Rk} = \text{GAE}(c_{Rk}, V^{\psi_k}_{Rk})$, preventing high mission rewards from obscuring critical safety infractions.
 
 ### 4.2 Shared Scale Normalization
-Standard independent advantage normalization ($\sigma_k = 1$) distorts multi-objective balance by artificially equating minor infractions with critical collision risks. To maintain true physical ratios across active violations $\mathcal{V} = \{k \mid \rho_k < 0\}$:
+Standard independent advantage normalization ($\sigma_{k} = 1$) distorts multi-objective balance by artificially equating minor infractions with critical collision risks. To maintain true physical ratios across active violations $\mathcal{V} = \{k \mid \rho_{k} < 0\}$:
 
 $$
 \bar{A}_{Rk} = \frac{A_{Rk} - \mu_{Rk}}{\max_{j \in \mathcal{V}}(\sigma_{Rj}) + \epsilon}, \quad \epsilon = 10^{-8}
@@ -199,17 +200,17 @@ $$
 
 ### 4.3 Mode Switching & CAGrad Conflict Resolution
 The policy loss $\mathcal{L}(\theta)$ dynamically switches based on safety compliance:
-* **Nominal Mode ($\forall k, \rho_k \ge 0$)**: Maximizes task progress:
-  $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^{reward}) - c_{ent} \mathcal{H}(\pi_\theta)$.
-* **Single Violation ($\exists! k, \rho_k < 0$)**: Discards task return to prioritize immediate recovery:
-  $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^{cost}_{Rk}) - c_{ent} \mathcal{H}(\pi_\theta)$.
-* **Multiple Violations ($|\mathcal{V}| > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
+* **Nominal Mode ($\forall k, \rho_{k} \ge 0$)**: Maximizes task progress:
+  $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^{reward}) - c_{\text{ent}} \mathcal{H}(\pi_\theta)$.
+* **Single Violation ($\exists! k, \rho_{k} < 0$)**: Discards task return to prioritize immediate recovery:
+  $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^{cost}_{Rk}) - c_{\text{ent}} \mathcal{H}(\pi_\theta)$.
+* **Multiple Violations ($|\mathcal{V}| > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_{m}$:
 
 $$
 g_m = \arg\max_g \min_{k \in \mathcal{V}} \langle g, g_{Rk} \rangle \quad \text{subject to} \quad \|g - g_{avg}\| \le c \|g_{avg}\|
 $$
 
-where $g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^{cost}_{Rk})$ and $g_{avg} = \frac{1}{|\mathcal{V}|} \sum_{k \in \mathcal{V}} g_{Rk}$.
+where $g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^{cost}_{Rk})$ and $g_{\text{avg}} = \frac{1}{|\mathcal{V}|} \sum_{k \in \mathcal{V}} g_{Rk}$.
 
 ---
 
