@@ -151,7 +151,7 @@ s_{R2} = v_\text{safe} - v_\text{ego}
 $$
 
 #### Rule 6: Stand-On Vessel (COLREG Rules 11, 15, 17)
-When holding right-of-way (intruder in port sector $[5.0^\circ, 112.5^\circ]$ with collision risk within $t_h = 2.0\,\text{s}$), the vessel must maintain its course ($|a_\text{steer}| \le 0.1$) until the encounter is resolved:
+When holding right-of-way (intruder in port sector $[5.0^\circ, 112.5^\circ]$ with collision risk within $t_h = 2.0\,\text{s}$), the vessel must maintain its course ($\lvert a_\text{steer}\rvert \le 0.1$) until the encounter is resolved:
 
 $$
 \phi_{R6} = G_{[0, 80]} \Big( (s_\text{keep} \le 0.0) \;\lor\; \big( (s_\text{noturn} \ge 0.0) \;\mathcal{U}\; (s_\text{keep} \le 0.0) \big) \Big)
@@ -168,7 +168,7 @@ s_\text{sector} = \frac{1}{k_\theta} \min(\theta - 5.0^\circ, \, 112.5^\circ - \
 $$
 
 $$
-s_\text{noturn} = 0.1 - |a_\text{steer}|
+s_\text{noturn} = 0.1 - \lvert a_\text{steer}\rvert
 $$
 
 ### 3.3 Offline Episode-Aligned Monitoring & Cost Mapping
@@ -204,13 +204,13 @@ The policy loss $\mathcal{L}(\theta)$ dynamically switches based on safety compl
   $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^\text{reward}) - c_\text{ent} \mathcal{H}(\pi_\theta)$.
 * **Single Violation ($\exists! k, \rho_k < 0$)**: Discards task return to prioritize immediate recovery:
   $\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk}) - c_\text{ent} \mathcal{H}(\pi_\theta)$.
-* **Multiple Violations ($|\mathcal{V}| > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
+* **Multiple Violations ($\lvert\mathcal{V}\rvert > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
 
 $$
 g_m = \arg\max_g \min_{k \in \mathcal{V}} \langle g, g_{Rk} \rangle \quad \text{subject to} \quad \|g - g_\text{avg}\| \le c \|g_\text{avg}\|
 $$
 
-where $g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk})$ and $g_\text{avg} = \frac{1}{|\mathcal{V}|} \sum_{k \in \mathcal{V}} g_{Rk}$.
+where $g_{Rk} = \nabla_\theta \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk})$ and $g_\text{avg} = \frac{1}{\lvert\mathcal{V}\rvert} \sum_{k \in \mathcal{V}} g_{Rk}$.
 
 ---
 
