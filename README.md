@@ -206,19 +206,20 @@ $$
 
 ### 4.3 Mode Switching & CAGrad Conflict Resolution
 The policy loss $\mathcal{L}(\theta)$ dynamically switches based on safety compliance:
-* **Nominal Mode ($\forall k, \rho_k \ge 0$)**: Maximizes task progress:
 
-  $$
-  \mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^\text{reward}) - c_\text{ent} \mathcal{H}(\pi_\theta)
-  $$
+**Nominal Mode** $(\forall k, \rho_k \ge 0)$ — Maximizes task progress:
 
-* **Single Violation ($\exists! k, \rho_k < 0$)**: Discards task return to prioritize immediate recovery:
+$$
+\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, \bar{A}^\text{reward}) - c_\text{ent} \mathcal{H}(\pi_\theta)
+$$
 
-  $$
-  \mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk}) - c_\text{ent} \mathcal{H}(\pi_\theta)
-  $$
+**Single Violation** $(\exists! k, \rho_k < 0)$ — Discards task return to prioritize immediate recovery:
 
-* **Multiple Violations ($|\mathcal{V}| > 1$)**: When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
+$$
+\mathcal{L}(\theta) = \mathcal{L}^{CLIP}(\theta, -\bar{A}^\text{cost}_{Rk}) - c_\text{ent} \mathcal{H}(\pi_\theta)
+$$
+
+**Multiple Violations** $(|\mathcal{V}| > 1)$ — When rules issue conflicting gradients (e.g., accelerating to clear distance vs. braking for safe speed), **CAGrad** ($c=0.5$) solves the dual optimization problem to find the optimal consensus descent direction $g_m$:
 
 $$
 g_m = \arg\max_g \min_{k \in \mathcal{V}} \langle g, g_{Rk} \rangle \quad \text{subject to} \quad \|g - g_\text{avg}\| \le c \|g_\text{avg}\|
@@ -265,7 +266,7 @@ Evaluated across 5 random seeds (`[1, 3, 7, 34, 42]`) with $2.05\text{M}$ total 
 ### 5.3 Key Takeaways
 1. **Safety vs. Progress Trade-Off**: Our **BEST** checkpoint achieves **30% totally safe episodes** (all three rules satisfied concurrently) while sustaining high navigation return ($9.01 \pm 0.74$).
 2. **Catastrophic Forgetting**: In constrained RL with strict preemption, optimizing purely for safety during multiple constraint violations causes task returns to degrade over prolonged training.
-3. **Tri-Criteria Checkpointing is Essential**: The final policy ($2.05\text{M}$ steps) is rarely the safest or best-performing policy. Tracking tri-criteria checkpoints (*Best Nominal*, *Best Safe Mean*, *Best Safe Percentage $\ge 80\%$*) is required for dependable deployment.
+3. **Tri-Criteria Checkpointing is Essential**: The final policy ($2.05\text{M}$ steps) is rarely the safest or best-performing policy. Tracking checkpoints is required for dependable deployment.
 
 ---
 
